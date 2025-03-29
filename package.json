@@ -1,0 +1,18 @@
+{
+  "name": "pdf-merger-app",
+  "version": "1.0.0",
+  "description": "An Electron app to merge student PDFs with a cover sheet",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "dependencies": {
+    "@electron/remote": "^2.0.11",
+    "electron": "latest",
+    "muhammara": "latest",
+    "pdf-lib": "latest"
+  },
+  "devDependencies": {
+    "electron-rebuild": "^3.2.9"
+  }
+}

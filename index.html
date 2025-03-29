@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>PDF Merger</title>
+    <link rel="stylesheet" type="text/css" href="styles.css">
+</head>
+
+<body>
+    <div class="container">
+        <h1>Exam Booklet Builder</h1>
+
+		<h2>Select Directories</h2>
+        <div class="input-group">
+            <label>Input Directory:</label>
+            <input type="text" id="mainDirectoryPath" >
+            <button onclick="selectDirectory('mainDirectory')">Browse</button>
+        </div>
+
+        <div class="input-group">
+            <label>Output Directory:</label>
+            <input type="text" id="outputDirectoryPath" >
+            <button onclick="selectDirectory('outputDirectory')">Browse</button>
+        </div>
+
+		<h2>Select File with Cover Page Description </h2>
+        <div class="input-group">
+            <label>Description File:</label>
+            <input type="text" id="descriptionFilePath" >
+            <button onclick="selectDirectory('descriptionFile')">Browse</button>
+        </div>
+
+        <hr>
+
+		<div class="actions">
+        <div class="button-group">
+            <button id="startTransformationBtn">Start Transformation</button>
+            <button id="startMergingBtn">Start Merging</button>
+            <button id="createBookletsBtn">Create Booklets</button>
+			<button id="settingsButton">Settings</button>
+		</div>
+        </div>
+
+        <div id="status"></div>
+		<div id="status-bar">
+		    <span id="status-icon"></span>
+		    <span id="status-message">Ready</span>
+		</div>
+		
+    </div>
+	
+
+<div id="settingsModal" class="modal">
+    <div class="modal-content">
+        <span class="close-button">&times;</span>
+        <h2>Settings</h2>
+        <!-- Your settings content here -->
+        <label>DPI:</label>
+        <input type="number" id="dpi" value="300">
+        <!-- Add more settings as needed -->
+    </div>
+</div>
+	
+
+    <script src="modal.js"></script>
+    <script src="renderer.js"></script>
+
+</body>
+
+</html>

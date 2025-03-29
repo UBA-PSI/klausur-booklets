@@ -1,0 +1,10 @@
+This exam booklet is an allowed aid in the following exams:
+PSI-EiRBS-B Summer Semester 2023
+PSI-EiRBS-B Winter Semester 2023/24
+
+The following pages have been submitted:
+{{submittedSeiten}}
+
+The following pages are missing:
+{{missingSeiten}}
+

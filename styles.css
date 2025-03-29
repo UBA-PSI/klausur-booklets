@@ -1,0 +1,158 @@
+@font-face {
+    font-family: 'Roboto';
+    src: url('./fonts/Roboto-Regular.ttf') format('truetype');
+}
+
+body {
+    font-family: 'Roboto', sans-serif;
+    background-color: #F0F1F4; /* light gray background */
+    color: #333; /* dark text */
+}
+
+/* Define a primary accent color */
+:root {
+    --accent-color: #6200EE; /* Purple shade */
+}
+
+/* Use the accent color for buttons and other UI elements */
+button {
+    background-color: var(--accent-color);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: #3700B3; /* Darker purple */
+}
+
+
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+h2 {
+    color: var(--accent-color);
+    border-bottom: 2px solid var(--accent-color);
+    padding-bottom: 10px;
+    margin-top: 40px;
+}
+
+.actions {
+    margin-top: 20px;
+    text-align: center;
+}
+
+#status {
+	margin-top: 20px;
+}
+
+h1 {
+    text-align: center;
+    margin-bottom: 1em;
+}
+
+.input-group {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1em;
+}
+
+.input-group label {
+    flex: 1;
+    margin-right: 1em;
+}
+
+.input-group input {
+    flex: 2;
+    padding: 0.5em;
+    margin-right: 1em;
+}
+
+.button-group {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 1em;
+}
+
+
+
+.modal {
+    display: none; /* Hidden by default */
+    position: fixed; /* Stay in place */
+    z-index: 1; /* Sit on top */
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 15% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 30%;
+}
+
+.close-button {
+    color: #aaaaaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+}
+
+.close-button:hover, .close-button:focus {
+    color: #000;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+
+
+/* Base styling for the status bar */
+#status-bar {
+    display: flex;
+    align-items: center;
+    background-color: #EFEFEF;  /* Light gray */
+    padding: 10px 20px;
+    border-top: 2px solid #DADADA;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    transition: background-color 0.3s;
+}
+
+/* Status message styling */
+#status-message {
+    margin-left: 10px;
+    font-size: 14px;
+    color: #333;  /* Dark gray */
+}
+
+
+/* Color variants for different statuses */
+#status-bar.success {
+    background-color: #DFF0D8;  /* Light green */
+    color: #3C763D;  /* Dark green */
+}
+
+#status-bar.error {
+    background-color: #F2DEDE;  /* Light red */
+    color: #A94442;  /* Dark red */
+}
+
+#status-bar.processing {
+    background-color: #FCF8E3;  /* Light yellow */
+    color: #8A6D3B;  /* Dark yellow */
+}
