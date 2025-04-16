@@ -763,9 +763,10 @@ function logErrorToUI(message) {
         errorLogContainer.style.display = 'block';
     }
     
-    // Append the new message with a timestamp (optional)
-    const timestamp = new Date().toLocaleTimeString();
-    errorLogOutput.value += `[${timestamp}] ${message}\n`;
+    // Append the new message as a plain line
+    // const timestamp = new Date().toLocaleTimeString(); // Removed timestamp
+    // errorLogOutput.value += `- ${message}\n`; // Removed bullet
+    errorLogOutput.value += `${message}\n`; // Add just the message and newline
     
     // Scroll to the bottom
     errorLogOutput.scrollTop = errorLogOutput.scrollHeight;

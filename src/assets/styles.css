@@ -35,10 +35,11 @@ button:hover {
 
 
 .container {
-    max-width: 800px;
-    margin: 0 auto;
+    /* max-width: 800px; */ /* Removed to allow expansion */
+    min-width: 600px; /* Add minimum width */
+    margin: 20px auto; /* Add top/bottom margin, keep horizontal centering */
     padding: 20px;
-    min-height: 700px; /* Increase default container height */
+    /* min-height: 700px; */ /* Remove fixed min-height, let content dictate */
 }
 
 h2 {

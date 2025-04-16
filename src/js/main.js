@@ -27,8 +27,8 @@ let someNumberToEmailMap = {}; // Global map for CSV lookup
 
 function createWindow() {
     const win = new BrowserWindow({
-        width: 850,
-        height: 750,
+        width: 1200,
+        height: 850,
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
@@ -440,7 +440,7 @@ async function prepareTransformations(mainDirectory, outputDirectory, folderPatt
     } catch (err) {
         console.warn("Could not load config for filesize limits, using defaults.");
     }
-    const minSizeBytes = (config.minFileSizeKB || 0) * 1024;
+    const minSizeBytes = (config.minFileSizeKB || 5) * 1024;
     const maxSizeBytes = (config.maxFileSizeMB || 20) * 1024 * 1024; // Default 20MB
     console.log(`Filesize limits: Min=${minSizeBytes} bytes, Max=${maxSizeBytes} bytes`);
     
@@ -481,14 +481,41 @@ async function prepareTransformations(mainDirectory, outputDirectory, folderPatt
             const studentFolderPath = path.join(pageDirPath, studentFolder);
             const potentialFiles = fs.readdirSync(studentFolderPath);
             let validatedFiles = []; // Store files that pass all checks
+            const allowedExtensions = ['.pdf', '.png', '.jpg', '.jpeg', '.heic'];
+
+            // --- Check for Unexpected File Types FIRST ---
+            for (const file of potentialFiles) {
+                const filePath = path.join(studentFolderPath, file);
+                // Silently skip .DS_Store files
+                if (path.basename(filePath) === '.DS_Store') continue;
+                
+                try {
+                    // Check if it's a file, not a directory
+                    if (!fs.statSync(filePath).isFile()) continue;
+                    
+                    const ext = path.extname(file).toLowerCase();
+                    if (!allowedExtensions.includes(ext)) {
+                        const relativePath = path.relative(mainDirectory, filePath);
+                        const warnMsg = `WARN: Unexpected file type found and ignored: ${relativePath}`;
+                        console.warn(warnMsg);
+                        if (mainWindow) mainWindow.webContents.send('error-log', warnMsg);
+                    }
+                } catch (statErr) {
+                    // Log error if we can't even stat the file
+                    const statErrorMsg = `WARN: Could not read item info: ${path.relative(mainDirectory, filePath)} - Error: ${statErr.message}`;
+                    console.warn(statErrorMsg);
+                    if (mainWindow) mainWindow.webContents.send('error-log', statErrorMsg);
+                }
+            }
+            // --- End Unexpected File Type Check ---
 
             // Filter files by extension, integrity, and size limits
             for (const file of potentialFiles) {
                 const filePath = path.join(studentFolderPath, file);
                 const ext = path.extname(file).toLowerCase();
-                const allowedExtensions = ['.pdf', '.png', '.jpg', '.jpeg', '.heic'];
+                // const allowedExtensions = ['.pdf', '.png', '.jpg', '.jpeg', '.heic']; // Defined above now
 
-                if (!allowedExtensions.includes(ext)) continue; // Skip disallowed extensions
+                if (!allowedExtensions.includes(ext)) continue; // Skip disallowed extensions (again, belt & suspenders)
 
                 let isValid = false;
                 let fileBuffer;
@@ -508,7 +535,8 @@ async function prepareTransformations(mainDirectory, outputDirectory, folderPatt
                         isValid = true;
                     }
                 } catch (validationError) {
-                    const errorMsg = `Skipping file (Invalid/Corrupt): ${filePath} - Error: ${validationError.message}`;
+                    const relativePath = path.relative(mainDirectory, filePath);
+                    const errorMsg = `Skipping file (Invalid/Corrupt): ${relativePath} - Error: ${validationError.message}`;
                     console.error(errorMsg);
                     if (mainWindow) mainWindow.webContents.send('error-log', errorMsg);
                     isValid = false;
@@ -524,25 +552,27 @@ async function prepareTransformations(mainDirectory, outputDirectory, folderPatt
                         validatedFiles.push(file); // Keep file if valid and within limits
                     } else {
                         const sizeKB = (fileSize / 1024).toFixed(2);
-                        const sizeErrorMsg = `Skipping file (Size Limit): ${filePath} (${sizeKB} KB)`;
+                        const relativePath = path.relative(mainDirectory, filePath);
+                        const sizeErrorMsg = `Skipping file (Size Limit): ${relativePath} (${sizeKB} KB)`;
                         console.warn(sizeErrorMsg);
                         if (mainWindow) mainWindow.webContents.send('error-log', sizeErrorMsg);
                     }
                 } catch (err) { // Should not happen if buffer read worked, but safety check
-                    const statErrorMsg = `Error checking size for file ${filePath}: ${err.message}`;
+                    const relativePath = path.relative(mainDirectory, filePath);
+                    const statErrorMsg = `Error checking size for file ${relativePath}: ${err.message}`;
                     console.error(statErrorMsg);
                     if (mainWindow) mainWindow.webContents.send('error-log', statErrorMsg);
                 }
             } // End loop through potential files
 
             // Use the fully validated list now
-            const finalValidFiles = validatedFiles; 
+            const finalValidFiles = validatedFiles;
 
             if (finalValidFiles.length === 0) {
-                const skipMsg = `No valid files (checked type, integrity, size) found in ${studentFolderPath}, skipping folder for page ${pageDir}.`;
-                console.log(skipMsg);
-                // Optionally log this minor info to UI log?
-                // if (mainWindow) mainWindow.webContents.send('error-log', `INFO: ${skipMsg}`);
+                const relativeFolderPath = path.relative(mainDirectory, studentFolderPath);
+                const skipMsg = `INFO: No valid files found in ${relativeFolderPath}, skipping folder.`;
+                console.log(skipMsg); // Keep as console log
+                // if (mainWindow) mainWindow.webContents.send('error-log', skipMsg); // Maybe too noisy for UI log
                 continue;
             }
             
@@ -746,7 +776,12 @@ async function processTasksDirectly(tasks, outputDirectory, dpi) {
             });
         } catch (processingError) {
             errorCount++;
-            const errorMsg = `Error transforming ${task.inputPath}: ${processingError.message}`;
+            // Use relative path for input file in error message
+            const relativeInputPath = task.inputPath ? path.relative(currentOutputDirectory, task.inputPath) : '[unknown input file]'; // Use currentOutputDirectory as base? Or should we pass mainDirectory?
+            // Let's assume we want path relative to the *input* directory for clarity. Need mainDirectory here.
+            // NOTE: processTasksDirectly needs access to mainDirectory to make this log useful.
+            // For now, log the full path or just the basename
+            const errorMsg = `Error transforming ${path.basename(task.inputPath)}: ${processingError.message}`;
             console.error(errorMsg);
             if (mainWindow) mainWindow.webContents.send('error-log', errorMsg);
             // Create placeholder error file
@@ -755,9 +790,11 @@ async function processTasksDirectly(tasks, outputDirectory, dpi) {
                 fs.writeFileSync(errorFilePath, `Failed to process: ${path.basename(task.inputPath)}\nError: ${processingError.message}\n${processingError.stack || ''}`);
                 console.log(`Created error placeholder: ${errorFilePath}`);
             } catch (writeError) {
-                const writeErrorMsg = `Failed to write error placeholder for ${task.outputPath}: ${writeError.message}`;
+                // Use relative path for output file in error message
+                const relativeOutputPath = task.outputPath ? path.relative(currentOutputDirectory, task.outputPath) : '[unknown output file]';
+                const writeErrorMsg = `Failed to write error placeholder for ${relativeOutputPath}: ${writeError.message}`;
                 console.error(writeErrorMsg);
-                 if (mainWindow) mainWindow.webContents.send('error-log', writeErrorMsg);
+                 if (mainWindow) mainWindow.webContents.send('error-log', `ERROR: ${writeErrorMsg}`);
             }
         }
     }
@@ -964,6 +1001,7 @@ ipcMain.handle('create-booklets', async (event, outputDirectory) => {
                 await createSaddleStitchBooklet(inputFilePath, outputFilePath);
             } catch (bookletError) {
                 // Log specific error and continue with the next file
+                // Use filename directly, as full path isn't needed here
                 const errorMsg = `Error creating booklet for ${pdfFile}: ${bookletError.message}`;
                 console.error(errorMsg);
                 if (mainWindow) mainWindow.webContents.send('error-log', errorMsg); // Log to UI
@@ -973,9 +1011,10 @@ ipcMain.handle('create-booklets', async (event, outputDirectory) => {
                     fs.writeFileSync(errorFilePath, `Failed to create booklet from: ${pdfFile}\nError: ${bookletError.message}\n${bookletError.stack || ''}`);
                     console.log(`Created error placeholder: ${errorFilePath}`);
                 } catch (writeError) {
+                    // Use filename directly
                     const writeErrorMsg = `Failed to write booklet error placeholder for ${pdfFile}: ${writeError.message}`;
                     console.error(writeErrorMsg);
-                    if (mainWindow) mainWindow.webContents.send('error-log', writeErrorMsg);
+                    if (mainWindow) mainWindow.webContents.send('error-log', `ERROR: ${writeErrorMsg}`);
                 }
                 // Optionally re-throw if one failure should stop the whole process
                 // throw new Error(`Failed to create booklet for ${pdfFile}: ${bookletError.message}`); 
@@ -1341,14 +1380,16 @@ ipcMain.handle('clear-output-folder', async (event, outputDirectory) => {
                 fs.rmSync(folderPath, { recursive: true, force: true });
                 console.log(`Successfully cleared: ${folderPath}`);
             } catch (err) {
-                const errorMsg = `Failed to clear ${folderPath}: ${err.message}`;
+                // Use relative path for folder
+                const relativeFolderPath = path.relative(outputDirectory, folderPath);
+                const errorMsg = `Failed to clear subfolder '${relativeFolderPath}': ${err.message}`;
                 console.error(errorMsg);
                 errors.push(errorMsg);
-                // Optionally send to UI log immediately?
                 if (mainWindow) mainWindow.webContents.send('error-log', `ERROR: ${errorMsg}`);
             }
         } else {
-            console.log(`Directory does not exist, skipping clear: ${folderPath}`);
+            // Use relative path
+            console.log(`Subfolder does not exist, skipping clear: ${path.relative(outputDirectory, folderPath)}`);
         }
     }
 
