@@ -97,6 +97,7 @@ ipcMain.handle('start-merging', async (event, mainDirectory, outputDirectory, de
     }
 });
 
+/* // Temporarily disabled booklet creation
 ipcMain.handle('create-booklets', async (event, outputDirectory) => {
     try {
         const pdfsDir = path.join(outputDirectory, 'pdfs');
@@ -129,4 +130,5 @@ ipcMain.handle('create-booklets', async (event, outputDirectory) => {
         throw error;  // This will send the error back to the renderer process
     }
 });
+*/
 
