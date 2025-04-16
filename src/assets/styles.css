@@ -7,6 +7,9 @@ body {
     font-family: 'Roboto', sans-serif;
     background-color: #F0F1F4; /* light gray background */
     color: #333; /* dark text */
+    height: 100vh; /* Use full viewport height */
+    margin: 0;
+    padding: 0;
 }
 
 /* Define a primary accent color */
@@ -35,6 +38,7 @@ button:hover {
     max-width: 800px;
     margin: 0 auto;
     padding: 20px;
+    min-height: 700px; /* Increase default container height */
 }
 
 h2 {
@@ -98,11 +102,29 @@ h1 {
 
 .modal-content {
     background-color: #fefefe;
-    margin: 10% auto; /* Adjust vertical margin for less height */
+    margin: 5% auto; /* Increased top margin to position higher on screen */
     padding: 20px;
     border: 1px solid #888;
     width: 60%; /* Make modal wider */
     max-width: 700px; /* Add a max-width */
+}
+
+/* Wider modal for collision dialog */
+.collision-modal-wide .modal-content {
+    width: 75%;
+    max-width: 850px;
+    font-size: 0.95em;
+}
+
+/* Smaller text in collision modal lists */
+.collision-modal-wide ol, 
+.collision-modal-wide ul {
+    font-size: 0.95em;
+    line-height: 1.4;
+}
+
+.collision-modal-wide li {
+    margin-bottom: 0.5em;
 }
 
 .close-button {
@@ -118,7 +140,14 @@ h1 {
     cursor: pointer;
 }
 
-
+/* CSV Status Info styling */
+.csv-status-info {
+    margin-bottom: 15px;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-left: 4px solid #6c757d;
+    font-size: 0.9em;
+}
 
 /* Base styling for the status bar */
 #status-bar {
@@ -166,10 +195,6 @@ h1 {
     margin-left: auto; /* Push to the right */
     margin-right: 0; 
 }
-
-
-/* Status message styling (OLD - remove or adapt if needed) */
-/* #status-message { ... } */ 
 
 /* Color variants for different statuses */
 #status-bar.success {

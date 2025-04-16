@@ -24,8 +24,8 @@ let someNumberToEmailMap = {}; // Global map for CSV lookup
 
 function createWindow() {
     const win = new BrowserWindow({
-        width: 800,
-        height: 650,
+        width: 850,
+        height: 750,
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,

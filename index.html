@@ -26,17 +26,6 @@
             <button id="select-output-dir-button">Browse</button>
         </div>
 
-		<h2>Select File with Cover Page Description </h2>
-        <div class="form-group">
-            <label for="cover-template-path">Cover Template File (.md):</label>
-            <div class="input-group">
-                <input type="text" class="form-control" id="cover-template-path" readonly>
-                <div class="input-group-append">
-                    <button class="btn btn-secondary" type="button" id="select-cover-template-button">Browse...</button>
-                </div>
-            </div>
-        </div>
-
         <hr>
 
 		<div class="actions">
@@ -137,27 +126,38 @@
     </div>
 </div>
 
-<!-- ADDED Moodle Collision Modal -->
-<div id="moodleCollisionModal" class="modal">
+<!-- Collision Modal -->
+<div id="moodleCollisionModal" class="modal collision-modal-wide">
     <div class="modal-content">
         <span class="close-button moodle-collision-close">&times;</span>
         <h2>Potential Name Collisions Detected (Moodle Pattern)</h2>
-        <p>The following student names appear multiple times across different page folders. Transformation has not started.</p>
+        <p>The following student names appear multiple times in at least one page folder. Transformation has not started.</p>
         <div id="collisionList" style="margin: 15px 0; padding: 10px; border: 1px solid #ccc; background-color: #f9f9f9; max-height: 150px; overflow-y: auto;">
             <!-- List of names will be populated here -->
         </div>
-        <p><strong>Please resolve this issue before restarting the transformation using one of the following methods:</strong></p>
-        <ol>
+        <p><strong>Please resolve this issue using one of the following methods before continuing:</strong></p>
+        <ol style="font-size: 0.95em;">
             <li>
-                <strong>Recommended (Automatic):</strong> Place the downloaded Moodle Grading Worksheet CSV file inside <em>each</em> corresponding page subfolder within your input directory (e.g., put the 'Seite 1' worksheet CSV inside the 'Seite 1' folder). The tool will attempt to use the email addresses from these CSVs to uniquely identify students.
+                <strong>Using CSV Files (Recommended):</strong> Place the Moodle Grading Worksheet CSV file inside <em>each</em> page subfolder within your input directory (e.g., put the 'Seite 1.csv' inside the 'Seite 1' folder). 
+                <ul>
+                    <li>CSV files must be present in <em>all</em> page folders where students with identical names appear</li>
+                    <li>Each CSV must contain both an 'ID' column (corresponding to the number in the place of SOMENUMBER in the folder name template) and an 'E-Mail-Adresse' column (rename columns if necessary)</li>
+                    <li>The tool uses the email addresses from the CSV files and the IDs to uniquely identify students even when names are identical</li>
+                </ul>
             </li>
             <li>
-                <strong>Manual Renaming:</strong> Manually rename the student submission folders within your <em>input directory</em> so that folders belonging to the <em>same student</em> have the exact same name across all page directories. Ensure names for <em>different</em> students are distinct.
+                <strong>Manual Folder Renaming:</strong> If CSV files are unavailable, you must manually rename the student submission folders as follows:
+                <ul>
+                    <li>Folders for the <em>same student</em> must have <em>exactly the same name</em> across all page directories</li>
+                    <li>Folders for <em>different students</em> must have different names</li>
+                    <li>You must rename <em>all</em> folders for students with same names in <em>all</em> page directories in a consistent manner, even where only one of the students submitted a particular page</li>
+                    <li>Example: If there are two 'Anna Schmidt' in 'Seite 1' and 'Seite 2', change the name (e.g. Anna1) in one of these same-named subfolders in each of these directories identically</li>
+                </ul>
             </li>
         </ol>
         <div style="text-align: right; margin-top: 20px;">
-            <button id="moodleCollisionRetryWithCSVBtn" class="btn btn-primary">Retry with CSV Files</button>
-            <button id="moodleCollisionOkBtn">OK</button>
+            <button id="moodleCollisionRetryWithCSVBtn" class="btn btn-primary">Check Again After Changes</button>
+            <button id="moodleCollisionOkBtn">Close</button>
         </div>
     </div>
 </div>
@@ -179,7 +179,7 @@
     </div>
 </div>
 
-<!-- ADDED Cover Template Modal -->
+<!-- Cover Template Modal -->
 <div id="coverTemplateModal" class="modal cover-template-modal">
     <div class="modal-content">
         <span class="close-button cover-template-close">&times;</span>
@@ -220,7 +220,6 @@
         </div>
     </div>
 </div>
-
 
     <script src="src/js/modal.js"></script>
     <script src="src/js/renderer.js"></script>

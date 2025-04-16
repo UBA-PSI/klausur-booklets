@@ -229,14 +229,14 @@ async function retryWithCSVFiles() {
     }
     
     closeMoodleCollisionModal();
-    updateStatus('processing', 'Checking for CSV files and retrying...');
+    updateStatus('processing', 'Checking for changes and retrying...');
     
     try {
         const collisionResult = await window.electronAPI.precheckCollisions(lastInputDirectory, lastFolderPattern, true);
         console.log("CSV-based pre-check result:", collisionResult);
         
         if (collisionResult && collisionResult.collisionDetected) {
-            updateStatus('warning', 'Name collisions still detected even with CSV files.');
+            updateStatus('warning', 'Name collisions still detected. Please review and try again.');
             openMoodleCollisionModal(
                 collisionResult.collidingNames, 
                 collisionResult.usedCSVs, 
@@ -244,7 +244,7 @@ async function retryWithCSVFiles() {
             );
         } else {
             // No collisions with CSV - proceed with transformation
-            updateStatus('success', 'CSV check resolved collisions! Proceeding with transformation...');
+            updateStatus('success', 'Collisions resolved! Proceeding with transformation...');
             
             // Start the actual transformation
             try {
@@ -262,13 +262,13 @@ async function retryWithCSVFiles() {
                     updateStatus('success', successMessage);
                 }
             } catch (error) {
-                console.error("Error during CSV-based transformation:", error);
+                console.error("Error during transformation:", error);
                 updateStatus('error', 'Error transforming pages: ' + error.message);
             }
         }
     } catch (precheckError) {
-        console.error("Error during CSV-based pre-check:", precheckError);
-        updateStatus('error', `Error checking CSV files: ${precheckError.message}`);
+        console.error("Error during check:", precheckError);
+        updateStatus('error', `Error checking for collisions: ${precheckError.message}`);
     }
 }
 
