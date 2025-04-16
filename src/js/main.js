@@ -1,5 +1,4 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
-const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
@@ -13,6 +12,14 @@ const {
 
 // Keep track of the main window
 let mainWindow = null;
+
+// Global store for processed file info during transformation
+let processedFileInfo = {}; // Format: { studentName: [{ pageName: string, originalFileName: string }, ...] }
+
+// Store transformation context globally
+let pendingTransformationData = null; 
+let currentTransformationDpi = 300; 
+let currentOutputDirectory = null;
 
 function createWindow() {
     const win = new BrowserWindow({
@@ -114,10 +121,10 @@ ipcMain.on('select-directory', async (event, type) => {
         properties: ['openDirectory']
     };
 
-    if (type === 'descriptionFile') {
+    if (type === 'coverTemplateFile') { 
         dialogOptions = {
             properties: ['openFile'],
-            filters: [{ name: 'Text Files', extensions: ['txt'] }]
+            filters: [{ name: 'Markdown Files', extensions: ['md'] }]
         };
     }
 
@@ -129,17 +136,14 @@ ipcMain.on('select-directory', async (event, type) => {
 });
 
 
-// Store both unambiguous tasks and ambiguity details if needed
-let pendingTransformationData = null; 
-let currentTransformationDpi = 300; 
-
 ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirectory, descriptionFilePath, dpi) => {
     console.log("IPC: Received start-transformation");
-    pendingTransformationData = null; // Reset pending data
+    pendingTransformationData = null; 
     currentTransformationDpi = dpi;   
+    currentOutputDirectory = outputDirectory;
+    processedFileInfo = {}; 
 
     try {
-        // Step 1: Prepare transformations (gets tasks and potential ambiguities)
         const { tasks, ambiguities } = await prepareTransformations(mainDirectory, outputDirectory);
         console.log(`IPC: Transformation preparation complete. Tasks: ${tasks.length}, Ambiguities: ${ambiguities.length}`);
 
@@ -147,7 +151,7 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
         pendingTransformationData = { 
             unambiguousTasks: tasks, 
             ambiguities: ambiguities,
-            outputDirectory: outputDirectory // Store output dir
+            outputDirectory: outputDirectory // Keep storing here too for now, might be needed elsewhere
         }; 
 
         if (ambiguities.length > 0) {
@@ -182,12 +186,25 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
                 try {
                     await processSingleTransformation(task.inputPath, task.outputPath, currentTransformationDpi);
                     successCount++;
+                    // --- Store processed file info ---
+                    const studentName = path.basename(path.dirname(task.outputPath));
+                    if (!processedFileInfo[studentName]) processedFileInfo[studentName] = [];
+                    processedFileInfo[studentName].push({ 
+                        pageName: task.pageName, 
+                        originalFileName: task.originalFileName 
+                    });
+                    // --- End Store --- 
                 } catch (processingError) {
                     console.error(`Error during initial transformation for ${task.inputPath}:`, processingError);
                     errorCount++;
                 }
             }
-            pendingTransformationData = null; // Clear pending data after success
+            // --- Save processed info after loop --- 
+            console.log(`IPC: About to save processed info, currentOutputDirectory = ${currentOutputDirectory}`); // Log the value
+            await saveProcessedFileInfo(currentOutputDirectory);
+            // --- End Save ---
+            pendingTransformationData = null; 
+            currentOutputDirectory = null;
             console.log(`IPC: Transformation processing complete. Success: ${successCount}, Errors: ${errorCount}`);
             if (errorCount > 0) {
                 throw new Error(`Transformation completed with ${errorCount} error(s).`);
@@ -211,6 +228,15 @@ ipcMain.handle('resolve-ambiguity', async (event, resolvedChoices) => {
          throw new Error("No pending ambiguity task found to resolve.");
     }
 
+    // Explicitly ensure currentOutputDirectory is set from pendingTransformationData
+    if (pendingTransformationData.outputDirectory) {
+        currentOutputDirectory = pendingTransformationData.outputDirectory;
+        console.log(`IPC: Set currentOutputDirectory to ${currentOutputDirectory}`);
+    } else {
+        console.error("IPC: No output directory in pendingTransformationData");
+        throw new Error("Output directory information is missing");
+    }
+
     // Construct tasks from resolved ambiguities
     const resolvedTasks = [];
     const ambiguities = pendingTransformationData.ambiguities;
@@ -223,29 +249,29 @@ ipcMain.handle('resolve-ambiguity', async (event, resolvedChoices) => {
         }
 
         const inputPath = path.join(ambiguity.folderPath, chosenFile);
-        // Reconstruct output path logic - Assuming outputDirectory is accessible or passed differently
-        // **This assumes outputDirectory was implicitly captured or needs to be stored.**
-        // Let's refine this: We need the original outputDirectory. We'll store it.
-        // **MODIFY `start-transformation` to store outputDirectory in pendingTransformationData** 
         const parts = ambiguity.folderPath.split(path.sep);
-        const studentFolder = parts[parts.length - 1] || ''; // Last part is student_id
-        const subdir = parts[parts.length - 2] || '';      // Second to last is page name
+        const studentFolder = parts[parts.length - 1] || ''; 
+        const subdir = parts[parts.length - 2] || '';      
         const studentName = studentFolder.split('_')[0];
 
-        if (!studentName || !subdir || !pendingTransformationData.outputDirectory) { // Check output dir too
+        if (!studentName || !subdir || !pendingTransformationData.outputDirectory) { 
              const errorMsg = `Could not determine studentName/subdir/outputDir from path: ${ambiguity.folderPath}`;
              console.error("IPC: " + errorMsg);
              throw new Error(errorMsg);
         }
         
         const studentOutputDirectory = path.join(pendingTransformationData.outputDirectory, studentName); 
-        // Ensure output directory exists
         if (!fs.existsSync(studentOutputDirectory)){
             console.log(`Creating output directory during resolution: ${studentOutputDirectory}`);
             fs.mkdirSync(studentOutputDirectory, { recursive: true });
         }
         const outputPath = path.join(studentOutputDirectory, `${subdir}.pdf`);
-        resolvedTasks.push({ inputPath, outputPath });
+        resolvedTasks.push({ 
+            inputPath, 
+            outputPath, 
+            originalFileName: chosenFile,
+            pageName: subdir
+        });
     }
 
     // Combine unambiguous tasks and resolved tasks
@@ -255,6 +281,7 @@ ipcMain.handle('resolve-ambiguity', async (event, resolvedChoices) => {
     const storedDpi = currentTransformationDpi; 
     const totalTasks = finalTasks.length;
     pendingTransformationData = null; 
+    processedFileInfo = {}; // Reset processed file info before processing resolved tasks
 
     // Now process the combined task list
     let successCount = 0;
@@ -275,11 +302,63 @@ ipcMain.handle('resolve-ambiguity', async (event, resolvedChoices) => {
         try {
             await processSingleTransformation(task.inputPath, task.outputPath, storedDpi);
             successCount++;
+             // --- Store processed file info ---
+            const studentName = path.basename(path.dirname(task.outputPath));
+            if (!processedFileInfo[studentName]) processedFileInfo[studentName] = [];
+            processedFileInfo[studentName].push({ 
+                pageName: task.pageName, 
+                originalFileName: task.originalFileName 
+            });
+            // --- End Store ---
         } catch (processingError) {
             console.error(`Error during resolved transformation for ${task.inputPath}:`, processingError);
             errorCount++;
         }
     }
+    // --- Save processed info after loop --- 
+    console.log(`IPC: About to save processed info after ambiguity resolution`);
+    
+    // Fallback method to get an output directory if we can
+    let outputDir = null;
+    
+    // Try to extract from a processed task's outputPath if any succeeded
+    if (Object.keys(processedFileInfo).length > 0) {
+        // We know we processed at least one file, so we can use the directory from there
+        const anyStudentName = Object.keys(processedFileInfo)[0];
+        try {
+            const studentOutputDir = path.join(currentOutputDirectory || pendingTransformationData?.outputDirectory || '', anyStudentName);
+            outputDir = path.dirname(studentOutputDir); // Get parent directory
+            console.log(`IPC: Determined output directory from processed files: ${outputDir}`);
+        } catch (e) {
+            console.error("Failed to determine output directory from processed files:", e);
+        }
+    }
+    
+    // If we still don't have outputDir but do have finalTasks, get it from there
+    if (!outputDir && finalTasks.length > 0) {
+        const firstTask = finalTasks[0];
+        try {
+            // Extract the output directory from the first task's output path
+            outputDir = path.dirname(path.dirname(firstTask.outputPath)); // Go up two levels from outputPath
+            console.log(`IPC: Determined output directory from task: ${outputDir}`);
+        } catch (e) {
+            console.error("Failed to determine output directory from task:", e);
+        }
+    }
+    
+    // Final fallback - use the app's temp directory if we still have no path
+    if (!outputDir) {
+        outputDir = path.join(app.getPath('temp'), 'pdf-merger-tool-output');
+        console.log(`IPC: Using fallback temp directory: ${outputDir}`);
+        // Ensure it exists
+        if (!fs.existsSync(outputDir)) {
+            fs.mkdirSync(outputDir, { recursive: true });
+        }
+    }
+    
+    // Call the function with our determined path
+    await saveProcessedFileInfo(outputDir);
+    // --- End Save ---
     console.log(`IPC: Resolved transformation processing complete. Success: ${successCount}, Errors: ${errorCount}`);
     if (errorCount > 0) {
         throw new Error(`Transformation completed with ${errorCount} error(s) after resolution.`);
@@ -288,9 +367,9 @@ ipcMain.handle('resolve-ambiguity', async (event, resolvedChoices) => {
     }
 });
 
-ipcMain.handle('start-merging', async (event, mainDirectory, outputDirectory, descriptionFilePath) => {
+ipcMain.handle('start-merging', async (event, mainDirectory, outputDirectory, templateFilePath) => {
     try {
-        await mergeStudentPDFs(mainDirectory, outputDirectory, descriptionFilePath);
+        await mergeStudentPDFs(mainDirectory, outputDirectory, null, templateFilePath);
         return "Success";
     } catch (error) {
         if (error.message.startsWith("Name collision detected")) {
@@ -351,3 +430,21 @@ ipcMain.handle('create-booklets', async (event, outputDirectory) => {
     }
 });
 
+// Helper function to save the processed file info
+async function saveProcessedFileInfo(outputDirectory) {
+    console.log("Saving processed file information...");
+    for (const studentName in processedFileInfo) {
+        const studentOutputDir = path.join(outputDirectory, studentName);
+        const infoFilePath = path.join(studentOutputDir, 'processed_files.json');
+        try {
+             // Ensure directory exists (might have been created earlier, but double-check)
+             if (!fs.existsSync(studentOutputDir)) {
+                 fs.mkdirSync(studentOutputDir, { recursive: true });
+             }
+             fs.writeFileSync(infoFilePath, JSON.stringify(processedFileInfo[studentName], null, 2));
+             console.log(`  Saved info for ${studentName} to ${infoFilePath}`);
+        } catch (err) {
+            console.error(`  Error saving processed info for ${studentName}:`, err);
+        }
+    }
+}

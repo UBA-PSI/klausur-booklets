@@ -1,9 +1,9 @@
 const fs = require('fs');
 const path = require('path');
-const { PDFDocument, PDFPage } = require('pdf-lib');
-const { execSync } = require('child_process');
+const { PDFDocument, PDFPage, StandardFonts, rgb } = require('pdf-lib');
 const sharp = require('sharp');
 const decodeHeic = require('heic-decode');
+const { marked } = require('marked');
 const { renderFirstPageToImage, imageToPdf } = require('./pdf-cmdline-processor');
 
 // --- Custom Error for Ambiguity ---
@@ -17,104 +17,310 @@ class AmbiguityError extends Error {
 }
 // ---------------------------------
 
-function parseTemplate(template, submittedSeiten, missingSeiten) {
-    return template
-        .replace('{{submittedSeiten}}', submittedSeiten.join("\n"))
-        .replace('{{missingSeiten}}', missingSeiten.join("\n"));
+// Simple name parsing (adjust if name format differs)
+function parseStudentName(fullName) {
+    const parts = fullName.trim().split(/\s+/);
+    const lastName = parts.pop() || ''; // Assume last part is last name
+    const firstName = parts.join(' ');
+    return { firstName, lastName };
 }
 
-async function generateCoverSheet(template, submittedSeiten, missingSeiten, studentName, width, height) {
-    const content = parseTemplate(template, submittedSeiten, missingSeiten);
+async function generateCoverSheet(templatePath, submittedSeiten, missingSeiten, studentName, width, height) {
+    let templateContent;
+    try {
+        templateContent = fs.readFileSync(templatePath, 'utf-8');
+    } catch (err) {
+        console.error(`Error reading cover sheet template ${templatePath}:`, err);
+        templateContent = `# Error: Template Not Found
+
+Could not load template file at: ${templatePath}
+
+Student: {{LAST_NAME}}, {{FIRST_NAME}}
+
+**Submitted Pages:**
+{{SUBMITTED_PAGES_LIST}}
+
+**Missing Pages:**
+{{MISSING_PAGES_LIST}}`;
+    }
+
+    const { firstName, lastName } = parseStudentName(studentName);
+    const missingList = missingSeiten.length > 0 ? missingSeiten.join('\n') : 'None';
+
+    // Replace template tags (add name tags)
+    let processedContent = templateContent
+        .replace(/\{\{\s*FULL_NAME\s*\}\}/gi, studentName) // Add FULL_NAME
+        .replace(/\{\{\s*LAST_NAME\s*\}\}/gi, lastName)
+        .replace(/\{\{\s*FIRST_NAME\s*\}\}/gi, firstName)
+        .replace(/\{\{\s*SUBMITTED_PAGES_LIST\s*\}\}/gi, submittedSeiten)
+        .replace(/\{\{\s*MISSING_PAGES_LIST\s*\}\}/gi, missingList);
 
     const pdfDoc = await PDFDocument.create();
     const page = pdfDoc.addPage([width, height]);
+    const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-    // Add student's name prominently at the top
-    page.drawText(studentName, {
-        x: 50,
-        y: height - 35,  // Adjust this value to position the name appropriately
-        size: 18,
-        bold: true
-    });
+    // Settings for drawing
+    const margin = 50;
+    let currentY = height - margin; // Start from top margin
+    const lineSpacing = 6;
+    const paragraphSpacing = 12;
+    const listIndent = 20;
+    const baseFontSize = 11;
+    const headingFontSize = 18;
+    const nameFontSize = 14;
+    const labelFontSize = 12;
 
-    // Render the rest of the content below the student's name
-    page.drawText(content, {
-        x: 50,
-        y: height - 70,  // Adjust this value to position the content appropriately
-        size: 10
-    });
+    // --- Parse and Draw Markdown Template ---
+    const tokens = marked.lexer(processedContent);
+    
+    for (const token of tokens) {
+        if (currentY < margin) break; // Stop if we run out of space
+
+        switch (token.type) {
+            case 'heading':
+                const isBoldHeading = token.text.startsWith('**') && token.text.endsWith('**');
+                const headingText = isBoldHeading ? token.text.slice(2, -2) : token.text;
+                page.drawText(headingText, {
+                    x: margin,
+                    y: currentY,
+                    font: isBoldHeading ? helveticaBold : helveticaBold, // Keep headings bold for now
+                    size: headingFontSize - (token.depth * 2), 
+                    lineHeight: (headingFontSize - (token.depth * 2)) + lineSpacing,
+                });
+                currentY -= (headingFontSize - (token.depth * 2)) + paragraphSpacing;
+                break;
+            case 'paragraph':
+                // More robust paragraph handling (handles **bold** and *italic*)
+                const segments = parseTextSegments(token.text, helvetica, helveticaBold, baseFontSize, width - 2 * margin);
+                for (const lineSegments of segments) {
+                    if (currentY < margin) break;
+                    let currentX = margin;
+                    for (const seg of lineSegments) {
+                        page.drawText(seg.text, {
+                            x: currentX,
+                            y: currentY,
+                            font: seg.font,
+                            size: baseFontSize
+                        });
+                        currentX += seg.width;
+                    }
+                    currentY -= (baseFontSize + lineSpacing);
+                }
+                // Add paragraph spacing only if we actually drew something
+                if (segments.length > 0) {
+                    currentY -= (paragraphSpacing - lineSpacing); 
+                }
+                break;
+            case 'list': 
+                 for (const item of token.items) {
+                     if (currentY < margin) break;
+                     // Draw bullet and then handle text segments like paragraphs
+                     page.drawText('-', { x: margin, y: currentY, font: helvetica, size: baseFontSize });
+                     const itemSegments = parseTextSegments(item.text, helvetica, helveticaBold, baseFontSize, width - 2 * margin - listIndent);
+                     let itemCurrentY = currentY;
+                     let firstLine = true;
+                     for (const lineSegments of itemSegments) {
+                         if (itemCurrentY < margin) break;
+                         let currentX = margin + listIndent;
+                         for (const seg of lineSegments) {
+                            page.drawText(seg.text, {
+                                x: currentX,
+                                y: itemCurrentY,
+                                font: seg.font,
+                                size: baseFontSize
+                            });
+                            currentX += seg.width;
+                         }
+                         itemCurrentY -= (baseFontSize + lineSpacing);
+                         firstLine = false;
+                     }
+                     currentY = itemCurrentY; // Update main Y position
+                 }
+                 if (token.items.length > 0) { // Add spacing only if list wasn't empty
+                    currentY -= (paragraphSpacing - lineSpacing); 
+                 }
+                 break;
+            case 'space': // Represents blank lines or space between block elements
+                currentY -= paragraphSpacing * (token.raw.match(/\n/g)?.length || 1);
+                break;
+            case 'hr': // Draw a horizontal rule
+                 if (currentY >= margin) {
+                     currentY -= lineSpacing;
+                     page.drawLine({ 
+                         start: { x: margin, y: currentY }, 
+                         end: { x: width - margin, y: currentY }, 
+                         thickness: 1, 
+                         color: rgb(0.7, 0.7, 0.7) 
+                        });
+                     currentY -= paragraphSpacing;
+                 }
+                break;
+            // Add cases for other token types if needed (e.g., blockquote, code)
+            default:
+                // console.log("Unhandled token type:", token.type);
+                break;
+        }
+    }
 
     return pdfDoc;
 }
 
-async function mergeStudentPDFs(mainDirectory, outputDirectory, descriptionFilePath) {
+// --- Helper Function for Text Segment Parsing (Handles Bold/Italic) ---
+function parseTextSegments(text, fontRegular, fontBold, fontSize, maxWidth) {
+    // Very basic parser: looks for **bold** and assumes everything else is regular
+    // Doesn't handle nesting or complex markdown, but covers the use case.
+    const lines = [];
+    let currentLineSegments = [];
+    let currentLineWidth = 0;
+
+    // Split text potentially containing markdown formatting
+    const parts = text.split(/(\*\*.*?\*\*)/g).filter(part => part); // Split by bold markers
+
+    for (const part of parts) {
+        const isBold = part.startsWith('**') && part.endsWith('**');
+        const segmentText = isBold ? part.slice(2, -2) : part;
+        const segmentFont = isBold ? fontBold : fontRegular;
+        
+        // Process word by word for wrapping
+        const words = segmentText.split(/\s+/).filter(w => w);
+        for (const word of words) {
+            const wordWidth = segmentFont.widthOfTextAtSize(word, fontSize);
+            const spaceWidth = fontRegular.widthOfTextAtSize(' ', fontSize); // Use regular font for space width
+            const wordWidthWithSpace = (currentLineSegments.length > 0 ? spaceWidth : 0) + wordWidth;
+
+            if (currentLineWidth + wordWidthWithSpace > maxWidth) {
+                // Finish current line and start a new one
+                if (currentLineSegments.length > 0) {
+                    lines.push(currentLineSegments);
+                }
+                // Start new line with the current word
+                currentLineSegments = [{ text: word, font: segmentFont, width: wordWidth }];
+                currentLineWidth = wordWidth;
+            } else {
+                // Add word to current line
+                 if (currentLineSegments.length > 0) { // Add space before word if not first word
+                    currentLineSegments.push({ text: ' ', font: fontRegular, width: spaceWidth });
+                    currentLineWidth += spaceWidth;
+                 }
+                 currentLineSegments.push({ text: word, font: segmentFont, width: wordWidth });
+                 currentLineWidth += wordWidth;
+            }
+        }
+    }
+
+    // Add the last line if it has content
+    if (currentLineSegments.length > 0) {
+        lines.push(currentLineSegments);
+    }
+
+    return lines;
+}
+
+async function mergeStudentPDFs(mainDirectory, outputDirectory, templateFilePath) {
+    console.log("Starting PDF Merging Process...");
     const pdfsSubDirectory = path.join(outputDirectory, 'pdfs');
     if (!fs.existsSync(pdfsSubDirectory)) {
-        fs.mkdirSync(pdfsSubDirectory);
+        console.log(`Creating PDF output directory: ${pdfsSubDirectory}`);
+        fs.mkdirSync(pdfsSubDirectory, { recursive: true });
     }
 
     const studentDirectories = fs.readdirSync(outputDirectory).filter(
         dir => dir !== 'pdfs' && dir !== 'booklets' &&
         fs.statSync(path.join(outputDirectory, dir)).isDirectory()).sort();
+    console.log(`Found ${studentDirectories.length} student directories in output.`);
 
-    const template = fs.readFileSync(descriptionFilePath, 'utf-8');
+    // Removed reading description file - template is now separate
+    // const template = fs.readFileSync(descriptionFilePath, 'utf-8'); 
+
+    // Determine path to template file (assuming root for now, adjust if needed)
+    const actualTemplatePath = path.resolve(templateFilePath || 'cover-template.md'); 
+     console.log(`Using cover sheet template: ${actualTemplatePath}`);
+     if (!fs.existsSync(actualTemplatePath)) {
+         console.error(`TEMPLATE FILE NOT FOUND: ${actualTemplatePath}`);
+         // Decide how to handle - throw error or use default content in generateCoverSheet
+     }
 
     for (const studentName of studentDirectories) {
+        console.log(`Processing student: ${studentName}`);
         const studentDirPath = path.join(outputDirectory, studentName);
-        if (!fs.statSync(studentDirPath).isDirectory()) {
-            continue; // Skip if not a directory
-        }
 
-        const studentPDFs = fs.readdirSync(studentDirPath).filter(file => file.endsWith('.pdf')).sort();
-
-        if (studentPDFs.length === 0) {
-            continue; // Skip if no PDFs found
+        // --- Read Processed File Info --- 
+        let processedFilesInfo = []; // Array of { pageName: string, originalFileName: string }
+        const infoFilePath = path.join(studentDirPath, 'processed_files.json');
+        try {
+            if (fs.existsSync(infoFilePath)) {
+                processedFilesInfo = JSON.parse(fs.readFileSync(infoFilePath, 'utf-8'));
+                console.log(`  Loaded processed file info for ${studentName}.`);
+            } else {
+                console.warn(`  Processed file info not found for ${studentName} at ${infoFilePath}`);
+            }
+        } catch (err) {
+            console.error(`  Error reading processed file info for ${studentName}:`, err);
         }
+        // --- End Read --- 
+
+        // Find the generated PDFs for merging (still needed for content)
+        const studentPDFs = fs.readdirSync(studentDirPath)
+                             .filter(file => file.endsWith('.pdf') && file !== `${studentName}.pdf`)
+                             .sort(); // Exclude final merged PDF if it exists from previous run
+
+        if (studentPDFs.length === 0 && processedFilesInfo.length === 0) { // Check both sources
+            console.log(`  No transformed PDFs or processed info found for ${studentName}, skipping merge.`);
+            continue; 
+        }
+        console.log(`  Found ${studentPDFs.length} PDF file(s) and ${processedFilesInfo.length} processed file entries.`);
 
         const mergedPdf = await PDFDocument.create();
-        const submittedSeiten = [];
-
+        // const submittedSeiten = []; // We'll build the list string directly
+        let width = 595.28, height = 841.89; 
         let dimensionsDetermined = false;
-        let width = 595.28;  // Default A4 width
-        let height = 841.89;  // Default A4 height
 
+        // --- Build Submitted List String from Processed Info --- 
+        const submittedPageNames = processedFilesInfo.map(info => info.pageName);
+        const submittedSeitenListString = processedFilesInfo.length > 0 
+            ? processedFilesInfo.map(info => `- ${info.pageName}: ${info.originalFileName}`).join('\n')
+            : 'None';
+        // --- End Build List --- 
+
+        // Merge actual PDF content (looping through found PDFs)
         for (const pdfFile of studentPDFs) {
             const pdfBuffer = fs.readFileSync(path.join(studentDirPath, pdfFile));
             const pdfDoc = await PDFDocument.load(pdfBuffer);
 
-            // If dimensions are not determined yet, determine from the first PDF
             if (!dimensionsDetermined) {
                 const [firstPage] = pdfDoc.getPages();
                 width = firstPage.getWidth();
                 height = firstPage.getHeight();
                 dimensionsDetermined = true;
+                console.log(`  Determined page dimensions from ${pdfFile}: ${width}x${height}`);
             }
 
             const [page] = await mergedPdf.copyPages(pdfDoc, [0]);
             mergedPdf.addPage(page);
-
-            // Add to submittedSeiten list
-            const seiteName = path.basename(pdfFile, '.pdf');
-            submittedSeiten.push(seiteName);
+            // const seiteName = path.basename(pdfFile, '.pdf'); // Old way
+            // submittedSeiten.push(seiteName);
         }
 
-        if (!dimensionsDetermined) {
-            console.warn(`No available PDF found for student ${studentName}. Using default A4 dimensions.`);
-        }
-
-        // Generate the cover sheet
-	    const seiteFolders = fs.readdirSync(mainDirectory).filter(item => {
+        // Determine missing pages based on processed page names
+        const seiteFolders = fs.readdirSync(mainDirectory).filter(item => {
 	        const itemPath = path.join(mainDirectory, item);
 	        return fs.statSync(itemPath).isDirectory();
 	    });
-        const missingSeiten = seiteFolders.filter(seite => !submittedSeiten.includes(seite));
-        const coverSheet = await generateCoverSheet(template, submittedSeiten, missingSeiten, studentName, width, height);
+        const missingSeiten = seiteFolders.filter(seite => !submittedPageNames.includes(seite));
+        console.log(`  Submitted based on processed info: ${submittedPageNames.length}, Missing: ${missingSeiten.length}`);
+
+        // Generate cover sheet using the new list string
+        const coverSheet = await generateCoverSheet(actualTemplatePath, submittedSeitenListString, missingSeiten, studentName, width, height);
         const [coverPage] = await mergedPdf.copyPages(coverSheet, [0]);
         mergedPdf.insertPage(0, coverPage);
+        console.log(`  Generated and added cover sheet.`);
 
         const outputPath = path.join(pdfsSubDirectory, `${studentName}.pdf`);
         fs.writeFileSync(outputPath, await mergedPdf.save());
+        console.log(`  Successfully merged and saved to: ${outputPath}`);
     }
+    console.log("PDF Merging Process Completed.");
 }
 
 /**
@@ -261,14 +467,19 @@ async function prepareTransformations(mainDirectory, outputDirectory) {
                 });
             } else {
                 // Exactly one file found, add to tasks
-                 // Ensure output directory exists
                 if (!fs.existsSync(studentOutputDirectory)){
                     console.log(`[Prepare] Creating output directory: ${studentOutputDirectory}`);
                     fs.mkdirSync(studentOutputDirectory, { recursive: true });
                 }
-                const inputPath = path.join(studentFolderPath, processableFiles[0]);
+                const originalFileName = processableFiles[0];
+                const inputPath = path.join(studentFolderPath, originalFileName);
                 const outputPath = path.join(studentOutputDirectory, `${subdir}.pdf`); // Output is always .pdf
-                transformationTasks.push({ inputPath, outputPath });
+                transformationTasks.push({ 
+                    inputPath, 
+                    outputPath, 
+                    originalFileName: originalFileName, // Add original filename
+                    pageName: subdir                 // Add page name (subdir)
+                });
             }
         }
     }

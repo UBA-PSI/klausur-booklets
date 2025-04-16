@@ -3,8 +3,8 @@
 
 <head>
     <meta charset="UTF-8">
-    <!-- Add Content Security Policy -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';">
+    <!-- Update Content Security Policy to allow inline scripts if needed -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';">
     <title>PDF Merger</title>
     <link rel="stylesheet" type="text/css" href="src/assets/styles.css">
 </head>
@@ -17,20 +17,24 @@
         <div class="input-group">
             <label>Input Directory:</label>
             <input type="text" id="mainDirectoryPath" >
-            <button onclick="selectDirectory('mainDirectory')">Browse</button>
+            <button id="select-main-dir-button">Browse</button>
         </div>
 
         <div class="input-group">
             <label>Output Directory:</label>
             <input type="text" id="outputDirectoryPath" >
-            <button onclick="selectDirectory('outputDirectory')">Browse</button>
+            <button id="select-output-dir-button">Browse</button>
         </div>
 
 		<h2>Select File with Cover Page Description </h2>
-        <div class="input-group">
-            <label>Description File:</label>
-            <input type="text" id="descriptionFilePath" >
-            <button onclick="selectDirectory('descriptionFile')">Browse</button>
+        <div class="form-group">
+            <label for="cover-template-path">Cover Template File (.md):</label>
+            <div class="input-group">
+                <input type="text" class="form-control" id="cover-template-path" readonly>
+                <div class="input-group-append">
+                    <button class="btn btn-secondary" type="button" id="select-cover-template-button">Browse...</button>
+                </div>
+            </div>
         </div>
 
         <hr>

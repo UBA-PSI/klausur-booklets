@@ -1,6 +1,9 @@
 // Remove the direct require of ipcRenderer
 // const { ipcRenderer } = require('electron');
 
+// Declare config at a higher scope
+let config = {};
+
 // Check if the API is exposed
 if (!window.electronAPI) {
   console.error("FATAL: Preload script did not expose electronAPI!");
@@ -50,16 +53,19 @@ function updateStatus(type, message) {
 
 
 // --- Setup Listeners using electronAPI --- 
-window.electronAPI.onLoadConfig((config) => {
-    console.log('Received load-config:', config); // Debug log
+window.electronAPI.onLoadConfig((loadedConfig) => {
+    console.log('Received load-config:', loadedConfig); // Debug log
+    // Update the higher-scoped config variable
+    config = loadedConfig || {}; 
+    // Update UI fields from loaded config
     if (config.mainDirectory) {
         document.getElementById('mainDirectoryPath').value = config.mainDirectory;
     }
     if (config.outputDirectory) {
         document.getElementById('outputDirectoryPath').value = config.outputDirectory;
     }
-    if (config.descriptionFile) {
-        document.getElementById('descriptionFilePath').value = config.descriptionFile;
+    if (config.coverTemplateFilePath) {
+        document.getElementById('cover-template-path').value = config.coverTemplateFilePath;
     }
     if (config.dpi) {
         document.getElementById('dpi').value = config.dpi;
@@ -72,7 +78,7 @@ function saveConfig() {
     window.electronAPI.saveConfig({
         mainDirectory: document.getElementById('mainDirectoryPath').value,
         outputDirectory: document.getElementById('outputDirectoryPath').value,
-        descriptionFile: document.getElementById('descriptionFilePath').value,
+        coverTemplateFilePath: document.getElementById('cover-template-path').value,
         dpi: parseInt(document.getElementById('dpi').value, 10)
     });
 }
@@ -81,10 +87,21 @@ window.electronAPI.onDirectorySelected((type, directoryPath) => {
     console.log(`Received directory-selected: type=${type}, path=${directoryPath}`); // Debug log
     if (type === 'mainDirectory') {
         document.getElementById('mainDirectoryPath').value = directoryPath;
+        config.mainDirectory = directoryPath; // Update config too
     } else if (type === 'outputDirectory') {
         document.getElementById('outputDirectoryPath').value = directoryPath;
-    } else if (type === 'descriptionFile') {
-        document.getElementById('descriptionFilePath').value = directoryPath;
+        config.outputDirectory = directoryPath; // Update config too
+    } else if (type === 'coverTemplateFile') {
+        console.log('Handling coverTemplateFile selection...'); // Add log
+        const inputElement = document.getElementById('cover-template-path');
+        if (inputElement) {
+            inputElement.value = directoryPath;
+            console.log(`Set cover-template-path input value to: ${directoryPath}`); // Add log
+        } else {
+            console.error('Could not find element with ID cover-template-path'); // Add error log
+        }
+        config.coverTemplateFilePath = directoryPath; // Now updates the higher-scoped config
+        console.log('Updated config.coverTemplateFilePath', config);
     }
 
     // Save the configuration
@@ -280,11 +297,11 @@ window.electronAPI.onTransformationProgress((progressData) => {
 
 document.getElementById('startTransformationBtn').addEventListener('click', async () => {
     const mainDirectory = document.getElementById('mainDirectoryPath').value;
-    const outputDirectory = document.getElementById('outputDirectoryPath').value;  // Ensure it's inside the event listener
-    const descriptionFile = document.getElementById('descriptionFilePath').value;
+    const outputDirectory = document.getElementById('outputDirectoryPath').value;
+    const templatePath = document.getElementById('cover-template-path').value;
 
-    if (!mainDirectory || !outputDirectory || !descriptionFile) {
-        document.getElementById('status').textContent = 'Please select all required paths before proceeding.';
+    if (!mainDirectory || !outputDirectory) {
+        document.getElementById('status').textContent = 'Please select input and output directories before proceeding.';
         return;
     }
 
@@ -293,8 +310,8 @@ document.getElementById('startTransformationBtn').addEventListener('click', asyn
 	
     try {
         let dpiValue = parseInt(document.getElementById('dpi').value, 10);
-        // Use the exposed function
-        const result = await window.electronAPI.startTransformation(mainDirectory, outputDirectory, descriptionFile, dpiValue);
+        // Use the exposed function - note: we still send templatePath but it's not used for transformation
+        const result = await window.electronAPI.startTransformation(mainDirectory, outputDirectory, templatePath, dpiValue);
 
         // Check if the result indicates ambiguity was detected and resolution requested
         if (result && result.status === 'ambiguity_detected') {
@@ -316,9 +333,9 @@ document.getElementById('startTransformationBtn').addEventListener('click', asyn
 document.getElementById('startMergingBtn').addEventListener('click', async () => {
     const mainDirectory = document.getElementById('mainDirectoryPath').value;
     const outputDirectory = document.getElementById('outputDirectoryPath').value;
-    const descriptionFile = document.getElementById('descriptionFilePath').value;
+    const templatePath = document.getElementById('cover-template-path').value;
 
-    if (!mainDirectory || !outputDirectory || !descriptionFile) {
+    if (!mainDirectory || !outputDirectory || !templatePath) {
         document.getElementById('status').textContent = 'Please select all required paths before proceeding.';
         return;
     }
@@ -327,7 +344,7 @@ document.getElementById('startMergingBtn').addEventListener('click', async () =>
     
     try {
         // Use the exposed function
-        await window.electronAPI.startMerging(mainDirectory, outputDirectory, descriptionFile);
+        await window.electronAPI.startMerging(mainDirectory, outputDirectory, templatePath);
         document.getElementById('status').textContent = 'PDFs merged successfully! Check the output directory.';
         updateStatus('success', 'PDFs merged successfully! Check the output directory.');
     } catch (error) {
@@ -365,6 +382,20 @@ document.getElementById('settingsButton').addEventListener('click', openModal);
 // When the modal is closed, save the DPI value
 document.querySelector('.close-button').addEventListener('click', () => {
     saveConfig();
+});
+
+// Update the button event listener
+document.getElementById('select-cover-template-button').addEventListener('click', () => {
+    window.electronAPI.selectDirectory('coverTemplateFile'); // Send new type
+});
+
+// Add event listeners for directory selection buttons
+document.getElementById('select-main-dir-button').addEventListener('click', () => {
+    window.electronAPI.selectDirectory('mainDirectory');
+});
+
+document.getElementById('select-output-dir-button').addEventListener('click', () => {
+    window.electronAPI.selectDirectory('outputDirectory');
 });
 
 
