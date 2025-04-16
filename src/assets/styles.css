@@ -149,6 +149,67 @@ h1 {
     font-size: 0.9em;
 }
 
+/* Warning style for partial CSV coverage */
+.csv-status-info.warning {
+    background-color: #fff3cd;
+    border-left: 4px solid #ffc107;
+    padding: 12px;
+}
+
+.csv-status-info.warning strong {
+    color: #856404;
+}
+
+/* Critical warning style for partial CSV coverage */
+.csv-status-info.critical-warning {
+    background-color: #f8d7da;
+    border-left: 4px solid #dc3545;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+}
+
+.csv-status-info.critical-warning h3 {
+    color: #721c24;
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 1.1em;
+}
+
+.csv-status-info.critical-warning strong {
+    color: #721c24;
+}
+
+.csv-status-info.critical-warning p {
+    margin-bottom: 8px;
+}
+
+/* Collision section styling */
+.collision-section {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 12px;
+    margin-top: 15px;
+    background-color: #f8f9fa;
+}
+
+.collision-section h3 {
+    margin-top: 0;
+    margin-bottom: 5px;
+    font-size: 1.05em;
+    color: #495057;
+}
+
+.collision-section p {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #6c757d;
+}
+
+.collision-section ul {
+    margin-bottom: 0;
+}
+
 /* Base styling for the status bar */
 #status-bar {
     display: flex;

@@ -168,21 +168,33 @@ const moodleCollisionRetryWithCSVBtn = document.getElementById('moodleCollisionR
 let lastInputDirectory = '';
 let lastFolderPattern = '';
 
-function openMoodleCollisionModal(collidingNames, usedCSVs = false, csvMappingsCount = 0) {
+function openMoodleCollisionModal(collidingNames, usedCSVs = false, csvMappingsCount = 0, partialCsvCoverage = false, missingCsvPages = [], studentsAffected = []) {
     collisionListDiv.innerHTML = ''; // Clear previous list
     
     // Create message about CSV status
     const csvStatusDiv = document.createElement('div');
-    csvStatusDiv.className = 'csv-status-info';
     
     if (usedCSVs) {
-        if (csvMappingsCount > 0) {
+        if (partialCsvCoverage) {
+            // Warning about partial CSV coverage - more prominent styles
+            csvStatusDiv.className = 'csv-status-info critical-warning';
+            csvStatusDiv.innerHTML = `
+                <h3>⚠️ CSV Files Missing in Some Directories</h3>
+                <p>You have CSV files in some page directories but not in others. This prevents proper student matching across pages.</p>
+                <p><strong>Missing CSV files in:</strong> ${missingCsvPages.join(', ')}</p>
+                <p><strong>Students appearing in multiple pages:</strong> ${studentsAffected.join(', ')}</p>
+                <p><strong>Action required:</strong> Please add the corresponding CSV files to <em>all</em> page directories before continuing.</p>
+                <p><small>CSV files must be placed in every page directory for the tool to correctly match students across pages.</small></p>
+            `;
+        } else if (csvMappingsCount > 0) {
+            csvStatusDiv.className = 'csv-status-info';
             csvStatusDiv.innerHTML = `<p>CSV files were used and ${csvMappingsCount} email mappings were found, but collisions still exist.</p>`;
             // Hide the retry button if we already used CSVs
             if (moodleCollisionRetryWithCSVBtn) {
                 moodleCollisionRetryWithCSVBtn.style.display = 'none';
             }
         } else {
+            csvStatusDiv.className = 'csv-status-info';
             csvStatusDiv.innerHTML = `<p>CSV files were checked but no valid mappings were found. Please ensure CSV files are present in each page folder with correct headers.</p>`;
             // Show the retry button in case they add CSV files
             if (moodleCollisionRetryWithCSVBtn) {
@@ -190,7 +202,8 @@ function openMoodleCollisionModal(collidingNames, usedCSVs = false, csvMappingsC
             }
         }
     } else {
-        csvStatusDiv.innerHTML = `<p>CSV files have not been checked. If you have CSV files with email mappings in the page folders, click "Retry with CSV files".</p>`;
+        csvStatusDiv.className = 'csv-status-info';
+        csvStatusDiv.innerHTML = `<p>CSV files have not been checked. If you have CSV files with email mappings in the page folders, click "Check Again After Changes".</p>`;
         // Show the retry button
         if (moodleCollisionRetryWithCSVBtn) {
             moodleCollisionRetryWithCSVBtn.style.display = 'inline-block';
@@ -199,19 +212,28 @@ function openMoodleCollisionModal(collidingNames, usedCSVs = false, csvMappingsC
     
     collisionListDiv.appendChild(csvStatusDiv);
     
-    // Add the list of colliding names
+    // Add the list of colliding names - only show this section if there are actual collisions
     if (collidingNames && collidingNames.length > 0) {
+        const collisionsSection = document.createElement('div');
+        collisionsSection.className = 'collision-section';
+        
+        const listHeader = document.createElement('h3');
+        listHeader.textContent = 'Students with Same-Name Collisions:';
+        collisionsSection.appendChild(listHeader);
+        
+        const explanation = document.createElement('p');
+        explanation.innerHTML = `<small>These students have multiple entries with the same name within a single page folder.</small>`;
+        collisionsSection.appendChild(explanation);
+        
         const list = document.createElement('ul');
         collidingNames.forEach(name => {
             const item = document.createElement('li');
             item.textContent = name;
             list.appendChild(item);
         });
-        collisionListDiv.appendChild(list);
-    } else {
-        const noNamesMsg = document.createElement('p');
-        noNamesMsg.textContent = 'No specific names identified.';
-        collisionListDiv.appendChild(noNamesMsg);
+        collisionsSection.appendChild(list);
+        
+        collisionListDiv.appendChild(collisionsSection);
     }
     
     moodleCollisionModal.style.display = 'block';
@@ -240,7 +262,10 @@ async function retryWithCSVFiles() {
             openMoodleCollisionModal(
                 collisionResult.collidingNames, 
                 collisionResult.usedCSVs, 
-                collisionResult.csvMappingsCount
+                collisionResult.csvMappingsCount,
+                collisionResult.partialCsvCoverage,
+                collisionResult.missingCsvPages,
+                collisionResult.studentsAffected
             );
         } else {
             // No collisions with CSV - proceed with transformation
@@ -506,7 +531,10 @@ document.getElementById('startTransformationBtn').addEventListener('click', asyn
                  openMoodleCollisionModal(
                     collisionResult.collidingNames, 
                     collisionResult.usedCSVs, 
-                    collisionResult.csvMappingsCount
+                    collisionResult.csvMappingsCount,
+                    collisionResult.partialCsvCoverage,
+                    collisionResult.missingCsvPages,
+                    collisionResult.studentsAffected
                  );
                  return; // Stop the process, user needs to resolve
             }
@@ -525,7 +553,7 @@ document.getElementById('startTransformationBtn').addEventListener('click', asyn
     // Proceed with actual transformation if pre-check passed or wasn't needed
     document.getElementById('status').textContent = 'Transforming pages... Please wait.';
     updateStatus('processing', 'Transforming pages... Please wait.');
-
+	
     try {
         let dpiValue = parseInt(document.getElementById('dpi').value, 10);
         const result = await window.electronAPI.startTransformation(mainDirectory, outputDirectory, dpiValue); // Removed templatePath
@@ -547,8 +575,8 @@ document.getElementById('startTransformationBtn').addEventListener('click', asyn
              // TODO: Optionally show a specific modal here too, maybe reusing parts of moodleCollisionModal structure
         } else {
             // General error handling
-            document.getElementById('status').textContent = 'Error transforming pages: ' + error.message;
-		    updateStatus('error', 'Error transforming pages: ' + error.message);
+        document.getElementById('status').textContent = 'Error transforming pages: ' + error.message;
+		updateStatus('error', 'Error transforming pages: ' + error.message);
         }
     }
 });
@@ -695,7 +723,7 @@ document.querySelector('#coverTemplateModal .cover-template-close').addEventList
     const modal = document.getElementById('coverTemplateModal');
     modal.style.display = 'none';
     // Save config when closing the modal
-    saveConfig(); 
+    saveConfig();
 });
 
 

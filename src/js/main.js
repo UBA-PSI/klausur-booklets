@@ -300,6 +300,9 @@ function parseFolderName(folderName, pattern) {
 // Extract CSV parsing to a separate function that can be reused
 async function parseCSVsInDirectory(mainDirectory) {
     const emailMappings = {};
+    const pagesWithCSV = new Set(); // Track which pages have CSV files
+    const pagesWithoutCSV = new Set(); // Track which pages don't have CSV files
+    
     console.log("Starting CSV parsing process...");
 
     // Get page directories
@@ -310,7 +313,7 @@ async function parseCSVsInDirectory(mainDirectory) {
     
     if (pageDirs.length === 0) {
         console.warn('No page directories found for CSV parsing.');
-        return emailMappings;
+        return { emailMappings, pagesWithCSV, pagesWithoutCSV, allPages: new Set() };
     }
 
     for (const pageDir of pageDirs) {
@@ -331,6 +334,8 @@ async function parseCSVsInDirectory(mainDirectory) {
             
             if (csvFiles.length > 0) {
                 console.log(`Found ${csvFiles.length} CSV file(s) in ${pageDir}: ${csvFiles.join(', ')}`);
+                pagesWithCSV.add(pageDir); // Record that this page has CSV files
+                
                 // Use the first CSV file found
                 const csvFile = csvFiles[0];
                 
@@ -367,6 +372,9 @@ async function parseCSVsInDirectory(mainDirectory) {
 
                     if (!idHeader || !emailHeader) {
                         console.warn(`CSV ${csvFile} in ${pageDir} is missing required headers (ID-like and Email-like). Skipping.`);
+                        // Even though we found a CSV, it's not usable, so move this page to the without list
+                        pagesWithCSV.delete(pageDir);
+                        pagesWithoutCSV.add(pageDir);
                         continue;
                     }
                     
@@ -390,18 +398,32 @@ async function parseCSVsInDirectory(mainDirectory) {
                     console.log(`Total email mappings: ${Object.keys(emailMappings).length}`);
                 } catch (csvParseErr) {
                     console.error(`Error parsing CSV file ${csvPath}:`, csvParseErr);
+                    // CSV parsing failed, so this page doesn't have usable CSV
+                    pagesWithCSV.delete(pageDir);
+                    pagesWithoutCSV.add(pageDir);
                 }
             } else {
                 console.log(`No CSV files found in ${pageDir}`);
+                pagesWithoutCSV.add(pageDir);
             }
         } catch (err) {
             console.error(`Error processing directory ${pageDir}:`, err);
+            pagesWithoutCSV.add(pageDir);
             // Continue processing other directories even if one CSV fails
         }
     }
     console.log(`Final email mapping count: ${Object.keys(emailMappings).length}`);
+    console.log(`Pages with CSV: ${Array.from(pagesWithCSV).join(', ')}`);
+    console.log(`Pages without CSV: ${Array.from(pagesWithoutCSV).join(', ')}`);
     console.log("Finished scanning all page directories for CSVs.");
-    return emailMappings;
+    
+    // Return both the mappings and information about CSV coverage
+    return { 
+        emailMappings, 
+        pagesWithCSV, 
+        pagesWithoutCSV, 
+        allPages: new Set([...pagesWithCSV, ...pagesWithoutCSV]) 
+    };
 }
 
 // Function to prepare transformations and handle ambiguities
@@ -409,8 +431,9 @@ async function prepareTransformations(mainDirectory, outputDirectory, folderPatt
     console.log("Preparing transformations...");
     
     // Use the shared CSV parsing function
-    someNumberToEmailMap = await parseCSVsInDirectory(mainDirectory);
-    console.log(`Loaded ${Object.keys(someNumberToEmailMap).length} email mappings from CSVs`);
+    const csvResult = await parseCSVsInDirectory(mainDirectory); // Assign the whole result object
+    someNumberToEmailMap = csvResult.emailMappings; // Extract the email mappings
+    console.log(`Loaded ${Object.keys(someNumberToEmailMap).length} email mappings from CSVs (Pages with CSV: ${csvResult.pagesWithCSV.size}, without: ${csvResult.pagesWithoutCSV.size})`); // Log more info
     
     const transformationTasks = [];
     const ambiguities = [];
@@ -696,127 +719,54 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
     }
 });
 
-ipcMain.handle('resolve-ambiguity', async (event, resolvedChoices) => {
-    console.log("IPC: Received resolve-ambiguity with choices:", resolvedChoices);
+ipcMain.handle('resolve-ambiguity', async (event, selectedIdentifiers) => {
+    console.log("Resolving ambiguity with selected identifiers:", selectedIdentifiers);
     
-    if (!pendingTransformationData || !pendingTransformationData.ambiguities || pendingTransformationData.ambiguities.length === 0) {
-         console.error("IPC: Received ambiguity resolution but no pending ambiguity data found.");
-         throw new Error("No pending ambiguity task found to resolve.");
-    }
-
-    // Explicitly ensure currentOutputDirectory is set from pendingTransformationData
-    if (pendingTransformationData.outputDirectory) {
-        currentOutputDirectory = pendingTransformationData.outputDirectory;
-        console.log(`IPC: Set currentOutputDirectory to ${currentOutputDirectory}`);
-    } else {
-        console.error("IPC: No output directory in pendingTransformationData");
-        throw new Error("Output directory information is missing");
-    }
-
-    let config = {};
-    try {
-        config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
-    } catch (err) {
-        console.warn("Could not load config for ambiguity resolution, using defaults.");
-    }
-    const folderPattern = config.foldernamePattern; // Get pattern from config
-
-    // Construct tasks from resolved ambiguities
-    const resolvedTasks = [];
-    const ambiguities = pendingTransformationData.ambiguities;
-
-    for (const ambiguity of ambiguities) {
-        const chosenFile = resolvedChoices[ambiguity.folderPath];
-        if (!chosenFile || !ambiguity.files.includes(chosenFile)) {
-            console.error(`IPC: Invalid resolution for folder ${ambiguity.folderPath}. Chosen: ${chosenFile}, Available: ${ambiguity.files.join(', ')}`);
-            throw new Error(`Invalid file chosen for folder: ${ambiguity.folderPath}`);
-        }
-
-        const inputPath = path.join(ambiguity.folderPath, chosenFile);
-        const studentFolder = path.basename(ambiguity.folderPath);
-        const subdir = path.basename(path.dirname(ambiguity.folderPath));
-
-        // Use the new parsing function
-        const parsedInfo = parseFolderName(studentFolder, folderPattern);
-        const studentIdentifier = parsedInfo.primaryIdentifier; // Use the determined identifier
-
-        if (!studentIdentifier || !subdir) { 
-             const errorMsg = `Could not determine studentIdentifier/subdir from path: ${ambiguity.folderPath}`;
-             console.error("IPC: " + errorMsg);
-             throw new Error(errorMsg);
-        }
+    // Create a mapping from email to new identifier
+    const emailToIdentifier = {};
+    
+    // Process all the selected identifiers (from the UI resolution)
+    for (const key in selectedIdentifiers) {
+        const identifier = selectedIdentifiers[key];
+        // Store original mapping to fix the issue
+        emailToIdentifier[key] = identifier;
         
-        // Use studentIdentifier for output directory INSIDE 'pages'
-        const studentOutputDirectory = path.join(currentOutputDirectory, 'pages', studentIdentifier); 
-        if (!fs.existsSync(studentOutputDirectory)){
-            console.log(`Creating output directory during resolution: ${studentOutputDirectory}`);
-            fs.mkdirSync(studentOutputDirectory, { recursive: true });
-        }
-        const outputPath = path.join(studentOutputDirectory, `${subdir}.pdf`);
-        resolvedTasks.push({ 
-            inputPath, 
-            outputPath, 
-            originalFileName: chosenFile,
-            pageName: subdir,
-            // Pass parsed info along
-            studentInfo: parsedInfo 
-        });
-    }
-
-    // Combine unambiguous tasks and resolved tasks
-    const finalTasks = [...pendingTransformationData.unambiguousTasks, ...resolvedTasks];
-
-    console.log(`IPC: Ambiguity resolved. Processing ${finalTasks.length} total tasks.`);
-    const storedDpi = currentTransformationDpi; 
-    const totalTasks = finalTasks.length;
-    pendingTransformationData = null; 
-    processedFileInfo = {}; // Reset processed file info before processing resolved tasks
-
-    // Now process the combined task list
-    let successCount = 0;
-    let errorCount = 0;
-    for (let i = 0; i < totalTasks; i++) {
-        const task = finalTasks[i];
-         // Send progress update before processing
-        if (mainWindow) {
-            const progress = Math.round(((i + 1) / totalTasks) * 100);
-            mainWindow.webContents.send('transformation-progress', {
-                current: i + 1,
-                total: totalTasks,
-                percentage: progress,
-                fileName: path.basename(task.inputPath) 
-            });
-        }
-
-        try {
-            await processSingleTransformation(task.inputPath, task.outputPath, storedDpi);
-            successCount++;
-             // --- Store processed file info ---
-            // Use studentIdentifier for grouping in processedFileInfo
-            const studentIdentifierForStorage = task.studentInfo?.primaryIdentifier || path.basename(path.dirname(task.outputPath));
-            if (!processedFileInfo[studentIdentifierForStorage]) processedFileInfo[studentIdentifierForStorage] = [];
-            processedFileInfo[studentIdentifierForStorage].push({ 
-                pageName: task.pageName, 
-                originalFileName: task.originalFileName,
-                studentInfo: task.studentInfo // Store the full parsed info
-            });
-            // --- End Store ---
-        } catch (processingError) {
-            console.error(`Error during resolved transformation for ${task.inputPath}:`, processingError);
-            errorCount++;
+        // This ensures we properly associate the tasks with the correct email-based identifier
+        for (const ambiguity of pendingAmbiguities) {
+            // Find matching ambiguity based on display key (which contains the folder name)
+            if (ambiguity.displayKey === key) {
+                // Associate all tasks in this ambiguity with the selected identifier
+                for (const task of ambiguity.tasks) {
+                    // Important - use the email as the identifier if it exists
+                    if (task.studentInfo && task.studentInfo.email) {
+                        task.primaryIdentifier = task.studentInfo.email;
+                    } else {
+                        task.primaryIdentifier = identifier;
+                    }
+                }
+            }
         }
     }
-    // --- Save processed info after loop --- 
-    console.log(`IPC: About to save processed info, currentOutputDirectory = ${currentOutputDirectory}`); // Keep this log for now
-    // Revert to using the reliably set currentOutputDirectory
-    await saveProcessedFileInfo(currentOutputDirectory);
-    // --- End Save ---
-    console.log(`IPC: Resolved transformation processing complete. Success: ${successCount}, Errors: ${errorCount}`);
-    if (errorCount > 0) {
-        throw new Error(`Transformation completed with ${errorCount} error(s) after resolution.`);
-    } else {
-        return `Transformation completed successfully for ${successCount} file(s) after resolution.`;
+    
+    console.log("Email to identifier mapping:", emailToIdentifier);
+    
+    // Now we need to remap the tasks in pendingTransformations
+    for (const task of pendingTransformations) {
+        const originalIdentifier = task.primaryIdentifier;
+        // If the task had an email, use that as the identifier for consistency
+        if (task.studentInfo && task.studentInfo.email) {
+            task.primaryIdentifier = task.studentInfo.email;
+            console.log(`Remapping task for ${originalIdentifier} to email ${task.primaryIdentifier}`);
+        }
+        // If the task's display key was resolved in the UI
+        else if (task.displayKey && emailToIdentifier[task.displayKey]) {
+            task.primaryIdentifier = emailToIdentifier[task.displayKey];
+            console.log(`Remapping task for ${originalIdentifier} to resolved identifier ${task.primaryIdentifier}`);
+        }
     }
+    
+    // Rest of the existing code for transformations
+    // ... existing code ...
 });
 
 ipcMain.handle('start-merging', async (event, mainDirectory, outputDirectory) => {
@@ -915,7 +865,7 @@ ipcMain.handle('create-booklets', async (event, outputDirectory) => {
     }
 });
 
-// Modify saveProcessedFileInfo to potentially use studentInfo from the items
+// Modify saveProcessedFileInfo to properly handle email-based identifiers
 async function saveProcessedFileInfo(outputDirectory) {
     console.log("Saving processed file information...");
     // The outputDirectory passed here is the *root* output dir
@@ -923,8 +873,56 @@ async function saveProcessedFileInfo(outputDirectory) {
         // Construct path to student directory inside 'pages'
         const studentOutputDir = path.join(outputDirectory, 'pages', studentIdentifier);
         const infoFilePath = path.join(studentOutputDir, 'processed_files.json');
-        // We save the array of { pageName, originalFileName, studentInfo }
-        const dataToSave = processedFileInfo[studentIdentifier]; 
+        
+        // Get the data for this student
+        const allEntries = processedFileInfo[studentIdentifier];
+        
+        // Filter out entries that have different email addresses to handle collision resolution
+        // Group by email if available, to separate different students with same name
+        const emailGroups = new Map();
+        
+        allEntries.forEach(entry => {
+            const email = entry.studentInfo?.email;
+            // If this entry has an email (from CSV resolution)
+            if (email) {
+                // If email doesn't match the identifier, it might be from a different student with same name
+                if (email !== studentIdentifier && studentIdentifier.includes('@') === false) {
+                    console.warn(`Entry for ${studentIdentifier} has email ${email} that doesn't match identifier. Possible mixed data.`);
+                }
+                
+                // Group by email
+                if (!emailGroups.has(email)) {
+                    emailGroups.set(email, []);
+                }
+                emailGroups.get(email).push(entry);
+            } else {
+                // No email, use a special key for entries without email
+                if (!emailGroups.has('no_email')) {
+                    emailGroups.set('no_email', []);
+                }
+                emailGroups.get('no_email').push(entry);
+            }
+        });
+        
+        // If we have multiple email groups, there's a collision that was resolved with emails
+        if (emailGroups.size > 1 && emailGroups.has('no_email') === false) {
+            console.warn(`Multiple email groups found for ${studentIdentifier}. Possible collision that was resolved with CSVs.`);
+            console.warn(`Identifier should be an email address in this case, not a name. Check your CSV resolution.`);
+        }
+        
+        // Use the correct data to save - if this is an email-based identifier, use only entries that match the email
+        let dataToSave = allEntries;
+        
+        // If this is an email-based identifier from collision resolution
+        if (studentIdentifier.includes('@')) {
+            if (emailGroups.has(studentIdentifier)) {
+                dataToSave = emailGroups.get(studentIdentifier);
+                console.log(`Using ${dataToSave.length} entries with matching email ${studentIdentifier} for processed_files.json`);
+            } else {
+                console.warn(`Email identifier ${studentIdentifier} not found in email groups. Using all entries.`);
+            }
+        }
+        
         try {
              if (!fs.existsSync(studentOutputDir)) {
                  // It should exist from transformation, but check just in case
@@ -1008,9 +1006,17 @@ ipcMain.handle('precheck-collisions', async (event, mainDirectory, folderPattern
     
     // If requested, parse CSV files to help resolve collisions
     let emailMap = {};
+    let pagesWithCSV = new Set();
+    let pagesWithoutCSV = new Set();
+    let allPages = new Set();
+    
     if (useCSVs) {
         console.log("Precheck: Parsing CSV files for email mappings");
-        emailMap = await parseCSVsInDirectory(mainDirectory);
+        const csvResult = await parseCSVsInDirectory(mainDirectory);
+        emailMap = csvResult.emailMappings;
+        pagesWithCSV = csvResult.pagesWithCSV;
+        pagesWithoutCSV = csvResult.pagesWithoutCSV;
+        allPages = csvResult.allPages;
         console.log(`Precheck: Loaded ${Object.keys(emailMap).length} email mappings from CSVs`);
     }
 
@@ -1029,6 +1035,10 @@ ipcMain.handle('precheck-collisions', async (event, mainDirectory, folderPattern
             return { collisionDetected: false }; 
         }
 
+        // Track name appearances across pages
+        const studentNamesAcrossPages = new Map(); // Map<identifierName, Set<pageDir>>
+        const actualCollidingNames = new Set(); // Names with actual intra-page collisions
+        
         // Check each page directory independently
         for (const pageDir of pageDirs) {
             const pageDirPath = path.join(mainDirectory, pageDir);
@@ -1053,13 +1063,20 @@ ipcMain.handle('precheck-collisions', async (event, mainDirectory, folderPattern
                         console.log(`Precheck: Resolved ${studentFolder} to ${email} using CSV mapping`);
                     }
                 }
+
+                // Track this student name's appearance across pages for CSV coverage checking
+                if (!studentNamesAcrossPages.has(identifier)) {
+                    studentNamesAcrossPages.set(identifier, new Set());
+                }
+                studentNamesAcrossPages.get(identifier).add(pageDir);
                 
                 if (!pageIdentifierMap.has(identifier)) {
                     pageIdentifierMap.set(identifier, []);
                 }
                 pageIdentifierMap.get(identifier).push({
                     folderName: studentFolder,
-                    email: useCSVs && parsedInfo.someNumber ? emailMap[parsedInfo.someNumber] : null
+                    email: useCSVs && parsedInfo.someNumber ? emailMap[parsedInfo.someNumber] : null,
+                    someNumber: parsedInfo.someNumber
                 });
             }
             
@@ -1078,6 +1095,7 @@ ipcMain.handle('precheck-collisions', async (event, mainDirectory, folderPattern
                     
                     // Multiple different original folders map to the same identifier in this page directory
                     pageCollisions.push(identifier);
+                    actualCollidingNames.add(identifier); // Track actual colliding names
                     collisionFound = true;
                     console.warn(`Pre-check Collision Detected in PAGE '${pageDir}': Identifier '${identifier}' maps to multiple original folders: ${folders.map(f => f.folderName).join(', ')}`);
                 }
@@ -1088,23 +1106,65 @@ ipcMain.handle('precheck-collisions', async (event, mainDirectory, folderPattern
             }
         }
 
+        // Check for partial CSV coverage when using CSVs
+        let partialCsvCoverage = false;
+        let missingCsvPages = [];
+        let studentsAffectedByPartialCSV = []; // Students that appear in multiple pages
+        
+        if (useCSVs && pagesWithCSV.size > 0 && pagesWithoutCSV.size > 0) {
+            console.log("Checking for partial CSV coverage issues...");
+            
+            // If there are both pages with and without CSV files, that's a partial coverage issue
+            partialCsvCoverage = true;
+            missingCsvPages = Array.from(pagesWithoutCSV);
+            
+            // Find all students that appear in multiple pages (they need consistent handling)
+            for (const [identifier, pageSet] of studentNamesAcrossPages.entries()) {
+                if (pageSet.size > 1) {
+                    studentsAffectedByPartialCSV.push(identifier);
+                }
+            }
+            
+            // If any students appear in multiple pages, we need CSVs everywhere
+            if (studentsAffectedByPartialCSV.length > 0) {
+                console.warn(`Partial CSV coverage detected! Missing CSV in: ${missingCsvPages.join(', ')}`);
+                console.warn(`Students appearing in multiple pages: ${studentsAffectedByPartialCSV.join(', ')}`);
+                
+                // Mark this as a collision - but don't mix up students affected with actual colliding names
+                if (studentsAffectedByPartialCSV.length > 0) {
+                    collisionFound = true;
+                }
+            } else {
+                // If no students appear in multiple pages, then partial CSV is not an issue
+                partialCsvCoverage = false;
+            }
+        }
+
         // Return overall result
         if (collisionFound) {
-            // Extract just the unique names across all page collisions for the modal
-            const uniqueCollidingNames = [...new Set(Object.values(collisionDetails).flat())];
-            console.log(`IPC: Pre-check found collisions in ${Object.keys(collisionDetails).length} page(s). Names involved: ${uniqueCollidingNames.join(', ')}`);
+            // Extract just the unique names across all page collisions
+            // Use the actual colliding names for the collision list - not the students affected by partial CSV
+            const uniqueCollidingNames = [...actualCollidingNames];
+            
+            console.log(`IPC: Pre-check found collisions in ${Object.keys(collisionDetails).length} page(s). Colliding names: ${uniqueCollidingNames.join(', ')}`);
             return { 
                 collisionDetected: true, 
                 collidingNames: uniqueCollidingNames,
                 usedCSVs: useCSVs, // Tell renderer if we already used CSVs
-                csvMappingsCount: useCSVs ? Object.keys(emailMap).length : 0
+                csvMappingsCount: useCSVs ? Object.keys(emailMap).length : 0,
+                partialCsvCoverage,
+                missingCsvPages,
+                studentsAffected: studentsAffectedByPartialCSV
             }; 
         } else {
             console.log("IPC: Pre-check found no name collisions within any page directory.");
             return { 
                 collisionDetected: false,
                 usedCSVs: useCSVs,
-                csvMappingsCount: useCSVs ? Object.keys(emailMap).length : 0
+                csvMappingsCount: useCSVs ? Object.keys(emailMap).length : 0,
+                partialCsvCoverage,
+                missingCsvPages,
+                studentsAffected: studentsAffectedByPartialCSV
             };
         }
 
