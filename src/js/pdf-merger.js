@@ -17,15 +17,11 @@ class AmbiguityError extends Error {
 }
 // ---------------------------------
 
-async function generateCoverSheet(templatePath, submittedSeitenListString, missingSeiten, studentInfo, width, height) {
-    let templateContent;
-    try {
-        templateContent = fs.readFileSync(templatePath, 'utf-8');
-    } catch (err) {
-        console.error(`Error reading cover sheet template ${templatePath}:`, err);
-        templateContent = `# Error: Template Not Found
-
-Could not load template file at: ${templatePath}
+async function generateCoverSheet(templateContent, submittedSeitenListString, missingSeiten, studentInfo, width, height) {
+    if (!templateContent) {
+        console.error("Error: No cover sheet template content provided.");
+        // Provide a minimal fallback if content is empty or null
+        templateContent = `# Error: Template Missing
 
 Student: {{LAST_NAME}}, {{FIRST_NAME}}
 
@@ -217,31 +213,32 @@ function parseTextSegments(text, fontRegular, fontBold, fontSize, maxWidth) {
     return lines;
 }
 
-async function mergeStudentPDFs(mainDirectory, outputDirectory, templateFilePath) {
+async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent) {
     console.log("Starting PDF Merging Process...");
-    const pdfsSubDirectory = path.join(outputDirectory, 'pdfs');
+    const pdfsSubDirectory = path.join(outputDirectory, 'pdfs'); // pdfs still at root level
     if (!fs.existsSync(pdfsSubDirectory)) {
         console.log(`Creating PDF output directory: ${pdfsSubDirectory}`);
         fs.mkdirSync(pdfsSubDirectory, { recursive: true });
     }
 
-    // Read student identifiers (now potentially numbers) from output directory
-    const studentIdentifiers = fs.readdirSync(outputDirectory).filter(
-        dir => dir !== 'pdfs' && dir !== 'booklets' &&
-        fs.statSync(path.join(outputDirectory, dir)).isDirectory()).sort();
-    console.log(`Found ${studentIdentifiers.length} student identifier directories in output.`);
+    const pagesDirectory = path.join(outputDirectory, 'pages'); // Define path to 'pages' dir
+    if (!fs.existsSync(pagesDirectory)) {
+        console.error(`Error: Pages directory not found at ${pagesDirectory}. Run Transformation first.`);
+        throw new Error(`Pages directory not found: ${pagesDirectory}.`);
+    }
 
-    // Determine path to template file (assuming root for now, adjust if needed)
-    const actualTemplatePath = path.resolve(templateFilePath || 'cover-template.md'); 
-     console.log(`Using cover sheet template: ${actualTemplatePath}`);
-     if (!fs.existsSync(actualTemplatePath)) {
-         console.error(`TEMPLATE FILE NOT FOUND: ${actualTemplatePath}`);
-         // Decide how to handle - throw error or use default content in generateCoverSheet
-     }
+    // Read student identifiers from the 'pages' subdirectory
+    const studentIdentifiers = fs.readdirSync(pagesDirectory).filter(dir => {
+        const dirPath = path.join(pagesDirectory, dir);
+        // Check if it's a directory AND not named 'pdfs' or 'booklets' (redundant check, but safe)
+        return fs.statSync(dirPath).isDirectory() && dir !== 'pdfs' && dir !== 'booklets';
+    }).sort();
+    console.log(`Found ${studentIdentifiers.length} student identifier directories in ${pagesDirectory}.`);
 
     for (const studentIdentifier of studentIdentifiers) {
         console.log(`Processing student identifier: ${studentIdentifier}`);
-        const studentDirPath = path.join(outputDirectory, studentIdentifier);
+        // Construct path to student dir inside 'pages'
+        const studentDirPath = path.join(pagesDirectory, studentIdentifier);
 
         // --- Read Processed File Info --- 
         let processedFilesData = []; // Array of { pageName, originalFileName, studentInfo }
@@ -271,9 +268,9 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateFilePath
         }
         // --- End Read --- 
 
-        // Find the generated PDFs for merging (still need content)
+        // Find the generated PDFs for merging within the student's directory in 'pages'
         const studentPDFs = fs.readdirSync(studentDirPath)
-                             .filter(file => file.endsWith('.pdf') && file !== `${studentIdentifier}.pdf`)
+                             .filter(file => file.endsWith('.pdf') && file !== 'processed_files.json') // Exclude json file
                              .sort(); 
 
         if (studentPDFs.length === 0 && processedFilesData.length === 0) {
@@ -300,7 +297,8 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateFilePath
 
         // Merge actual PDF content (looping through found PDFs)
         for (const pdfFile of studentPDFs) {
-            const pdfBuffer = fs.readFileSync(path.join(studentDirPath, pdfFile));
+            const pdfPathToMerge = path.join(studentDirPath, pdfFile); // Full path to PDF inside student dir
+            const pdfBuffer = fs.readFileSync(pdfPathToMerge);
             const pdfDoc = await PDFDocument.load(pdfBuffer);
 
             if (!dimensionsDetermined) {
@@ -324,14 +322,14 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateFilePath
         const missingSeiten = seiteFolders.filter(seite => !submittedPageNames.includes(seite));
         console.log(`  Submitted based on processed info: ${submittedPageNames.length}, Missing: ${missingSeiten.length}`);
 
-        // Generate cover sheet using the studentInfo object and now sorted lists
-        const coverSheet = await generateCoverSheet(actualTemplatePath, submittedSeitenListString, missingSeiten, studentInfoForCover, width, height);
+        // Generate cover sheet using the studentInfo object and template CONTENT
+        const coverSheet = await generateCoverSheet(templateContent, submittedSeitenListString, missingSeiten, studentInfoForCover, width, height);
         const [coverPage] = await mergedPdf.copyPages(coverSheet, [0]);
         mergedPdf.insertPage(0, coverPage);
         console.log(`  Generated and added cover sheet.`);
 
         const outputPdfFileName = `${studentInfoForCover.primaryIdentifier || studentIdentifier}.pdf`; // Use primary ID if available
-        const outputPath = path.join(pdfsSubDirectory, outputPdfFileName);
+        const outputPath = path.join(pdfsSubDirectory, outputPdfFileName); // Output merged PDF to root 'pdfs' dir
         fs.writeFileSync(outputPath, await mergedPdf.save());
         console.log(`  Successfully merged and saved to: ${outputPath}`);
     }

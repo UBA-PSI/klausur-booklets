@@ -45,6 +45,7 @@
             <button id="startMergingBtn">Start Merging</button>
             <button id="createBookletsBtn">Create Booklets</button>
 			<button id="settingsButton">Settings</button>
+            <button id="editCoverTemplateBtn">Edit Cover Template</button>
 		</div>
         </div>
 
@@ -149,6 +150,48 @@
             <button id="confirmAmbiguityBtn" style="display: none;">Confirm Selections</button> <!-- Initially hidden -->
         </div>
         <div id="ambiguityError" class="error-message"></div>
+    </div>
+</div>
+
+<!-- ADDED Cover Template Modal -->
+<div id="coverTemplateModal" class="modal cover-template-modal">
+    <div class="modal-content">
+        <span class="close-button cover-template-close">&times;</span>
+        <h2>Edit Cover Template</h2>
+        
+        <div class="form-group">
+            <label for="coverTemplateContentInput" class="block-label">Template Content (Markdown):</label>
+            <textarea id="coverTemplateContentInput" class="form-control full-width" rows="15"></textarea>
+        </div>
+        
+        <!-- Template Help -->
+        <div class="pattern-help" style="margin-top: 15px;">
+            <details>
+                <summary><strong>Template Help</strong> (click to expand)</summary>
+                <div class="pattern-explanation compact" style="font-size: 0.9em;">
+                    <p>Use Markdown to format the cover page. The following placeholders will be replaced:</p>
+                    <ul class="compact-list">
+                        <li><code>{{FULL_NAME}}</code>: Student's full name (derived from folder name based on pattern).</li>
+                        <li><code>{{LAST_NAME}}</code>: Student's last name.</li>
+                        <li><code>{{FIRST_NAME}}</code>: Student's first name.</li>
+                        <li><code>{{STUDENTNUMBER}}</code>: Student's number (if available in folder name and pattern).</li>
+                        <li><code>{{SUBMITTED_PAGES_LIST}}</code>: A list of submitted pages and original filenames.</li>
+                        <li><code>{{MISSING_PAGES_LIST}}</code>: A list of expected page directories not found for the student.</li>
+                    </ul>
+                    <p>Example:</p>
+                    <pre><code># Exam Submission
+
+**Student:** {{LAST_NAME}}, {{FIRST_NAME}}
+**Number:** {{STUDENTNUMBER}}
+
+## Submitted Pages:
+{{SUBMITTED_PAGES_LIST}}
+
+## Missing Pages:
+{{MISSING_PAGES_LIST}}</code></pre>
+                </div>
+            </details>
+        </div>
     </div>
 </div>
 

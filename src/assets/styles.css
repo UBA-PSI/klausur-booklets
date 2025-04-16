@@ -352,3 +352,32 @@ h1 {
   display: flex;
   gap: 10px;
 }
+
+/* Cover Template Modal Styling */
+.cover-template-modal .modal-content {
+  width: 70%; /* Adjust width as needed */
+  max-width: 900px; 
+}
+
+.cover-template-modal textarea {
+  min-height: 300px; /* Ensure textarea is reasonably tall */
+  font-family: monospace;
+  font-size: 0.9em;
+  line-height: 1.4;
+}
+
+.cover-template-modal .pattern-explanation code {
+    background-color: #e9ecef;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 1em; /* Make code slightly larger in help */
+}
+
+.cover-template-modal .pattern-explanation pre {
+    background-color: #f8f9fa;
+    border: 1px solid #e8e8e8;
+    padding: 10px;
+    border-radius: 4px;
+    overflow-x: auto; /* Allow horizontal scroll for long lines */
+}

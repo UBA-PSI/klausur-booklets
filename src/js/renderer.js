@@ -4,6 +4,22 @@
 // Declare config at a higher scope
 let config = {};
 
+// Default Cover Template Content (Updated with user's template)
+const DEFAULT_COVER_TEMPLATE = `# {{LAST_NAME}}
+### {{FIRST_NAME}}
+
+({{FULL_NAME}}, {{STUDENTNUMBER}})
+
+### Booklet
+
+Dieses Booklet ist zugelassenes Hilfsmittel im Wintersemester 2024 und im Sommersemester 2025.
+
+**Eingereichte Seiten:**
+{{SUBMITTED_PAGES_LIST}}
+
+**Nicht eingereichte Seiten:**
+{{MISSING_PAGES_LIST}}`;
+
 // Check if the API is exposed
 if (!window.electronAPI) {
   console.error("FATAL: Preload script did not expose electronAPI!");
@@ -64,9 +80,6 @@ window.electronAPI.onLoadConfig((loadedConfig) => {
     if (config.outputDirectory) {
         document.getElementById('outputDirectoryPath').value = config.outputDirectory;
     }
-    if (config.coverTemplateFilePath) {
-        document.getElementById('cover-template-path').value = config.coverTemplateFilePath;
-    }
     if (config.dpi) {
         document.getElementById('dpi').value = config.dpi;
     }
@@ -85,6 +98,11 @@ window.electronAPI.onLoadConfig((loadedConfig) => {
             document.getElementById('pattern-custom').checked = true;
         }
     }
+    // Load cover template content
+    const coverTemplateTextarea = document.getElementById('coverTemplateContentInput');
+    if (coverTemplateTextarea) {
+        coverTemplateTextarea.value = config.coverTemplateContent || DEFAULT_COVER_TEMPLATE;
+    }
 });
 
 
@@ -92,9 +110,14 @@ function saveConfig() {
     // Get the current values from the UI
     config.mainDirectory = document.getElementById('mainDirectoryPath').value;
     config.outputDirectory = document.getElementById('outputDirectoryPath').value;
-    config.coverTemplateFilePath = document.getElementById('cover-template-path').value;
     config.dpi = parseInt(document.getElementById('dpi').value, 10);
     config.foldernamePattern = document.getElementById('foldername-pattern').value; // Save pattern
+    
+    // Save cover template content
+    const coverTemplateTextarea = document.getElementById('coverTemplateContentInput');
+    if (coverTemplateTextarea) {
+        config.coverTemplateContent = coverTemplateTextarea.value;
+    }
 
     // Use the exposed function to save the updated config object
     window.electronAPI.saveConfig(config);
@@ -108,14 +131,6 @@ window.electronAPI.onDirectorySelected((type, directoryPath) => {
     } else if (type === 'outputDirectory') {
         document.getElementById('outputDirectoryPath').value = directoryPath;
         config.outputDirectory = directoryPath; // Update config too
-    } else if (type === 'coverTemplateFile') {
-        const inputElement = document.getElementById('cover-template-path');
-        if (inputElement) {
-            inputElement.value = directoryPath;
-        } else {
-            console.error('Could not find element with ID cover-template-path');
-        }
-        config.coverTemplateFilePath = directoryPath;
     }
 
     // Save the configuration
@@ -347,18 +362,19 @@ document.getElementById('startTransformationBtn').addEventListener('click', asyn
 document.getElementById('startMergingBtn').addEventListener('click', async () => {
     const mainDirectory = document.getElementById('mainDirectoryPath').value;
     const outputDirectory = document.getElementById('outputDirectoryPath').value;
-    const templatePath = document.getElementById('cover-template-path').value;
 
-    if (!mainDirectory || !outputDirectory || !templatePath) {
-        document.getElementById('status').textContent = 'Please select all required paths before proceeding.';
+    if (!mainDirectory || !outputDirectory) {
+        document.getElementById('status').textContent = 'Please select input and output directories before proceeding.';
+        updateStatus('error', 'Please select input and output directories.'); // Update status bar
         return;
     }
 
     document.getElementById('status').textContent = 'Merging PDFs... Please wait.';
+    updateStatus('processing', 'Merging PDFs... Please wait.'); // Update status bar
     
     try {
-        // Use the exposed function
-        await window.electronAPI.startMerging(mainDirectory, outputDirectory, templatePath);
+        // Use the exposed function - REMOVED templatePath argument
+        await window.electronAPI.startMerging(mainDirectory, outputDirectory);
         document.getElementById('status').textContent = 'PDFs merged successfully! Check the output directory.';
         updateStatus('success', 'PDFs merged successfully! Check the output directory.');
     } catch (error) {
@@ -398,11 +414,6 @@ document.querySelector('.close-button').addEventListener('click', () => {
     saveConfig();
 });
 
-// Update the button event listener
-document.getElementById('select-cover-template-button').addEventListener('click', () => {
-    window.electronAPI.selectDirectory('coverTemplateFile'); // Send new type
-});
-
 // Add event listeners for directory selection buttons
 document.getElementById('select-main-dir-button').addEventListener('click', () => {
     window.electronAPI.selectDirectory('mainDirectory');
@@ -440,7 +451,6 @@ document.getElementById('importConfigBtn').addEventListener('click', async () =>
             // Update UI fields from the newly loaded config
             if (config.mainDirectory) document.getElementById('mainDirectoryPath').value = config.mainDirectory;
             if (config.outputDirectory) document.getElementById('outputDirectoryPath').value = config.outputDirectory;
-            if (config.coverTemplateFilePath) document.getElementById('cover-template-path').value = config.coverTemplateFilePath;
             if (config.dpi) document.getElementById('dpi').value = config.dpi;
             if (config.foldernamePattern) document.getElementById('foldername-pattern').value = config.foldernamePattern;
             
@@ -456,6 +466,8 @@ document.getElementById('importConfigBtn').addEventListener('click', async () =>
 
 // When the modal is closed, save the potentially updated config
 document.querySelector('#settingsModal .close-button').addEventListener('click', () => {
+    const settingsModal = document.getElementById('settingsModal');
+    settingsModal.style.display = "none";
     saveConfig();
 });
 
@@ -473,6 +485,43 @@ document.querySelectorAll('input[name="pattern-preset"]').forEach(radio => {
             // Optionally could clear it: patternInput.value = '';
         }
     });
+});
+
+// Add event listener for the new cover template edit button
+document.getElementById('editCoverTemplateBtn').addEventListener('click', () => {
+    const modal = document.getElementById('coverTemplateModal');
+    const textarea = document.getElementById('coverTemplateContentInput');
+    // Ensure textarea is populated with current config value or default when opening
+    textarea.value = config.coverTemplateContent || DEFAULT_COVER_TEMPLATE;
+    modal.style.display = 'block';
+});
+
+// Add event listener for the close button on the cover template modal
+document.querySelector('#coverTemplateModal .cover-template-close').addEventListener('click', () => {
+    const modal = document.getElementById('coverTemplateModal');
+    modal.style.display = 'none';
+    // Save config when closing the modal
+    saveConfig(); 
+});
+
+// Make clicking outside the modal close it (for cover template modal)
+window.addEventListener('click', (event) => {
+    const coverModal = document.getElementById('coverTemplateModal');
+    if (event.target == coverModal) {
+        coverModal.style.display = 'none';
+        saveConfig(); // Save on close
+    }
+    // Keep existing logic for settings modal if present
+    const settingsModal = document.getElementById('settingsModal');
+    if (event.target == settingsModal) {
+        settingsModal.style.display = "none";
+        saveConfig(); // Assuming settings modal also saves on close
+    }
+    const ambiguityModal = document.getElementById('ambiguityModal');
+    if (event.target == ambiguityModal) {
+        // Decide if closing ambiguity modal externally should cancel or do nothing
+        // For now, let the explicit close button handle it
+    }
 });
 
 

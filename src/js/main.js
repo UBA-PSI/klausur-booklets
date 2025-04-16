@@ -62,6 +62,21 @@ const createMenu = (win) => {
                 { role: 'quit' }
             ]
         },
+        // Add standard Edit menu for Copy/Paste etc.
+        {
+            label: 'Edit',
+            submenu: [
+                { role: 'undo' },
+                { role: 'redo' },
+                { type: 'separator' },
+                { role: 'cut' },
+                { role: 'copy' },
+                { role: 'paste' },
+                { role: 'pasteAndMatchStyle' },
+                { role: 'delete' },
+                { role: 'selectAll' }
+            ]
+        },
         {
             label: 'View',
             submenu: [
@@ -76,7 +91,7 @@ const createMenu = (win) => {
                 { role: 'togglefullscreen' }
             ]
         }
-        // You can add more menus like Edit, Window, Help etc.
+        // You can add more menus like Window, Help etc.
     ];
 
     const menu = Menu.buildFromTemplate(template);
@@ -339,8 +354,8 @@ async function prepareTransformations(mainDirectory, outputDirectory, folderPatt
             const parsedInfo = parseFolderName(studentFolder, folderPattern);
             const studentIdentifier = parsedInfo.primaryIdentifier;
             
-            // Create student output directory
-            const studentOutputDir = path.join(outputDirectory, studentIdentifier);
+            // Create student output directory INSIDE 'pages'
+            const studentOutputDir = path.join(outputDirectory, 'pages', studentIdentifier);
             if (!fs.existsSync(studentOutputDir)) {
                 fs.mkdirSync(studentOutputDir, { recursive: true });
             }
@@ -521,8 +536,8 @@ ipcMain.handle('resolve-ambiguity', async (event, resolvedChoices) => {
              throw new Error(errorMsg);
         }
         
-        // Use studentIdentifier for output directory
-        const studentOutputDirectory = path.join(currentOutputDirectory, studentIdentifier); 
+        // Use studentIdentifier for output directory INSIDE 'pages'
+        const studentOutputDirectory = path.join(currentOutputDirectory, 'pages', studentIdentifier); 
         if (!fs.existsSync(studentOutputDirectory)){
             console.log(`Creating output directory during resolution: ${studentOutputDirectory}`);
             fs.mkdirSync(studentOutputDirectory, { recursive: true });
@@ -594,15 +609,48 @@ ipcMain.handle('resolve-ambiguity', async (event, resolvedChoices) => {
     }
 });
 
-ipcMain.handle('start-merging', async (event, mainDirectory, outputDirectory, templateFilePath) => {
+ipcMain.handle('start-merging', async (event, mainDirectory, outputDirectory) => {
+    console.log(`IPC: Received start-merging for outputDir: ${outputDirectory}`);
     try {
-        await mergeStudentPDFs(mainDirectory, outputDirectory, null, templateFilePath);
-        return "Success";
-    } catch (error) {
-        if (error.message.startsWith("Name collision detected")) {
-            event.sender.send('name-collision', error.message);
+        // Load config to get cover template content
+        let config = {};
+        let coverTemplateContent = `# Default Cover Template
+
+Student: {{FULL_NAME}}
+Number: {{STUDENTNUMBER}}
+
+Submitted:
+{{SUBMITTED_PAGES_LIST}}
+
+Missing:
+{{MISSING_PAGES_LIST}}`; // Default content
+        try {
+            if (fs.existsSync(CONFIG_PATH)) {
+                config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
+                if (config.coverTemplateContent) {
+                    coverTemplateContent = config.coverTemplateContent;
+                    console.log("IPC: Loaded cover template content from config.");
+                } else {
+                    console.log("IPC: No cover template content in config, using default.");
+                }
+            } else {
+                 console.log("IPC: Config file not found, using default cover template.");
+            }
+        } catch (err) {
+            console.error("IPC: Error reading config for cover template, using default:", err);
         }
-        throw error;  // Re-throw the error to be caught in the renderer
+
+        // Pass the template CONTENT string to mergeStudentPDFs
+        await mergeStudentPDFs(mainDirectory, outputDirectory, coverTemplateContent);
+        return "Success"; // Indicate success to renderer
+    } catch (error) {
+        console.error("IPC: Error during start-merging:", error);
+        if (error.message.startsWith("Name collision detected")) {
+            // Existing collision handling (consider if needed)
+            // event.sender.send('name-collision', error.message);
+        }
+        // Re-throw error to be caught by renderer's try/catch block
+        throw error;  
     }
 });
 
@@ -660,13 +708,17 @@ ipcMain.handle('create-booklets', async (event, outputDirectory) => {
 // Modify saveProcessedFileInfo to potentially use studentInfo from the items
 async function saveProcessedFileInfo(outputDirectory) {
     console.log("Saving processed file information...");
+    // The outputDirectory passed here is the *root* output dir
     for (const studentIdentifier in processedFileInfo) {
-        const studentOutputDir = path.join(outputDirectory, studentIdentifier);
+        // Construct path to student directory inside 'pages'
+        const studentOutputDir = path.join(outputDirectory, 'pages', studentIdentifier);
         const infoFilePath = path.join(studentOutputDir, 'processed_files.json');
         // We save the array of { pageName, originalFileName, studentInfo }
         const dataToSave = processedFileInfo[studentIdentifier]; 
         try {
              if (!fs.existsSync(studentOutputDir)) {
+                 // It should exist from transformation, but check just in case
+                 console.warn(`Student output directory missing during save: ${studentOutputDir}. Creating.`);
                  fs.mkdirSync(studentOutputDir, { recursive: true });
              }
              fs.writeFileSync(infoFilePath, JSON.stringify(dataToSave, null, 2));
