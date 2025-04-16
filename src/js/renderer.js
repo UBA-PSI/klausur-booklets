@@ -1,7 +1,15 @@
-const { ipcRenderer } = require('electron');
+// Remove the direct require of ipcRenderer
+// const { ipcRenderer } = require('electron');
+
+// Check if the API is exposed
+if (!window.electronAPI) {
+  console.error("FATAL: Preload script did not expose electronAPI!");
+  // Handle the error appropriately, maybe show a message to the user
+}
 
 function selectDirectory(type) {
-    ipcRenderer.send('select-directory', type);
+    // Use the exposed function
+    window.electronAPI.selectDirectory(type);
 }
 
 
@@ -26,7 +34,9 @@ function updateStatus(type, message) {
 
 
 
-ipcRenderer.on('load-config', (event, config) => {
+// --- Setup Listeners using electronAPI --- 
+window.electronAPI.onLoadConfig((config) => {
+    console.log('Received load-config:', config); // Debug log
     if (config.mainDirectory) {
         document.getElementById('mainDirectoryPath').value = config.mainDirectory;
     }
@@ -36,7 +46,6 @@ ipcRenderer.on('load-config', (event, config) => {
     if (config.descriptionFile) {
         document.getElementById('descriptionFilePath').value = config.descriptionFile;
     }
-	
     if (config.dpi) {
         document.getElementById('dpi').value = config.dpi;
     }
@@ -44,15 +53,17 @@ ipcRenderer.on('load-config', (event, config) => {
 
 
 function saveConfig() {
-    ipcRenderer.send('save-config', {
+    // Use the exposed function
+    window.electronAPI.saveConfig({
         mainDirectory: document.getElementById('mainDirectoryPath').value,
         outputDirectory: document.getElementById('outputDirectoryPath').value,
         descriptionFile: document.getElementById('descriptionFilePath').value,
-		dpi: parseInt(document.getElementById('dpi').value, 10)
+        dpi: parseInt(document.getElementById('dpi').value, 10)
     });
 }
 
-ipcRenderer.on('directory-selected', (event, type, directoryPath) => {
+window.electronAPI.onDirectorySelected((type, directoryPath) => {
+    console.log(`Received directory-selected: type=${type}, path=${directoryPath}`); // Debug log
     if (type === 'mainDirectory') {
         document.getElementById('mainDirectoryPath').value = directoryPath;
     } else if (type === 'outputDirectory') {
@@ -65,11 +76,12 @@ ipcRenderer.on('directory-selected', (event, type, directoryPath) => {
     saveConfig();
 });
 
-ipcRenderer.on('name-collision', (event, errorMessage) => {
+window.electronAPI.onNameCollision((errorMessage) => {
+    console.log(`Received name-collision: ${errorMessage}`); // Debug log
     document.getElementById('status').textContent = errorMessage;
+    updateStatus('error', errorMessage); // Update status bar too
 });
-
-
+// --- End Listener Setup ---
 
 
 document.getElementById('startTransformationBtn').addEventListener('click', async () => {
@@ -87,7 +99,8 @@ document.getElementById('startTransformationBtn').addEventListener('click', asyn
 	
     try {
         let dpiValue = parseInt(document.getElementById('dpi').value, 10);
-        await ipcRenderer.invoke('start-transformation', mainDirectory, outputDirectory, descriptionFile, dpiValue);
+        // Use the exposed function
+        await window.electronAPI.startTransformation(mainDirectory, outputDirectory, descriptionFile, dpiValue);
         document.getElementById('status').textContent = 'Pages transformed successfully! Check the student directories.';
         updateStatus('success', 'Pages transformed successfully! Check the student directories.');
     } catch (error) {
@@ -109,32 +122,42 @@ document.getElementById('startMergingBtn').addEventListener('click', async () =>
     document.getElementById('status').textContent = 'Merging PDFs... Please wait.';
     
     try {
-        await ipcRenderer.invoke('start-merging', mainDirectory, outputDirectory, descriptionFile);
+        // Use the exposed function
+        await window.electronAPI.startMerging(mainDirectory, outputDirectory, descriptionFile);
         document.getElementById('status').textContent = 'PDFs merged successfully! Check the output directory.';
+        updateStatus('success', 'PDFs merged successfully! Check the output directory.');
     } catch (error) {
         document.getElementById('status').textContent = 'Error merging PDFs: ' + error.message;
+        updateStatus('error', 'Error merging PDFs: ' + error.message);
     }
 });
 
+// Keep the disabled button listener commented out or inactive
+/*
 document.getElementById('createBookletsBtn').addEventListener('click', async () => {
     const outputDirectory = document.getElementById('outputDirectoryPath').value;
 
     if (!outputDirectory) {
         document.getElementById('status').textContent = 'Please select the output directory before proceeding.';
+        updateStatus('error', 'Please select the output directory before proceeding.');
         return;
     }
 
     document.getElementById('status').textContent = 'Creating booklets... Please wait.';
+    updateStatus('processing', 'Creating booklets... Please wait.');
     
     try {
-        await ipcRenderer.invoke('create-booklets', outputDirectory);
-        document.getElementById('status').textContent = 'Booklets created successfully! Check the booklets directory.';
+        // Would use: await window.electronAPI.createBooklets(outputDirectory);
+        // But this is disabled for now
+        document.getElementById('status').textContent = 'Booklet creation is currently disabled.';
+        updateStatus('info', 'Booklet creation is currently disabled.');
+        // Old success message: 'Booklets created successfully! Check the booklets directory.';
     } catch (error) {
         document.getElementById('status').textContent = 'Error creating booklets: ' + error.message;
+        updateStatus('error', 'Error creating booklets: ' + error.message);
     }
 });
-
-
+*/
 
 document.getElementById('settingsButton').addEventListener('click', openModal);
 

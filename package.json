@@ -12,15 +12,14 @@
     "pdf-process": "node src/js/pdf-cmdline-processor.js"
   },
   "dependencies": {
-    "@electron/remote": "^2.0.11",
     "@hyzyla/pdfium": "^2.1.5",
-    "electron": "^26.2.1",
+    "electron": "^35.1.5",
     "pdf-lib": "^1.17.1",
     "sharp": "^0.34.1",
     "yargs": "^17.7.2"
   },
   "devDependencies": {
-    "electron-builder": "^24.6.4",
+    "electron-builder": "^26.0.12",
     "electron-rebuild": "^3.2.9",
     "eslint": "^8.50.0"
   },

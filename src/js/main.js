@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
 const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -14,8 +14,9 @@ function createWindow() {
         width: 800,
         height: 580,
         webPreferences: {
-            nodeIntegration: true,
-            contextIsolation: false
+            nodeIntegration: false,
+            contextIsolation: true,
+            preload: path.join(__dirname, 'preload.js')
         }
     });
 
@@ -28,10 +29,46 @@ function createWindow() {
             win.webContents.send('load-config', config);
         });
     }
+
+    return win;
 }
 
 
-app.whenReady().then(createWindow);
+// --- Create Application Menu ---
+const createMenu = (win) => {
+    const template = [
+        {
+            label: 'File',
+            submenu: [
+                { role: 'quit' }
+            ]
+        },
+        {
+            label: 'View',
+            submenu: [
+                { role: 'reload' },
+                { role: 'forceReload' },
+                { role: 'toggleDevTools' },
+                { type: 'separator' },
+                { role: 'resetZoom' },
+                { role: 'zoomIn' },
+                { role: 'zoomOut' },
+                { type: 'separator' },
+                { role: 'togglefullscreen' }
+            ]
+        }
+        // You can add more menus like Edit, Window, Help etc.
+    ];
+
+    const menu = Menu.buildFromTemplate(template);
+    Menu.setApplicationMenu(menu);
+};
+// --- End Menu Creation ---
+
+app.whenReady().then(() => {
+    const mainWindow = createWindow();
+    createMenu(mainWindow); // Call createMenu after window is created
+});
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
@@ -40,8 +77,11 @@ app.on('window-all-closed', () => {
 });
 
 app.on('activate', () => {
+    // On macOS it's common to re-create a window in the app when the
+    // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) {
-        createWindow();
+       const mainWindow = createWindow();
+       createMenu(mainWindow); // Also ensure menu is set if window is recreated
     }
 });
 
