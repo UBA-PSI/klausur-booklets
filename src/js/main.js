@@ -503,8 +503,193 @@ async function prepareTransformations(mainDirectory, outputDirectory, folderPatt
 }
 
 
+// --- Helper Functions for start-transformation ---
+
+/**
+ * Attempts to resolve Moodle name collisions using email mappings.
+ * Modifies the tasks array in place.
+ * @param {Array} tasks - The list of transformation tasks.
+ * @param {Object} emailMap - The map of someNumber to email addresses.
+ * @param {string} outputDirectory - The base output directory.
+ */
+function resolveMoodleCollisions(tasks, emailMap, outputDirectory) {
+    console.log("Attempting Moodle collision resolution using emails...");
+    const identifierGroups = tasks.reduce((acc, task) => {
+        const id = task.studentInfo.primaryIdentifier;
+        if (!acc[id]) acc[id] = [];
+        acc[id].push(task);
+        return acc;
+    }, {});
+
+    let resolvedCollisions = 0;
+    for (const identifier in identifierGroups) {
+        if (identifierGroups[identifier].length > 1) { // Potential collision
+            console.log(`Potential collision for identifier: ${identifier}`);
+            let canResolveAll = true;
+            let allEmails = new Set();
+
+            for (const task of identifierGroups[identifier]) {
+                const someNum = task.studentInfo.someNumber;
+                const email = someNum ? emailMap[someNum] : null;
+                if (email) {
+                    allEmails.add(email);
+                    task.studentInfo.email = email; // Store email for potential use
+                } else {
+                    console.warn(`Cannot resolve for ${identifier}: Task for ${task.originalFileName} missing someNumber or email mapping.`);
+                    canResolveAll = false;
+                    break; // Cannot resolve this group
+                }
+            }
+
+            // If all tasks in the group had a mapped email AND there are multiple unique emails
+            if (canResolveAll && allEmails.size > 1) {
+                 console.log(`Resolving collision for ${identifier} using emails.`);
+                 identifierGroups[identifier].forEach(task => {
+                     task.studentInfo.primaryIdentifier = task.studentInfo.email;
+                     // Also update the outputPath to reflect the new identifier
+                     task.outputPath = path.join(outputDirectory, 'pages', task.studentInfo.primaryIdentifier, `${task.pageName}.pdf`);
+                     console.log(`  Updated task for ${task.originalFileName} -> ID: ${task.studentInfo.primaryIdentifier}, Path: ${task.outputPath}`);
+                 });
+                 resolvedCollisions++;
+            } else if (canResolveAll && allEmails.size <= 1) {
+                // All map to the same email or only one email found (no actual collision)
+                console.log(`Collision group for ${identifier} resolved to single email or no conflict. No change needed.`);
+            } else {
+                console.warn(`Could not fully resolve collision for ${identifier} using emails.`);
+            }
+        }
+    }
+     if (resolvedCollisions > 0) {
+         console.log(`Automatically resolved ${resolvedCollisions} name collisions using emails.`);
+     }
+    // Note: This function modifies 'tasks' directly.
+}
+
+/**
+ * Performs the final V7 collision check based on origin keys.
+ * Throws an error if unresolvable collisions are found.
+ * @param {Array} tasks - The list of transformation tasks (potentially updated by Moodle resolution).
+ * @param {boolean} isMoodleMode - Flag indicating if Moodle pattern is used.
+ */
+function performFinalCollisionCheck(tasks, isMoodleMode) {
+    console.log("Performing final collision check V7...");
+    const finalIdentifierGroups = tasks.reduce((acc, task) => {
+        const finalId = task.studentInfo.primaryIdentifier;
+        if (!acc[finalId]) {
+            acc[finalId] = {
+                originKeys: new Set(),
+                taskExamples: [],
+                pageFolders: new Set()
+            };
+        }
+        
+        let originKey;
+        const folderName = path.basename(path.dirname(task.inputPath));
+        const pageFolder = path.basename(path.dirname(path.dirname(task.inputPath)));
+        acc[finalId].pageFolders.add(pageFolder);
+        
+        if (isMoodleMode) {
+            const moodleSuffix = '_assignsubmission_file_';
+            if (folderName.includes(moodleSuffix)) {
+                originKey = task.studentInfo.fullName;
+            } else {
+                originKey = folderName;
+            }
+        } else {
+            originKey = folderName;
+        }
+        
+        acc[finalId].originKeys.add(originKey);
+        
+        if (acc[finalId].taskExamples.length < 3) {
+             acc[finalId].taskExamples.push(`${path.basename(task.inputPath)} (from ${pageFolder})`);
+        }
+        return acc;
+    }, {});
+
+    const finalCollisionsData = [];
+    for (const identifier in finalIdentifierGroups) {
+        const group = finalIdentifierGroups[identifier];
+        if (group.originKeys.size > 1) {
+             console.error(`Final Collision Error V7: Identifier '${identifier}' associated with multiple distinct origins: ${Array.from(group.originKeys).join(', ')}. Example files involved: ${group.taskExamples.join(', ')}`);
+             finalCollisionsData.push(`${identifier} (from origins: ${Array.from(group.originKeys).join(', ')})`);
+        } else if (group.pageFolders.size > 1) {
+             console.log(`Student '${identifier}' has submissions in multiple page folders: ${Array.from(group.pageFolders).join(', ')}`);
+        }
+    }
+
+    if (finalCollisionsData.length > 0) {
+        const collisionDetails = finalCollisionsData.join('; ');
+        console.error(`Final check V7 failed: Unresolvable collisions detected: ${collisionDetails}`);
+        throw new Error(`FinalCollisionError: Unresolvable collisions found: ${collisionDetails}. Please rename input folders manually or provide/correct CSVs.`);
+    }
+    console.log("Final collision check V7 passed.");
+}
+
+/**
+ * Processes tasks directly when no ambiguities are present.
+ * Includes progress updates and saving processed info.
+ * @param {Array} tasks - The list of transformation tasks.
+ * @param {string} outputDirectory - The base output directory.
+ * @param {number} dpi - The DPI setting for transformations.
+ * @returns {string} Success message.
+ * @throws {Error} If processing completes with errors.
+ */
+async function processTasksDirectly(tasks, outputDirectory, dpi) {
+    console.log("IPC: No ambiguities or collisions. Processing tasks directly.");
+    let successCount = 0;
+    let errorCount = 0;
+    const totalTasks = tasks.length;
+
+    for (let i = 0; i < totalTasks; i++) {
+        const task = tasks[i];
+        const taskOutputDir = path.dirname(task.outputPath);
+        if (!fs.existsSync(taskOutputDir)) {
+            console.log(`Creating task output directory: ${taskOutputDir}`);
+            fs.mkdirSync(taskOutputDir, { recursive: true });
+        }
+
+        if (mainWindow) {
+            const progress = Math.round(((i + 1) / totalTasks) * 100);
+            mainWindow.webContents.send('transformation-progress', {
+                current: i + 1,
+                total: totalTasks,
+                percentage: progress,
+                fileName: path.basename(task.inputPath) 
+            });
+        }
+        
+        try {
+            await processSingleTransformation(task.inputPath, task.outputPath, dpi);
+            successCount++;
+            const studentIdentifier = task.studentInfo?.primaryIdentifier || path.basename(taskOutputDir);
+            if (!processedFileInfo[studentIdentifier]) processedFileInfo[studentIdentifier] = [];
+            processedFileInfo[studentIdentifier].push({ 
+                pageName: task.pageName, 
+                originalFileName: task.originalFileName,
+                studentInfo: task.studentInfo
+            });
+        } catch (processingError) {
+            console.error(`Error during initial transformation for ${task.inputPath}:`, processingError);
+            errorCount++;
+        }
+    }
+
+    await saveProcessedFileInfo(outputDirectory);
+    console.log(`IPC: Transformation processing complete. Success: ${successCount}, Errors: ${errorCount}`);
+    
+    if (errorCount > 0) {
+        throw new Error(`Transformation completed with ${errorCount} error(s).`);
+    } else {
+        return `Transformation completed successfully for ${successCount} file(s).`;
+    }
+}
+
+// --- End Helper Functions ---
+
 ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirectory, dpi) => {
     console.log("IPC: Received start-transformation");
+    // Reset global state
     pendingTransformationData = null; 
     currentTransformationDpi = dpi;   
     currentOutputDirectory = outputDirectory;
@@ -521,201 +706,43 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
     console.log(`Using folder pattern: ${folderPattern}, Moodle Mode: ${isMoodleMode}`);
 
     try {
+        // 1. Prepare initial tasks and identify ambiguities
         let { tasks, ambiguities } = await prepareTransformations(mainDirectory, outputDirectory, folderPattern);
         console.log(`IPC: Initial preparation complete. Tasks: ${tasks.length}, Ambiguities: ${ambiguities.length}. Email map size: ${Object.keys(someNumberToEmailMap).length}`);
 
-        // --- Collision Resolution Attempt (Moodle Mode) ---
+        // 2. Attempt Moodle Collision Resolution (modifies tasks in place)
         if (isMoodleMode && tasks.length > 0) {
-            console.log("Attempting Moodle collision resolution using emails...");
-            const identifierGroups = tasks.reduce((acc, task) => {
-                const id = task.studentInfo.primaryIdentifier;
-                if (!acc[id]) acc[id] = [];
-                acc[id].push(task);
-                return acc;
-            }, {});
-
-            let resolvedCollisions = 0;
-            for (const identifier in identifierGroups) {
-                if (identifierGroups[identifier].length > 1) { // Potential collision
-                    console.log(`Potential collision for identifier: ${identifier}`);
-                    let canResolveAll = true;
-                    let allEmails = new Set();
-
-                    for (const task of identifierGroups[identifier]) {
-                        const someNum = task.studentInfo.someNumber;
-                        const email = someNum ? someNumberToEmailMap[someNum] : null;
-                        if (email) {
-                            allEmails.add(email);
-                            task.studentInfo.email = email; // Store email for potential use
-                        } else {
-                            console.warn(`Cannot resolve for ${identifier}: Task for ${task.originalFileName} missing someNumber or email mapping.`);
-                            canResolveAll = false;
-                            break; // Cannot resolve this group
-                        }
-                    }
-
-                    // If all tasks in the group had a mapped email AND there are multiple unique emails
-                    if (canResolveAll && allEmails.size > 1) {
-                         console.log(`Resolving collision for ${identifier} using emails.`);
-                         identifierGroups[identifier].forEach(task => {
-                             task.studentInfo.primaryIdentifier = task.studentInfo.email;
-                             // Also update the outputPath to reflect the new identifier
-                             task.outputPath = path.join(outputDirectory, 'pages', task.studentInfo.primaryIdentifier, `${task.pageName}.pdf`);
-                             console.log(`  Updated task for ${task.originalFileName} -> ID: ${task.studentInfo.primaryIdentifier}, Path: ${task.outputPath}`);
-                         });
-                         resolvedCollisions++;
-                    } else if (canResolveAll && allEmails.size <= 1) {
-                        // All map to the same email or only one email found (no actual collision)
-                        console.log(`Collision group for ${identifier} resolved to single email or no conflict. No change needed.`);
-                    } else {
-                        console.warn(`Could not fully resolve collision for ${identifier} using emails.`);
-                    }
-                }
-            }
-             if (resolvedCollisions > 0) {
-                 console.log(`Automatically resolved ${resolvedCollisions} name collisions using emails.`);
-             }
+            resolveMoodleCollisions(tasks, someNumberToEmailMap, outputDirectory);
         }
-        // --- End Collision Resolution Attempt ---
         
-        // --- CORRECTED Final Collision Check V7 ---
-        console.log("Performing final collision check V7...");
-        const finalIdentifierGroups = tasks.reduce((acc, task) => {
-            const finalId = task.studentInfo.primaryIdentifier;
-            if (!acc[finalId]) {
-                acc[finalId] = {
-                    originKeys: new Set(),
-                    taskExamples: [], // Store examples for error message
-                    pageFolders: new Set() // Track which page folders we've seen this ID in
-                };
-            }
-            
-            // Determine the key representing the original student submission
-            // For origin key, we need something that represents the STUDENT, not the submission instance
-            let originKey;
-            const folderName = path.basename(path.dirname(task.inputPath));
-            
-            // Add the page folder this task is from
-            const pageFolder = path.basename(path.dirname(path.dirname(task.inputPath)));
-            acc[finalId].pageFolders.add(pageFolder);
-            
-            if (isMoodleMode) {
-                // In Moodle mode, extract the name part without the someNumber
-                // This should be consistent across all submissions from the same student
-                const moodleSuffix = '_assignsubmission_file_';
-                if (folderName.includes(moodleSuffix)) {
-                    // For Moodle folders, use the fullName part as the origin key
-                    originKey = task.studentInfo.fullName;
-                } else {
-                    // Fallback for non-standard folders
-                    originKey = folderName;
-                }
-            } else {
-                // In non-Moodle mode, use original folder name
-                originKey = folderName;
-            }
-            
-            acc[finalId].originKeys.add(originKey);
-            
-            // Keep track of a few task input paths for context in error messages
-            if (acc[finalId].taskExamples.length < 3) {
-                 acc[finalId].taskExamples.push(`${path.basename(task.inputPath)} (from ${pageFolder})`);
-            }
-            return acc;
-        }, {});
+        // 3. Perform Final Collision Check (throws error if issues found)
+        performFinalCollisionCheck(tasks, isMoodleMode);
 
-        const finalCollisionsData = [];
-        for (const identifier in finalIdentifierGroups) {
-            const group = finalIdentifierGroups[identifier];
-            // We only have a collision if multiple DISTINCT originKeys map to the same identifier
-            if (group.originKeys.size > 1) {
-                 console.error(`Final Collision Error V7: Identifier '${identifier}' associated with multiple distinct origins: ${Array.from(group.originKeys).join(', ')}. Example files involved: ${group.taskExamples.join(', ')}`);
-                 finalCollisionsData.push(`${identifier} (from origins: ${Array.from(group.originKeys).join(', ')})`);
-            } else if (group.pageFolders.size > 1) {
-                 // This is the expected case: same student has files in multiple page folders
-                 console.log(`Student '${identifier}' has submissions in multiple page folders: ${Array.from(group.pageFolders).join(', ')}`);
-            }
-        }
-
-        if (finalCollisionsData.length > 0) {
-            const collisionDetails = finalCollisionsData.join('; ');
-            console.error(`Final check V7 failed: Unresolvable collisions detected: ${collisionDetails}`);
-            throw new Error(`FinalCollisionError: Unresolvable collisions found: ${collisionDetails}. Please rename input folders manually or provide/correct CSVs.`);
-        }
-        console.log("Final collision check V7 passed.");
-        // --- End Final Collision Check ---
-
-        // Store data for potential later ambiguity resolution
-        pendingTransformationData = { unambiguousTasks: tasks, ambiguities, outputDirectory }; 
-
+        // 4. Handle Ambiguities or Process Directly
         if (ambiguities.length > 0) {
-            // Send request to renderer to resolve ambiguity
+            // Store data for later resolution
+            pendingTransformationData = { unambiguousTasks: tasks, ambiguities, outputDirectory }; 
             console.log("IPC: Ambiguities found. Requesting resolution from renderer.");
             if (mainWindow) {
                 mainWindow.webContents.send('request-ambiguity-resolution', ambiguities);
             }
-            // Indicate to renderer that resolution is needed by returning a specific status
-            // throw new Error("Ambiguity detected. Please resolve file conflicts."); 
             return { status: 'ambiguity_detected', message: 'Ambiguity detected. Please resolve conflicts.' };
         } else {
-            // No ambiguities, process tasks directly
-            console.log("IPC: No ambiguities or collisions. Processing tasks directly.");
-            let successCount = 0;
-            let errorCount = 0;
-            const totalTasks = tasks.length;
-
-            for (let i = 0; i < totalTasks; i++) {
-                const task = tasks[i];
-                // Ensure output directory exists *before* processing (important after potential path update)
-                const taskOutputDir = path.dirname(task.outputPath);
-                if (!fs.existsSync(taskOutputDir)) {
-                    console.log(`Creating task output directory: ${taskOutputDir}`);
-                    fs.mkdirSync(taskOutputDir, { recursive: true });
-                }
-
-                // Send progress update before processing
-                if (mainWindow) {
-                    const progress = Math.round(((i + 1) / totalTasks) * 100);
-                    mainWindow.webContents.send('transformation-progress', {
-                        current: i + 1,
-                        total: totalTasks,
-                        percentage: progress,
-                        fileName: path.basename(task.inputPath) 
-                    });
-                }
-                
-                try {
-                    await processSingleTransformation(task.inputPath, task.outputPath, currentTransformationDpi);
-                    successCount++;
-                    // --- Store processed file info ---
-                    const studentIdentifier = task.studentInfo?.primaryIdentifier || path.basename(path.dirname(task.outputPath));
-                    if (!processedFileInfo[studentIdentifier]) processedFileInfo[studentIdentifier] = [];
-                    processedFileInfo[studentIdentifier].push({ 
-                        pageName: task.pageName, 
-                        originalFileName: task.originalFileName,
-                        studentInfo: task.studentInfo
-                    });
-                    // --- End Store --- 
-                } catch (processingError) {
-                    console.error(`Error during initial transformation for ${task.inputPath}:`, processingError);
-                    errorCount++;
-                }
-            }
-            // --- Save processed info after loop --- 
-            await saveProcessedFileInfo(currentOutputDirectory);
+            // Process tasks directly (includes saving processed info)
+            const resultMessage = await processTasksDirectly(tasks, outputDirectory, dpi);
+            // Clear global state after successful direct processing
             pendingTransformationData = null; 
             currentOutputDirectory = null;
-            console.log(`IPC: Transformation processing complete. Success: ${successCount}, Errors: ${errorCount}`);
-            if (errorCount > 0) {
-                throw new Error(`Transformation completed with ${errorCount} error(s).`);
-            } else {
-                return `Transformation completed successfully for ${successCount} file(s).`;
-            }
+            return resultMessage;
         }
 
     } catch (error) {
         console.error("IPC: Error during transformation start:", error);
-        throw error; // Re-throw to renderer (will catch FinalCollisionError too)
+        // Clear potentially inconsistent state on error
+        pendingTransformationData = null; 
+        currentOutputDirectory = null;
+        processedFileInfo = {}; 
+        throw error; // Re-throw to renderer
     }
 });
 
