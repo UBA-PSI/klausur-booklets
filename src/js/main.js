@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
 const fs = require('fs');
 const path = require('path');
+const { parse } = require('csv-parse/sync'); // Import sync parser
 
 // Updated require to include new functions and error
 const {
@@ -19,6 +20,7 @@ let processedFileInfo = {}; // Format: { studentName: [{ pageName: string, origi
 let pendingTransformationData = null; 
 let currentTransformationDpi = 300; 
 let currentOutputDirectory = null;
+let someNumberToEmailMap = {}; // Global map for CSV lookup
 
 function createWindow() {
     const win = new BrowserWindow({
@@ -159,12 +161,13 @@ ipcMain.on('select-directory', async (event, type) => {
 // Helper function to parse folder name based on pattern
 function parseFolderName(folderName, pattern) {
     const result = {
-        primaryIdentifier: folderName, // Default to full folder name
+        primaryIdentifier: folderName, 
         firstName: '',
         lastName: '',
         studentNumber: '',
         username: '',
-        fullName: folderName // Store original as fallback full name
+        fullName: folderName,
+        someNumber: null // Added to store Moodle ID number
     };
 
     if (!pattern || !folderName) {
@@ -192,16 +195,16 @@ function parseFolderName(folderName, pattern) {
     const moodleSuffix = '_assignsubmission_file_';
     if (pattern.startsWith('FULLNAMEWITHSPACES') && folderName.includes(moodleSuffix)) { 
         const baseName = folderName.substring(0, folderName.lastIndexOf(moodleSuffix));
-        // Now split the baseName by the detected separator IF it exists, otherwise assume it might be just name_number
-        const nameAndNumber = separator ? baseName.split(separator) : baseName.split('_'); // Fallback to _ for Moodle
+        const nameAndNumber = separator ? baseName.split(separator) : baseName.split('_'); 
         
         if (nameAndNumber.length >= 2) {
-            result.fullName = nameAndNumber.slice(0, -1).join(separator || '_'); // Re-join with correct separator
+            result.fullName = nameAndNumber.slice(0, -1).join(separator || '_');
             const nameComponents = result.fullName.trim().split(/\s+/);
             result.lastName = nameComponents.pop() || result.fullName;
             result.firstName = nameComponents.join(' ') || '';
-            // Update primaryIdentifier for Moodle case
             result.primaryIdentifier = result.fullName;
+            // Extract the number part
+            result.someNumber = nameAndNumber[nameAndNumber.length - 1]; 
             console.log('Parsed using Moodle pattern logic:', result);
             return result;
         } else {
@@ -266,6 +269,9 @@ function parseFolderName(folderName, pattern) {
             case 'STUDENTNUMBER':
                 result.studentNumber = value;
                 break;
+            case 'SOMENUMBER': // Handle explicit SOMENUMBER placeholder
+                result.someNumber = value;
+                break;
             // Ignore other parts like 'SOMENUMBER'
         }
     }
@@ -291,10 +297,124 @@ function parseFolderName(folderName, pattern) {
     return result;
 }
 
-// Function to prepare transformations and handle ambiguities (MOVED HERE)
+// Extract CSV parsing to a separate function that can be reused
+async function parseCSVsInDirectory(mainDirectory) {
+    const emailMappings = {};
+    console.log("Starting CSV parsing process...");
+
+    // Get page directories
+    const pageDirs = fs.readdirSync(mainDirectory).filter(item => {
+        const itemPath = path.join(mainDirectory, item);
+        return fs.statSync(itemPath).isDirectory();
+    });
+    
+    if (pageDirs.length === 0) {
+        console.warn('No page directories found for CSV parsing.');
+        return emailMappings;
+    }
+
+    for (const pageDir of pageDirs) {
+        const pageDirPath = path.join(mainDirectory, pageDir);
+        console.log(`Scanning page directory for CSV files: ${pageDirPath}`);
+        try {
+            // List all files in the directory for debugging
+            const files = fs.readdirSync(pageDirPath);
+            console.log(`Files in ${pageDir}: ${files.join(', ')}`);
+            
+            // Look for any file ending with .csv (case insensitive)
+            const csvFiles = files.filter(file => {
+                const lcFile = file.toLowerCase().trim();
+                const isCSV = lcFile.endsWith('.csv');
+                console.log(`  ${file}: is CSV? ${isCSV}`);
+                return isCSV;
+            });
+            
+            if (csvFiles.length > 0) {
+                console.log(`Found ${csvFiles.length} CSV file(s) in ${pageDir}: ${csvFiles.join(', ')}`);
+                // Use the first CSV file found
+                const csvFile = csvFiles[0];
+                
+                const csvPath = path.join(pageDirPath, csvFile);
+                console.log(`Parsing CSV: ${csvPath}`);
+                try {
+                    const csvContent = fs.readFileSync(csvPath, 'utf-8');
+                    console.log(`CSV file size: ${csvContent.length} bytes`);
+                    console.log(`CSV first 100 chars: ${csvContent.substring(0, 100).replace(/\n/g, '\\n')}...`);
+                    
+                    const records = parse(csvContent, {
+                        columns: true, 
+                        skip_empty_lines: true,
+                        trim: true,
+                        relax_column_count: true // Be more lenient with CSV format
+                    });
+                    
+                    console.log(`Parsed ${records.length} records from CSV`);
+                    if (records.length > 0) {
+                        console.log(`Available headers: ${Object.keys(records[0] || {}).join(', ')}`);
+                    }
+                    
+                    // Find header names flexibly (case-insensitive, trim)
+                    const headers = Object.keys(records[0] || {}).map(h => h.trim().toLowerCase());
+                    const idHeader = headers.find(h => h.includes('id'));
+                    const emailHeader = headers.find(h => 
+                        h.includes('email') || 
+                        h.includes('e-mail') || 
+                        h.includes('mail-adresse') || 
+                        h === 'e-mail-adresse'
+                    );
+                    
+                    console.log(`Found headers - ID: ${idHeader || 'NOT FOUND'}, Email: ${emailHeader || 'NOT FOUND'}`);
+
+                    if (!idHeader || !emailHeader) {
+                        console.warn(`CSV ${csvFile} in ${pageDir} is missing required headers (ID-like and Email-like). Skipping.`);
+                        continue;
+                    }
+                    
+                    let mappingsFound = 0;
+                    records.forEach(record => {
+                        const rawId = record[Object.keys(record).find(k => k.trim().toLowerCase() === idHeader)];
+                        const email = record[Object.keys(record).find(k => k.trim().toLowerCase() === emailHeader)];
+                        if (rawId && email) {
+                            // Extract any numeric sequence from the ID
+                            const match = String(rawId).match(/\d+/);
+                            if (match) {
+                                const someNumber = match[0];
+                                if (!emailMappings[someNumber]) { // Avoid overwriting from different pages if ID reused
+                                    emailMappings[someNumber] = email;
+                                    mappingsFound++;
+                                }
+                            }
+                        }
+                    });
+                    console.log(`Added ${mappingsFound} new email mappings from ${csvFile}`);
+                    console.log(`Total email mappings: ${Object.keys(emailMappings).length}`);
+                } catch (csvParseErr) {
+                    console.error(`Error parsing CSV file ${csvPath}:`, csvParseErr);
+                }
+            } else {
+                console.log(`No CSV files found in ${pageDir}`);
+            }
+        } catch (err) {
+            console.error(`Error processing directory ${pageDir}:`, err);
+            // Continue processing other directories even if one CSV fails
+        }
+    }
+    console.log(`Final email mapping count: ${Object.keys(emailMappings).length}`);
+    console.log("Finished scanning all page directories for CSVs.");
+    return emailMappings;
+}
+
+// Function to prepare transformations and handle ambiguities
 async function prepareTransformations(mainDirectory, outputDirectory, folderPattern) {
     console.log("Preparing transformations...");
     
+    // Use the shared CSV parsing function
+    someNumberToEmailMap = await parseCSVsInDirectory(mainDirectory);
+    console.log(`Loaded ${Object.keys(someNumberToEmailMap).length} email mappings from CSVs`);
+    
+    const transformationTasks = [];
+    const ambiguities = [];
+
     if (!fs.existsSync(mainDirectory)) {
         throw new Error(`Input directory does not exist: ${mainDirectory}`);
     }
@@ -304,79 +424,48 @@ async function prepareTransformations(mainDirectory, outputDirectory, folderPatt
         fs.mkdirSync(outputDirectory, { recursive: true });
     }
     
-    // Process main directory structure, expecting subdirectories for pages
     const pageDirs = fs.readdirSync(mainDirectory).filter(item => {
         const itemPath = path.join(mainDirectory, item);
         return fs.statSync(itemPath).isDirectory();
     });
     
     console.log(`Found ${pageDirs.length} page directories: ${pageDirs.join(', ')}`);
+    if (pageDirs.length === 0) throw new Error('No page directories found.');
     
-    if (pageDirs.length === 0) {
-        throw new Error('No page directories found in the input directory.');
-    }
-    
-    const transformationTasks = [];
-    const ambiguities = [];
-    
-    // Iterate through page directories
+    // Iterate through page directories to find student folders and create tasks
     for (const pageDir of pageDirs) {
         const pageDirPath = path.join(mainDirectory, pageDir);
-        console.log(`Processing page directory: ${pageDirPath}`);
-        
-        // Find student folders within each page directory
         const studentFolders = fs.readdirSync(pageDirPath).filter(item => {
             const itemPath = path.join(pageDirPath, item);
             return fs.statSync(itemPath).isDirectory();
         });
         
-        console.log(`Found ${studentFolders.length} student folders in page '${pageDir}'`);
-        
-        // Process each student folder
         for (const studentFolder of studentFolders) {
             const studentFolderPath = path.join(pageDirPath, studentFolder);
-            console.log(`Processing student folder: ${studentFolderPath}`);
-            
-            // Find files that could be valid inputs (PDF, PNG, JPG, HEIC)
             const validFiles = fs.readdirSync(studentFolderPath).filter(file => {
                 const ext = path.extname(file).toLowerCase();
                 return ['.pdf', '.png', '.jpg', '.jpeg', '.heic'].includes(ext);
             });
             
-            console.log(`Found ${validFiles.length} valid files in student folder '${studentFolder}'`);
+            if (validFiles.length === 0) continue;
             
-            if (validFiles.length === 0) {
-                console.warn(`No valid files found in folder: ${studentFolderPath}`);
-                continue;
-            }
-            
-            // Use the folder name pattern for parsing - CALL LOCAL FUNCTION
             const parsedInfo = parseFolderName(studentFolder, folderPattern);
             const studentIdentifier = parsedInfo.primaryIdentifier;
-            
-            // Create student output directory INSIDE 'pages'
-            const studentOutputDir = path.join(outputDirectory, 'pages', studentIdentifier);
+            const studentOutputDir = path.join(outputDirectory, 'pages', studentIdentifier); // Path corrected earlier
             if (!fs.existsSync(studentOutputDir)) {
                 fs.mkdirSync(studentOutputDir, { recursive: true });
             }
-            
             const outputFilePath = path.join(studentOutputDir, `${pageDir}.pdf`);
             
             if (validFiles.length === 1) {
-                // Simple case - only one valid file
-                const inputFile = validFiles[0];
-                const originalFileName = inputFile; // Store the original filename
-                const inputPath = path.join(studentFolderPath, inputFile);
-                
                 transformationTasks.push({
-                    inputPath,
+                    inputPath: path.join(studentFolderPath, validFiles[0]),
                     outputPath: outputFilePath,
                     pageName: pageDir,
-                    originalFileName,
-                    studentInfo: parsedInfo
+                    originalFileName: validFiles[0],
+                    studentInfo: parsedInfo // Contains identifier, name, and potentially someNumber
                 });
             } else {
-                // Ambiguity case - multiple valid files
                 ambiguities.push({
                     folderPath: studentFolderPath,
                     files: validFiles,
@@ -386,12 +475,12 @@ async function prepareTransformations(mainDirectory, outputDirectory, folderPatt
         }
     }
     
-    console.log(`Preparation complete. Tasks: ${transformationTasks.length}, Ambiguities: ${ambiguities.length}`);
+    console.log(`Preparation complete. Tasks: ${transformationTasks.length}, Ambiguities: ${ambiguities.length}. Email map size: ${Object.keys(someNumberToEmailMap).length}`);
     return { tasks: transformationTasks, ambiguities };
 }
 
 
-ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirectory, templatePath, dpi) => {
+ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirectory, dpi) => {
     console.log("IPC: Received start-transformation");
     pendingTransformationData = null; 
     currentTransformationDpi = dpi;   
@@ -404,39 +493,163 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
     } catch (err) {
         console.warn("Could not load config for transformation, using defaults.");
     }
-    const folderPattern = config.foldernamePattern; // Get pattern from config
-    console.log("Using folder pattern:", folderPattern);
+    const folderPattern = config.foldernamePattern;
+    const isMoodleMode = folderPattern?.startsWith('FULLNAMEWITHSPACES');
+    console.log(`Using folder pattern: ${folderPattern}, Moodle Mode: ${isMoodleMode}`);
 
     try {
-        // Call the local prepareTransformations function
-        const { tasks, ambiguities } = await prepareTransformations(mainDirectory, outputDirectory, folderPattern);
-        console.log(`IPC: Transformation preparation complete. Tasks: ${tasks.length}, Ambiguities: ${ambiguities.length}`);
+        let { tasks, ambiguities } = await prepareTransformations(mainDirectory, outputDirectory, folderPattern);
+        console.log(`IPC: Initial preparation complete. Tasks: ${tasks.length}, Ambiguities: ${ambiguities.length}. Email map size: ${Object.keys(someNumberToEmailMap).length}`);
 
-        // Store data for potential later resolution
-        pendingTransformationData = { 
-            unambiguousTasks: tasks, 
-            ambiguities: ambiguities,
-            outputDirectory: outputDirectory // Keep storing here too for now, might be needed elsewhere
-        }; 
+        // --- Collision Resolution Attempt (Moodle Mode) ---
+        if (isMoodleMode && tasks.length > 0) {
+            console.log("Attempting Moodle collision resolution using emails...");
+            const identifierGroups = tasks.reduce((acc, task) => {
+                const id = task.studentInfo.primaryIdentifier;
+                if (!acc[id]) acc[id] = [];
+                acc[id].push(task);
+                return acc;
+            }, {});
+
+            let resolvedCollisions = 0;
+            for (const identifier in identifierGroups) {
+                if (identifierGroups[identifier].length > 1) { // Potential collision
+                    console.log(`Potential collision for identifier: ${identifier}`);
+                    let canResolveAll = true;
+                    let allEmails = new Set();
+
+                    for (const task of identifierGroups[identifier]) {
+                        const someNum = task.studentInfo.someNumber;
+                        const email = someNum ? someNumberToEmailMap[someNum] : null;
+                        if (email) {
+                            allEmails.add(email);
+                            task.studentInfo.email = email; // Store email for potential use
+                        } else {
+                            console.warn(`Cannot resolve for ${identifier}: Task for ${task.originalFileName} missing someNumber or email mapping.`);
+                            canResolveAll = false;
+                            break; // Cannot resolve this group
+                        }
+                    }
+
+                    // If all tasks in the group had a mapped email AND there are multiple unique emails
+                    if (canResolveAll && allEmails.size > 1) {
+                         console.log(`Resolving collision for ${identifier} using emails.`);
+                         identifierGroups[identifier].forEach(task => {
+                             task.studentInfo.primaryIdentifier = task.studentInfo.email;
+                             // Also update the outputPath to reflect the new identifier
+                             task.outputPath = path.join(outputDirectory, 'pages', task.studentInfo.primaryIdentifier, `${task.pageName}.pdf`);
+                             console.log(`  Updated task for ${task.originalFileName} -> ID: ${task.studentInfo.primaryIdentifier}, Path: ${task.outputPath}`);
+                         });
+                         resolvedCollisions++;
+                    } else if (canResolveAll && allEmails.size <= 1) {
+                        // All map to the same email or only one email found (no actual collision)
+                        console.log(`Collision group for ${identifier} resolved to single email or no conflict. No change needed.`);
+                    } else {
+                        console.warn(`Could not fully resolve collision for ${identifier} using emails.`);
+                    }
+                }
+            }
+             if (resolvedCollisions > 0) {
+                 console.log(`Automatically resolved ${resolvedCollisions} name collisions using emails.`);
+             }
+        }
+        // --- End Collision Resolution Attempt ---
+        
+        // --- CORRECTED Final Collision Check V7 ---
+        console.log("Performing final collision check V7...");
+        const finalIdentifierGroups = tasks.reduce((acc, task) => {
+            const finalId = task.studentInfo.primaryIdentifier;
+            if (!acc[finalId]) {
+                acc[finalId] = {
+                    originKeys: new Set(),
+                    taskExamples: [], // Store examples for error message
+                    pageFolders: new Set() // Track which page folders we've seen this ID in
+                };
+            }
+            
+            // Determine the key representing the original student submission
+            // For origin key, we need something that represents the STUDENT, not the submission instance
+            let originKey;
+            const folderName = path.basename(path.dirname(task.inputPath));
+            
+            // Add the page folder this task is from
+            const pageFolder = path.basename(path.dirname(path.dirname(task.inputPath)));
+            acc[finalId].pageFolders.add(pageFolder);
+            
+            if (isMoodleMode) {
+                // In Moodle mode, extract the name part without the someNumber
+                // This should be consistent across all submissions from the same student
+                const moodleSuffix = '_assignsubmission_file_';
+                if (folderName.includes(moodleSuffix)) {
+                    // For Moodle folders, use the fullName part as the origin key
+                    originKey = task.studentInfo.fullName;
+                } else {
+                    // Fallback for non-standard folders
+                    originKey = folderName;
+                }
+            } else {
+                // In non-Moodle mode, use original folder name
+                originKey = folderName;
+            }
+            
+            acc[finalId].originKeys.add(originKey);
+            
+            // Keep track of a few task input paths for context in error messages
+            if (acc[finalId].taskExamples.length < 3) {
+                 acc[finalId].taskExamples.push(`${path.basename(task.inputPath)} (from ${pageFolder})`);
+            }
+            return acc;
+        }, {});
+
+        const finalCollisionsData = [];
+        for (const identifier in finalIdentifierGroups) {
+            const group = finalIdentifierGroups[identifier];
+            // We only have a collision if multiple DISTINCT originKeys map to the same identifier
+            if (group.originKeys.size > 1) {
+                 console.error(`Final Collision Error V7: Identifier '${identifier}' associated with multiple distinct origins: ${Array.from(group.originKeys).join(', ')}. Example files involved: ${group.taskExamples.join(', ')}`);
+                 finalCollisionsData.push(`${identifier} (from origins: ${Array.from(group.originKeys).join(', ')})`);
+            } else if (group.pageFolders.size > 1) {
+                 // This is the expected case: same student has files in multiple page folders
+                 console.log(`Student '${identifier}' has submissions in multiple page folders: ${Array.from(group.pageFolders).join(', ')}`);
+            }
+        }
+
+        if (finalCollisionsData.length > 0) {
+            const collisionDetails = finalCollisionsData.join('; ');
+            console.error(`Final check V7 failed: Unresolvable collisions detected: ${collisionDetails}`);
+            throw new Error(`FinalCollisionError: Unresolvable collisions found: ${collisionDetails}. Please rename input folders manually or provide/correct CSVs.`);
+        }
+        console.log("Final collision check V7 passed.");
+        // --- End Final Collision Check ---
+
+        // Store data for potential later ambiguity resolution
+        pendingTransformationData = { unambiguousTasks: tasks, ambiguities, outputDirectory }; 
 
         if (ambiguities.length > 0) {
-             // Send request to renderer to resolve ambiguity
-             console.log("IPC: Ambiguities found. Requesting resolution from renderer.");
-             if (mainWindow) {
-                 mainWindow.webContents.send('request-ambiguity-resolution', ambiguities);
-             }
-             // Indicate to renderer that resolution is needed by returning a specific status
-             // throw new Error("Ambiguity detected. Please resolve file conflicts."); 
-             return { status: 'ambiguity_detected', message: 'Ambiguity detected. Please resolve conflicts.' };
+            // Send request to renderer to resolve ambiguity
+            console.log("IPC: Ambiguities found. Requesting resolution from renderer.");
+            if (mainWindow) {
+                mainWindow.webContents.send('request-ambiguity-resolution', ambiguities);
+            }
+            // Indicate to renderer that resolution is needed by returning a specific status
+            // throw new Error("Ambiguity detected. Please resolve file conflicts."); 
+            return { status: 'ambiguity_detected', message: 'Ambiguity detected. Please resolve conflicts.' };
         } else {
             // No ambiguities, process tasks directly
-            console.log("IPC: No ambiguities. Processing tasks directly.");
+            console.log("IPC: No ambiguities or collisions. Processing tasks directly.");
             let successCount = 0;
             let errorCount = 0;
             const totalTasks = tasks.length;
 
             for (let i = 0; i < totalTasks; i++) {
                 const task = tasks[i];
+                // Ensure output directory exists *before* processing (important after potential path update)
+                const taskOutputDir = path.dirname(task.outputPath);
+                if (!fs.existsSync(taskOutputDir)) {
+                    console.log(`Creating task output directory: ${taskOutputDir}`);
+                    fs.mkdirSync(taskOutputDir, { recursive: true });
+                }
+
                 // Send progress update before processing
                 if (mainWindow) {
                     const progress = Math.round(((i + 1) / totalTasks) * 100);
@@ -457,7 +670,7 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
                     processedFileInfo[studentIdentifier].push({ 
                         pageName: task.pageName, 
                         originalFileName: task.originalFileName,
-                        studentInfo: task.studentInfo // Store the full parsed info
+                        studentInfo: task.studentInfo
                     });
                     // --- End Store --- 
                 } catch (processingError) {
@@ -466,9 +679,7 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
                 }
             }
             // --- Save processed info after loop --- 
-            console.log(`IPC: About to save processed info, currentOutputDirectory = ${currentOutputDirectory}`); // Log the value
             await saveProcessedFileInfo(currentOutputDirectory);
-            // --- End Save ---
             pendingTransformationData = null; 
             currentOutputDirectory = null;
             console.log(`IPC: Transformation processing complete. Success: ${successCount}, Errors: ${errorCount}`);
@@ -480,9 +691,8 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
         }
 
     } catch (error) {
-         // Handle errors from prepareTransformations (like name collision) or re-thrown ambiguity message
         console.error("IPC: Error during transformation start:", error);
-        throw error; // Re-throw to be sent to the renderer
+        throw error; // Re-throw to renderer (will catch FinalCollisionError too)
     }
 });
 
@@ -789,3 +999,117 @@ ipcMain.handle('handle-import-config', async (event) => {
     }
 });
 // --- End Config Handlers ---
+
+// *** CORRECTED Pre-checking Collisions Handler ***
+ipcMain.handle('precheck-collisions', async (event, mainDirectory, folderPattern, useCSVs = false) => {
+    console.log(`IPC: Received precheck-collisions (useCSVs: ${useCSVs})`);
+    const collisionDetails = {}; // { pageDir: [collidingIdentifier1, ...], ... }
+    let collisionFound = false;
+    
+    // If requested, parse CSV files to help resolve collisions
+    let emailMap = {};
+    if (useCSVs) {
+        console.log("Precheck: Parsing CSV files for email mappings");
+        emailMap = await parseCSVsInDirectory(mainDirectory);
+        console.log(`Precheck: Loaded ${Object.keys(emailMap).length} email mappings from CSVs`);
+    }
+
+    try {
+        if (!fs.existsSync(mainDirectory)) {
+            throw new Error(`Input directory does not exist: ${mainDirectory}`);
+        }
+
+        const pageDirs = fs.readdirSync(mainDirectory).filter(item => {
+            const itemPath = path.join(mainDirectory, item);
+            return fs.statSync(itemPath).isDirectory();
+        });
+
+        if (pageDirs.length === 0) {
+            console.log("Pre-check: No page directories found.");
+            return { collisionDetected: false }; 
+        }
+
+        // Check each page directory independently
+        for (const pageDir of pageDirs) {
+            const pageDirPath = path.join(mainDirectory, pageDir);
+            const studentFolders = fs.readdirSync(pageDirPath).filter(item => {
+                const itemPath = path.join(pageDirPath, item);
+                return fs.statSync(itemPath).isDirectory();
+            });
+
+            // Map identifiers found *within this specific page directory*
+            const pageIdentifierMap = new Map(); // Map<IdentifierName, Array<{folderName, email}>>
+
+            for (const studentFolder of studentFolders) {
+                const parsedInfo = parseFolderName(studentFolder, folderPattern);
+                let identifier = parsedInfo.primaryIdentifier; // Usually the name
+                
+                // If using CSVs and this is a Moodle format folder name with someNumber
+                if (useCSVs && folderPattern?.startsWith('FULLNAMEWITHSPACES') && parsedInfo.someNumber) {
+                    const email = emailMap[parsedInfo.someNumber];
+                    if (email) {
+                        // Use email as identifier to help resolve collisions
+                        identifier = email;
+                        console.log(`Precheck: Resolved ${studentFolder} to ${email} using CSV mapping`);
+                    }
+                }
+                
+                if (!pageIdentifierMap.has(identifier)) {
+                    pageIdentifierMap.set(identifier, []);
+                }
+                pageIdentifierMap.get(identifier).push({
+                    folderName: studentFolder,
+                    email: useCSVs && parsedInfo.someNumber ? emailMap[parsedInfo.someNumber] : null
+                });
+            }
+            
+            // Check for collisions within this page directory
+            const pageCollisions = [];
+            for (const [identifier, folders] of pageIdentifierMap.entries()) {
+                if (folders.length > 1) {
+                    // If using emails and we have different emails, it's not really a collision
+                    if (useCSVs) {
+                        const uniqueEmails = new Set(folders.map(f => f.email).filter(Boolean));
+                        if (uniqueEmails.size > 1) {
+                            console.log(`Precheck: Found distinct emails for ${identifier}, not a collision`);
+                            continue; // Skip this as it's not a real collision
+                        }
+                    }
+                    
+                    // Multiple different original folders map to the same identifier in this page directory
+                    pageCollisions.push(identifier);
+                    collisionFound = true;
+                    console.warn(`Pre-check Collision Detected in PAGE '${pageDir}': Identifier '${identifier}' maps to multiple original folders: ${folders.map(f => f.folderName).join(', ')}`);
+                }
+            }
+            
+            if (pageCollisions.length > 0) {
+                collisionDetails[pageDir] = pageCollisions;
+            }
+        }
+
+        // Return overall result
+        if (collisionFound) {
+            // Extract just the unique names across all page collisions for the modal
+            const uniqueCollidingNames = [...new Set(Object.values(collisionDetails).flat())];
+            console.log(`IPC: Pre-check found collisions in ${Object.keys(collisionDetails).length} page(s). Names involved: ${uniqueCollidingNames.join(', ')}`);
+            return { 
+                collisionDetected: true, 
+                collidingNames: uniqueCollidingNames,
+                usedCSVs: useCSVs, // Tell renderer if we already used CSVs
+                csvMappingsCount: useCSVs ? Object.keys(emailMap).length : 0
+            }; 
+        } else {
+            console.log("IPC: Pre-check found no name collisions within any page directory.");
+            return { 
+                collisionDetected: false,
+                usedCSVs: useCSVs,
+                csvMappingsCount: useCSVs ? Object.keys(emailMap).length : 0
+            };
+        }
+
+    } catch (error) {
+        console.error("IPC: Error during precheck-collisions:", error);
+        throw error;
+    }
+});

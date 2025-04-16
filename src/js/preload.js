@@ -9,12 +9,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Renderer -> Main (send/invoke)
   selectDirectory: (type) => ipcRenderer.send('select-directory', type),
   saveConfig: (config) => ipcRenderer.send('save-config', config),
-  startTransformation: (mainDir, outputDir, descFile, dpi) => ipcRenderer.invoke('start-transformation', mainDir, outputDir, descFile, dpi),
-  startMerging: (mainDir, outputDir, descFile) => ipcRenderer.invoke('start-merging', mainDir, outputDir, descFile),
+  startTransformation: (mainDir, outputDir, dpi) => ipcRenderer.invoke('start-transformation', mainDir, outputDir, dpi),
+  startMerging: (mainDir, outputDir) => ipcRenderer.invoke('start-merging', mainDir, outputDir),
   createBooklets: (outputDir) => ipcRenderer.invoke('create-booklets', outputDir),
   resolveAmbiguity: (resolvedChoices) => ipcRenderer.invoke('resolve-ambiguity', resolvedChoices),
   handleExportConfig: (config) => ipcRenderer.invoke('handle-export-config', config),
   handleImportConfig: () => ipcRenderer.invoke('handle-import-config'),
+  precheckCollisions: (inputDir, pattern, useCSVs = false) => ipcRenderer.invoke('precheck-collisions', inputDir, pattern, useCSVs),
 
   // Main -> Renderer (receive)
   onDirectorySelected: (callback) => ipcRenderer.on('directory-selected', (_event, type, path) => callback(type, path)),

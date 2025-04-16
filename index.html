@@ -83,7 +83,7 @@
                 </div>
                 <div class="preset-option">
                     <input type="radio" id="pattern-moodle" name="pattern-preset" value="FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file_">
-                    <label for="pattern-moodle">Moodle Format</label>
+                    <label for="pattern-moodle">Moodle Format (Enables CSV Collision Handling)</label>
                 </div>
                 <div class="preset-option">
                     <input type="radio" id="pattern-custom" name="pattern-preset" value="custom" checked>
@@ -100,6 +100,7 @@
                     <summary><strong>Pattern Help</strong> (click to expand)</summary>
                     <div class="pattern-explanation compact">
                         <p>Define how student folders are named. Use separator character from your folders (<code>_</code> or <code>-</code>).</p>
+                        <p><small><strong>Note:</strong> Selecting 'Moodle Format' also enables automatic name collision handling if you place the corresponding Moodle Grading Worksheet CSV file inside each page's input subfolder (e.g., `Seite 1/worksheet.csv`). You will be prompted if collisions are detected.</small></p>
                         <div class="two-columns">
                             <div>
                                 <strong>Available Placeholders:</strong>
@@ -132,6 +133,31 @@
         <div class="button-group settings-actions">
              <button id="exportConfigBtn" class="btn btn-secondary">Export Config</button>
              <button id="importConfigBtn" class="btn btn-secondary">Import Config</button>
+        </div>
+    </div>
+</div>
+
+<!-- ADDED Moodle Collision Modal -->
+<div id="moodleCollisionModal" class="modal">
+    <div class="modal-content">
+        <span class="close-button moodle-collision-close">&times;</span>
+        <h2>Potential Name Collisions Detected (Moodle Pattern)</h2>
+        <p>The following student names appear multiple times across different page folders. Transformation has not started.</p>
+        <div id="collisionList" style="margin: 15px 0; padding: 10px; border: 1px solid #ccc; background-color: #f9f9f9; max-height: 150px; overflow-y: auto;">
+            <!-- List of names will be populated here -->
+        </div>
+        <p><strong>Please resolve this issue before restarting the transformation using one of the following methods:</strong></p>
+        <ol>
+            <li>
+                <strong>Recommended (Automatic):</strong> Place the downloaded Moodle Grading Worksheet CSV file inside <em>each</em> corresponding page subfolder within your input directory (e.g., put the 'Seite 1' worksheet CSV inside the 'Seite 1' folder). The tool will attempt to use the email addresses from these CSVs to uniquely identify students.
+            </li>
+            <li>
+                <strong>Manual Renaming:</strong> Manually rename the student submission folders within your <em>input directory</em> so that folders belonging to the <em>same student</em> have the exact same name across all page directories. Ensure names for <em>different</em> students are distinct.
+            </li>
+        </ol>
+        <div style="text-align: right; margin-top: 20px;">
+            <button id="moodleCollisionRetryWithCSVBtn" class="btn btn-primary">Retry with CSV Files</button>
+            <button id="moodleCollisionOkBtn">OK</button>
         </div>
     </div>
 </div>

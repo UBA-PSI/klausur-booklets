@@ -157,6 +157,156 @@ let currentAmbiguities = []; // Full list of ambiguities
 let currentAmbiguityIndex = 0; // Index of the one currently displayed
 let resolvedChoices = {}; // Store choices as user progresses
 
+// --- Moodle Collision Modal Logic ---
+const moodleCollisionModal = document.getElementById('moodleCollisionModal');
+const collisionListDiv = document.getElementById('collisionList');
+const moodleCollisionCloseBtn = moodleCollisionModal.querySelector('.moodle-collision-close');
+const moodleCollisionOkBtn = document.getElementById('moodleCollisionOkBtn');
+const moodleCollisionRetryWithCSVBtn = document.getElementById('moodleCollisionRetryWithCSVBtn');
+
+// Store the directory and pattern for retry with CSV
+let lastInputDirectory = '';
+let lastFolderPattern = '';
+
+function openMoodleCollisionModal(collidingNames, usedCSVs = false, csvMappingsCount = 0) {
+    collisionListDiv.innerHTML = ''; // Clear previous list
+    
+    // Create message about CSV status
+    const csvStatusDiv = document.createElement('div');
+    csvStatusDiv.className = 'csv-status-info';
+    
+    if (usedCSVs) {
+        if (csvMappingsCount > 0) {
+            csvStatusDiv.innerHTML = `<p>CSV files were used and ${csvMappingsCount} email mappings were found, but collisions still exist.</p>`;
+            // Hide the retry button if we already used CSVs
+            if (moodleCollisionRetryWithCSVBtn) {
+                moodleCollisionRetryWithCSVBtn.style.display = 'none';
+            }
+        } else {
+            csvStatusDiv.innerHTML = `<p>CSV files were checked but no valid mappings were found. Please ensure CSV files are present in each page folder with correct headers.</p>`;
+            // Show the retry button in case they add CSV files
+            if (moodleCollisionRetryWithCSVBtn) {
+                moodleCollisionRetryWithCSVBtn.style.display = 'inline-block';
+            }
+        }
+    } else {
+        csvStatusDiv.innerHTML = `<p>CSV files have not been checked. If you have CSV files with email mappings in the page folders, click "Retry with CSV files".</p>`;
+        // Show the retry button
+        if (moodleCollisionRetryWithCSVBtn) {
+            moodleCollisionRetryWithCSVBtn.style.display = 'inline-block';
+        }
+    }
+    
+    collisionListDiv.appendChild(csvStatusDiv);
+    
+    // Add the list of colliding names
+    if (collidingNames && collidingNames.length > 0) {
+        const list = document.createElement('ul');
+        collidingNames.forEach(name => {
+            const item = document.createElement('li');
+            item.textContent = name;
+            list.appendChild(item);
+        });
+        collisionListDiv.appendChild(list);
+    } else {
+        const noNamesMsg = document.createElement('p');
+        noNamesMsg.textContent = 'No specific names identified.';
+        collisionListDiv.appendChild(noNamesMsg);
+    }
+    
+    moodleCollisionModal.style.display = 'block';
+}
+
+function closeMoodleCollisionModal() {
+    moodleCollisionModal.style.display = 'none';
+}
+
+// Handle retry with CSV files
+async function retryWithCSVFiles() {
+    if (!lastInputDirectory || !lastFolderPattern) {
+        updateStatus('error', 'Cannot retry - missing directory or pattern information.');
+        return;
+    }
+    
+    closeMoodleCollisionModal();
+    updateStatus('processing', 'Checking for CSV files and retrying...');
+    
+    try {
+        const collisionResult = await window.electronAPI.precheckCollisions(lastInputDirectory, lastFolderPattern, true);
+        console.log("CSV-based pre-check result:", collisionResult);
+        
+        if (collisionResult && collisionResult.collisionDetected) {
+            updateStatus('warning', 'Name collisions still detected even with CSV files.');
+            openMoodleCollisionModal(
+                collisionResult.collidingNames, 
+                collisionResult.usedCSVs, 
+                collisionResult.csvMappingsCount
+            );
+        } else {
+            // No collisions with CSV - proceed with transformation
+            updateStatus('success', 'CSV check resolved collisions! Proceeding with transformation...');
+            
+            // Start the actual transformation
+            try {
+                const dpiValue = parseInt(document.getElementById('dpi').value, 10);
+                const result = await window.electronAPI.startTransformation(
+                    lastInputDirectory, 
+                    document.getElementById('outputDirectoryPath').value, 
+                    dpiValue
+                );
+                
+                if (result && result.status === 'ambiguity_detected') {
+                    updateStatus('info', result.message);
+                } else {
+                    const successMessage = typeof result === 'string' ? result : 'Pages transformed successfully!';
+                    updateStatus('success', successMessage);
+                }
+            } catch (error) {
+                console.error("Error during CSV-based transformation:", error);
+                updateStatus('error', 'Error transforming pages: ' + error.message);
+            }
+        }
+    } catch (precheckError) {
+        console.error("Error during CSV-based pre-check:", precheckError);
+        updateStatus('error', `Error checking CSV files: ${precheckError.message}`);
+    }
+}
+
+moodleCollisionCloseBtn.onclick = closeMoodleCollisionModal;
+moodleCollisionOkBtn.onclick = closeMoodleCollisionModal;
+
+// Add event listener for the retry button if it exists
+if (moodleCollisionRetryWithCSVBtn) {
+    moodleCollisionRetryWithCSVBtn.onclick = retryWithCSVFiles;
+} else {
+    console.warn("CSV retry button not found in HTML. Please add it to the modal.");
+}
+
+// Also close if clicking outside
+window.addEventListener('click', (event) => {
+    if (event.target == moodleCollisionModal) {
+        closeMoodleCollisionModal();
+    }
+    // ... existing click outside logic for other modals ...
+    const settingsModal = document.getElementById('settingsModal');
+    if (event.target == settingsModal) {
+        settingsModal.style.display = "none";
+        saveConfig(); // Assuming settings modal also saves on close
+    }
+    const coverModal = document.getElementById('coverTemplateModal');
+     if (event.target == coverModal) {
+         coverModal.style.display = 'none';
+         saveConfig(); // Save on close
+     }
+    const ambiguityModal = document.getElementById('ambiguityModal');
+    if (event.target == ambiguityModal) {
+        // Decide if closing ambiguity modal externally should cancel or do nothing
+        // For now, let the explicit close button handle it
+    }
+});
+
+// --- End Moodle Collision Modal Logic ---
+
 // Function to display the ambiguity item at the current index
 function displayCurrentAmbiguity() {
     ambiguityListDiv.innerHTML = ''; // Clear previous item
@@ -327,35 +477,79 @@ window.electronAPI.onTransformationProgress((progressData) => {
 document.getElementById('startTransformationBtn').addEventListener('click', async () => {
     const mainDirectory = document.getElementById('mainDirectoryPath').value;
     const outputDirectory = document.getElementById('outputDirectoryPath').value;
-    const templatePath = document.getElementById('cover-template-path').value;
+    // templatePath is no longer needed here
 
     if (!mainDirectory || !outputDirectory) {
         document.getElementById('status').textContent = 'Please select input and output directories before proceeding.';
+        updateStatus('error', 'Please select input and output directories.');
         return;
     }
 
+    document.getElementById('status').textContent = 'Starting transformation process...';
+    updateStatus('processing', 'Starting transformation...');
+	
+    const currentPattern = config.foldernamePattern; // Get pattern from current config
+    const moodlePresetPattern = document.getElementById('pattern-moodle')?.value; // Get Moodle pattern value
+
+    // --- Moodle Pre-check --- 
+    if (currentPattern && moodlePresetPattern && currentPattern === moodlePresetPattern) {
+        console.log("Moodle pattern selected, performing pre-check for collisions...");
+        try {
+            // Store for potential retry
+            lastInputDirectory = mainDirectory;
+            lastFolderPattern = currentPattern;
+            
+            const collisionResult = await window.electronAPI.precheckCollisions(mainDirectory, currentPattern);
+            console.log("Pre-check result:", collisionResult);
+            if (collisionResult && collisionResult.collisionDetected) {
+                 updateStatus('warning', 'Potential name collisions detected. Please resolve.');
+                 openMoodleCollisionModal(
+                    collisionResult.collidingNames, 
+                    collisionResult.usedCSVs, 
+                    collisionResult.csvMappingsCount
+                 );
+                 return; // Stop the process, user needs to resolve
+            }
+            console.log("Pre-check passed, no collisions detected.");
+        } catch (precheckError) {
+            console.error("Error during pre-check:", precheckError);
+            updateStatus('error', `Error during pre-check: ${precheckError.message}`);
+            // Optionally show a more generic error modal or just update status
+            return; // Stop if pre-check fails
+        }
+    } else {
+         console.log("Non-Moodle pattern or no pattern selected, skipping pre-check.");
+    }
+    // --- End Moodle Pre-check --- 
+
+    // Proceed with actual transformation if pre-check passed or wasn't needed
     document.getElementById('status').textContent = 'Transforming pages... Please wait.';
     updateStatus('processing', 'Transforming pages... Please wait.');
-	
+
     try {
         let dpiValue = parseInt(document.getElementById('dpi').value, 10);
-        // Use the exposed function - note: we still send templatePath but it's not used for transformation
-        const result = await window.electronAPI.startTransformation(mainDirectory, outputDirectory, templatePath, dpiValue);
+        const result = await window.electronAPI.startTransformation(mainDirectory, outputDirectory, dpiValue); // Removed templatePath
 
-        // Check if the result indicates ambiguity was detected and resolution requested
         if (result && result.status === 'ambiguity_detected') {
-             document.getElementById('status').textContent = result.message; // Show the info message
-             updateStatus('info', result.message); // Use 'info' status type
+             document.getElementById('status').textContent = result.message;
+             updateStatus('info', result.message);
         } else {
-            // Assume success if no ambiguity status (or handle other potential non-error statuses)
-            const successMessage = typeof result === 'string' ? result : 'Pages transformed successfully! Check the student directories.';
+            const successMessage = typeof result === 'string' ? result : 'Pages transformed successfully! Check the output directory.';
             document.getElementById('status').textContent = successMessage;
             updateStatus('success', successMessage);
         }
     } catch (error) {
-        // Catch actual errors thrown (like name collision, file system errors, or errors *after* ambiguity resolution)
-        document.getElementById('status').textContent = 'Error transforming pages: ' + error.message;
-		updateStatus('error', 'Error transforming pages: ' + error.message);
+        console.error("Error during transformation:", error);
+        // Specific handling for final collision error after automatic attempt fails
+        if (error.message.startsWith('FinalCollisionError:')) { 
+             document.getElementById('status').textContent = error.message; // Show detailed error
+             updateStatus('error', 'Unresolvable name collisions found. Please rename input folders manually.');
+             // TODO: Optionally show a specific modal here too, maybe reusing parts of moodleCollisionModal structure
+        } else {
+            // General error handling
+            document.getElementById('status').textContent = 'Error transforming pages: ' + error.message;
+		    updateStatus('error', 'Error transforming pages: ' + error.message);
+        }
     }
 });
 
@@ -502,26 +696,6 @@ document.querySelector('#coverTemplateModal .cover-template-close').addEventList
     modal.style.display = 'none';
     // Save config when closing the modal
     saveConfig(); 
-});
-
-// Make clicking outside the modal close it (for cover template modal)
-window.addEventListener('click', (event) => {
-    const coverModal = document.getElementById('coverTemplateModal');
-    if (event.target == coverModal) {
-        coverModal.style.display = 'none';
-        saveConfig(); // Save on close
-    }
-    // Keep existing logic for settings modal if present
-    const settingsModal = document.getElementById('settingsModal');
-    if (event.target == settingsModal) {
-        settingsModal.style.display = "none";
-        saveConfig(); // Assuming settings modal also saves on close
-    }
-    const ambiguityModal = document.getElementById('ambiguityModal');
-    if (event.target == ambiguityModal) {
-        // Decide if closing ambiguity modal externally should cancel or do nothing
-        // For now, let the explicit close button handle it
-    }
 });
 
 
