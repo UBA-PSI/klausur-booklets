@@ -115,18 +115,18 @@ async function imageToPdf(imageBuffer, outputPath) {
   // Embed the image
   const image = await pdfDoc.embedPng(imageBuffer);
   
-  // Calculate scaling to fit within A5
+  // Calculate scaling to fit within A5 while preserving aspect ratio
   const imgDims = image.size();
   const xScale = width / imgDims.width;
   const yScale = height / imgDims.height;
-  const scale = Math.min(xScale, yScale);
+  const scale = Math.min(xScale, yScale); // Use the smaller scale factor to fit
   
   const imgWidth = imgDims.width * scale;
   const imgHeight = imgDims.height * scale;
   
-  // Position image centered on page
-  const x = 0;
-  const y = (height - imgHeight) / 2;
+  // Position image: Center horizontally, align to top vertically
+  const x = (width - imgWidth) / 2; 
+  const y = height - imgHeight; // Align top edge of image with top edge of page (assuming y=0 is bottom)
   
   // Draw the image
   page.drawImage(image, {

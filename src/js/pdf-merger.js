@@ -124,56 +124,78 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, descriptionFileP
  * @param {number} dpiValue DPI for PDF rendering (if applicable).
  */
 async function processSingleTransformation(inputPath, outputPath, dpiValue) {
-    const ext = path.extname(inputPath).toLowerCase();
-    let imageBuffer;
+    const ext = path.extname(inputPath).toLowerCase(); 
+    let imageBufferForPdfLib; // Buffer ready to be embedded (always PNG format)
+    let needsRotation = false;
 
     console.log(`[Transform Single] Starting: Input=${inputPath}, Output=${outputPath}, Ext=${ext}`);
 
     try {
+        let initialBuffer; // Buffer directly from file or rendering
+
         if (ext === '.pdf') {
             console.log(`[Transform Single] Processing as PDF.`);
-            // Render PDF first page to image buffer (PNG)
-            imageBuffer = await renderFirstPageToImage(inputPath, dpiValue);
+            initialBuffer = await renderFirstPageToImage(inputPath, dpiValue); // Renders first page to PNG buffer
         } else if (ext === '.png') {
             console.log(`[Transform Single] Processing as PNG.`);
-            // Read PNG directly
-            imageBuffer = fs.readFileSync(inputPath);
+            initialBuffer = fs.readFileSync(inputPath);
         } else if (ext === '.jpg' || ext === '.jpeg') {
             console.log(`[Transform Single] Processing as JPG/JPEG.`);
-            // Read JPG and convert to PNG using sharp
-            const jpgBuffer = fs.readFileSync(inputPath);
-            imageBuffer = await sharp(jpgBuffer).png().toBuffer();
-            console.log(`[Transform Single] Converted JPG to PNG buffer.`);
+            initialBuffer = fs.readFileSync(inputPath);
+            // Convert to PNG later if needed (e.g., for rotation check/apply)
         } else if (ext === '.heic') {
             console.log(`[Transform Single] Processing as HEIC.`);
-            // Read HEIC, decode, convert raw pixels to PNG using sharp
             const heicBuffer = fs.readFileSync(inputPath);
             const { data, width, height } = await decodeHeic({ buffer: heicBuffer });
             console.log(`[Transform Single] Decoded HEIC to raw data (${width}x${height})`);
-            imageBuffer = await sharp(data, {
+            // Convert raw to PNG buffer now
+            initialBuffer = await sharp(data, {
                 raw: {
                     width: width,
                     height: height,
-                    channels: 4 // heic-decode outputs RGBA
+                    channels: 4
                 }
             }).png().toBuffer();
-             console.log(`[Transform Single] Converted HEIC raw data to PNG buffer.`);
+            console.log(`[Transform Single] Converted HEIC raw data to PNG buffer.`);
         } else {
             console.warn(`[Transform Single] Skipping unsupported file type: ${inputPath}`);
-            return; // Skip unsupported types
+            return; 
         }
 
-        // Convert the final image buffer (always PNG format now) to a PDF page
-        if (imageBuffer) {
-            await imageToPdf(imageBuffer, outputPath);
+        if (!initialBuffer) {
+             console.error(`[Transform Single] Failed to get initial buffer for ${inputPath}`);
+             return;
+        }
+
+        // Check dimensions and determine rotation need using Sharp
+        const metadata = await sharp(initialBuffer).metadata();
+        console.log(`[Transform Single] Image dimensions: ${metadata.width}x${metadata.height}`);
+        if (metadata.width > metadata.height) {
+            console.log(`[Transform Single] Image is landscape (width > height), rotation needed.`);
+            needsRotation = true;
+        }
+
+        // Prepare the final buffer for pdf-lib (ensure PNG, apply rotation if needed)
+        let sharpInstance = sharp(initialBuffer);
+        if (needsRotation) {
+            sharpInstance = sharpInstance.rotate(90);
+        }
+        // Ensure output is PNG for pdf-lib's embedPng
+        imageBufferForPdfLib = await sharpInstance.png().toBuffer(); 
+
+        // Convert the final image buffer to a PDF page
+        if (imageBufferForPdfLib) {
+            // Pass the original landscape status to imageToPdf if needed for scaling logic, 
+            // although the buffer passed is now rotated to portrait.
+            // For simplicity, let imageToPdf determine final scaling based on the buffer it receives.
+            await imageToPdf(imageBufferForPdfLib, outputPath); 
             console.log(`[Transform Single] Successfully created PDF page: ${outputPath}`);
         } else {
-             console.error(`[Transform Single] Failed to get image buffer for ${inputPath}`);
+             console.error(`[Transform Single] Failed to get final image buffer for ${inputPath}`);
         }
 
     } catch (error) {
         console.error(`[Transform Single] Error processing file ${inputPath}:`, error);
-        // Propagate the error to the main handler
         throw error; 
     }
 }
