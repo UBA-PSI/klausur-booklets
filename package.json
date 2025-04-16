@@ -2,17 +2,43 @@
   "name": "pdf-merger-app",
   "version": "1.0.0",
   "description": "An Electron app to merge student PDFs with a cover sheet",
-  "main": "main.js",
+  "main": "src/js/main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "dev": "electron .",
+    "build": "electron-builder",
+    "postinstall": "electron-builder install-app-deps",
+    "lint": "eslint .",
+    "pdf-process": "node src/js/pdf-cmdline-processor.js"
   },
   "dependencies": {
     "@electron/remote": "^2.0.11",
-    "electron": "latest",
-    "muhammara": "latest",
-    "pdf-lib": "latest"
+    "canvas": "^2.11.2",
+    "electron": "^26.2.1",
+    "muhammara": "^4.1.0",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^3.11.174",
+    "yargs": "^17.7.2"
   },
   "devDependencies": {
-    "electron-rebuild": "^3.2.9"
+    "electron-builder": "^24.6.4",
+    "electron-rebuild": "^3.2.9",
+    "eslint": "^8.50.0"
+  },
+  "build": {
+    "appId": "com.psi.pdfmerger",
+    "productName": "PSI PDF Merger Tool",
+    "mac": {
+      "category": "public.app-category.education"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    },
+    "directories": {
+      "output": "dist"
+    }
   }
 }

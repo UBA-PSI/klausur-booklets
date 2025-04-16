@@ -19,7 +19,7 @@ function createWindow() {
         }
     });
 
-    win.loadFile('index.html');
+    win.loadFile(path.join(__dirname, '../../index.html'));
 
     // Check if config exists and send its content to renderer
     if (fs.existsSync(CONFIG_PATH)) {
@@ -114,7 +114,7 @@ ipcMain.handle('create-booklets', async (event, outputDirectory) => {
             const outputFilePath = path.join(bookletsDir, pdfFile);
 
             // Call the pdfimpose command for each student's PDF
-            const command = `source venv/bin/activate && pdfimpose saddle "${inputFilePath}" --output "${outputFilePath}"`;
+            const command = `source ${path.join(__dirname, '../../venv/bin/activate')} && pdfimpose saddle "${inputFilePath}" --output "${outputFilePath}"`;
             exec(command, (error) => {
                 if (error) {
                     console.error(`Error creating booklet for ${pdfFile}:`, error);

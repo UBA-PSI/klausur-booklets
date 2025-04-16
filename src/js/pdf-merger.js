@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { PDFDocument } = require('pdf-lib');
 const { execSync } = require('child_process');
+const { renderFirstPageToImage, imageToPdf } = require('./pdf-cmdline-processor');
 
 function parseTemplate(template, submittedSeiten, missingSeiten) {
     return template
@@ -109,8 +110,6 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, descriptionFileP
 
 
 async function transformAndMergeStudentPDFs(mainDirectory, outputDirectory, descriptionFilePath, dpiValue) {
-    const { exec } = require('child_process');
-
     const subdirectories = fs.readdirSync(mainDirectory).filter(item => {
         const itemPath = path.join(mainDirectory, item);
         return fs.statSync(itemPath).isDirectory();
@@ -149,13 +148,20 @@ async function transformAndMergeStudentPDFs(mainDirectory, outputDirectory, desc
                     fs.mkdirSync(studentOutputDirectory);
                 }
 
-                // Call the Python script for transformation
-                exec(`python3 transformpage.py "${inputPdfPath}" "${transformedPdfPath}" --dpi ${dpiValue}`, (error, stdout, stderr) => {
-                    if (error) {
-                        console.error(`exec error: ${error}`);
-                        return;
-                    }
-                });
+                try {
+                    // Use the JavaScript-based PDF processor
+                    console.log(`Processing ${inputPdfPath} with DPI ${dpiValue}...`);
+                    
+                    // Render first page to image
+                    const imageBuffer = await renderFirstPageToImage(inputPdfPath, dpiValue);
+                    
+                    // Convert image to PDF
+                    await imageToPdf(imageBuffer, transformedPdfPath);
+                    
+                    console.log(`Successfully created ${transformedPdfPath}`);
+                } catch (error) {
+                    console.error(`Error processing PDF ${inputPdfPath}:`, error);
+                }
             }
         }
     }
