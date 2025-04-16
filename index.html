@@ -46,8 +46,9 @@
 
         <div id="status"></div>
 		<div id="status-bar">
-		    <span id="status-icon"></span>
-		    <span id="status-message">Ready</span>
+            <span id="progress-count" class="status-part"></span>
+            <span id="progress-percent" class="status-part"></span>
+            <span id="status-message" class="status-part status-message-main">Ready</span>
 		</div>
 		
     </div>
@@ -63,7 +64,24 @@
         <!-- Add more settings as needed -->
     </div>
 </div>
-	
+
+<!-- Ambiguity Resolution Modal -->
+<div id="ambiguityModal" class="modal">
+    <div class="modal-content ambiguity-modal-content">
+        <span class="close-button ambiguity-close">&times;</span>
+        <h2>Resolve File Conflicts</h2>
+        <p>Multiple suitable files found. Please select one file for each folder:</p>
+        <div id="ambiguityProgress" style="margin-bottom: 15px; font-style: italic;"></div>
+        <div id="ambiguityList"></div> 
+        <div class="ambiguity-navigation" style="margin-top: 20px; display: flex; justify-content: space-between;">
+            <button id="ambiguityPrevBtn" disabled>&laquo; Previous</button>
+            <button id="ambiguityNextBtn">Next &raquo;</button>
+            <button id="confirmAmbiguityBtn" style="display: none;">Confirm Selections</button> <!-- Initially hidden -->
+        </div>
+        <div id="ambiguityError" class="error-message"></div>
+    </div>
+</div>
+
 
     <script src="src/js/modal.js"></script>
     <script src="src/js/renderer.js"></script>

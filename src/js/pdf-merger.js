@@ -2,7 +2,20 @@ const fs = require('fs');
 const path = require('path');
 const { PDFDocument, PDFPage } = require('pdf-lib');
 const { execSync } = require('child_process');
+const sharp = require('sharp');
+const decodeHeic = require('heic-decode');
 const { renderFirstPageToImage, imageToPdf } = require('./pdf-cmdline-processor');
+
+// --- Custom Error for Ambiguity ---
+class AmbiguityError extends Error {
+    constructor(ambiguities) {
+        // ambiguities is expected to be an array of objects: [{ folderPath: string, files: string[] }]
+        super("File ambiguity detected");
+        this.name = "AmbiguityError";
+        this.ambiguities = ambiguities; 
+    }
+}
+// ---------------------------------
 
 function parseTemplate(template, submittedSeiten, missingSeiten) {
     return template
@@ -104,7 +117,81 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, descriptionFileP
     }
 }
 
-async function transformAndMergeStudentPDFs(mainDirectory, outputDirectory, descriptionFilePath, dpiValue) {
+/**
+ * Processes a single input file (PDF, PNG, JPG, HEIC) into an A5 PDF page.
+ * @param {string} inputPath Path to the input file.
+ * @param {string} outputPath Path to save the resulting single-page PDF.
+ * @param {number} dpiValue DPI for PDF rendering (if applicable).
+ */
+async function processSingleTransformation(inputPath, outputPath, dpiValue) {
+    const ext = path.extname(inputPath).toLowerCase();
+    let imageBuffer;
+
+    console.log(`[Transform Single] Starting: Input=${inputPath}, Output=${outputPath}, Ext=${ext}`);
+
+    try {
+        if (ext === '.pdf') {
+            console.log(`[Transform Single] Processing as PDF.`);
+            // Render PDF first page to image buffer (PNG)
+            imageBuffer = await renderFirstPageToImage(inputPath, dpiValue);
+        } else if (ext === '.png') {
+            console.log(`[Transform Single] Processing as PNG.`);
+            // Read PNG directly
+            imageBuffer = fs.readFileSync(inputPath);
+        } else if (ext === '.jpg' || ext === '.jpeg') {
+            console.log(`[Transform Single] Processing as JPG/JPEG.`);
+            // Read JPG and convert to PNG using sharp
+            const jpgBuffer = fs.readFileSync(inputPath);
+            imageBuffer = await sharp(jpgBuffer).png().toBuffer();
+            console.log(`[Transform Single] Converted JPG to PNG buffer.`);
+        } else if (ext === '.heic') {
+            console.log(`[Transform Single] Processing as HEIC.`);
+            // Read HEIC, decode, convert raw pixels to PNG using sharp
+            const heicBuffer = fs.readFileSync(inputPath);
+            const { data, width, height } = await decodeHeic({ buffer: heicBuffer });
+            console.log(`[Transform Single] Decoded HEIC to raw data (${width}x${height})`);
+            imageBuffer = await sharp(data, {
+                raw: {
+                    width: width,
+                    height: height,
+                    channels: 4 // heic-decode outputs RGBA
+                }
+            }).png().toBuffer();
+             console.log(`[Transform Single] Converted HEIC raw data to PNG buffer.`);
+        } else {
+            console.warn(`[Transform Single] Skipping unsupported file type: ${inputPath}`);
+            return; // Skip unsupported types
+        }
+
+        // Convert the final image buffer (always PNG format now) to a PDF page
+        if (imageBuffer) {
+            await imageToPdf(imageBuffer, outputPath);
+            console.log(`[Transform Single] Successfully created PDF page: ${outputPath}`);
+        } else {
+             console.error(`[Transform Single] Failed to get image buffer for ${inputPath}`);
+        }
+
+    } catch (error) {
+        console.error(`[Transform Single] Error processing file ${inputPath}:`, error);
+        // Propagate the error to the main handler
+        throw error; 
+    }
+}
+
+/**
+ * Scans input directories, checks for ambiguities, and returns processing info.
+ * Returns { tasks: [], ambiguities: [] } where tasks are unambiguous items 
+ * and ambiguities lists folders needing resolution.
+ * @param {string} mainDirectory 
+ * @param {string} outputDirectory 
+ * @returns {Promise<{tasks: Array<{inputPath: string, outputPath: string}>, ambiguities: Array<{folderPath: string, context: string, files: string[]}>}>} 
+ */
+async function prepareTransformations(mainDirectory, outputDirectory) {
+    console.log("[Prepare] Scanning input directories...");
+    const transformationTasks = []; // Tasks ready to process
+    const ambiguities = [];         // Folders needing user input
+    const allowedExtensions = ['.pdf', '.png', '.jpg', '.jpeg', '.heic'];
+
     const subdirectories = fs.readdirSync(mainDirectory).filter(item => {
         const itemPath = path.join(mainDirectory, item);
         return fs.statSync(itemPath).isDirectory();
@@ -117,49 +204,56 @@ async function transformAndMergeStudentPDFs(mainDirectory, outputDirectory, desc
             return fs.statSync(itemPath).isDirectory();
         });
 
+        // Check for student name collisions (remains important)
         const nameCounts = {};
         for (const studentFolder of studentFolders) {
             const studentName = studentFolder.split('_')[0];
             nameCounts[studentName] = (nameCounts[studentName] || 0) + 1;
         }
-
         const duplicates = Object.keys(nameCounts).filter(name => nameCounts[name] > 1);
         if (duplicates.length > 0) {
-            throw new Error('Name collision detected in directory ' + subdir + ' for the following student(s): ' + duplicates.join(', '));
+            throw new Error(`Name collision detected in directory ${subdir} for student(s): ${duplicates.join(', ')}`);
         }
 
+        // Find processable files and check for ambiguity
         for (const studentFolder of studentFolders) {
             const studentName = studentFolder.split('_')[0];
             const studentFolderPath = path.join(subdirPath, studentFolder);
+            const studentOutputDirectory = path.join(outputDirectory, studentName);
 
-            const pdfFile = fs.readdirSync(studentFolderPath).find(file => file.endsWith('.pdf'));
-            if (pdfFile) {
-                const inputPdfPath = path.join(studentFolderPath, pdfFile);
-                const transformedPdfPath = path.join(outputDirectory, studentName, subdir + '.pdf');  // Using the current subdir's name
+            const processableFiles = fs.readdirSync(studentFolderPath).filter(file => {
+                 // Ensure case-insensitive check here too
+                 const ext = path.extname(file).toLowerCase(); 
+                 return allowedExtensions.includes(ext);
+            });
 
-                // Check if directory exists, if not, create it
-                const studentOutputDirectory = path.join(outputDirectory, studentName);
+            if (processableFiles.length === 0) {
+                console.log(`[Prepare] No processable files found in: ${studentFolderPath}`);
+                continue; // Skip folder if no valid files
+            } else if (processableFiles.length > 1) {
+                console.log(`[Prepare] Ambiguity detected in: ${studentFolderPath} - Files: ${processableFiles.join(', ')}`);
+                ambiguities.push({ 
+                    folderPath: studentFolderPath, 
+                    context: `Student: ${studentName}, Page: ${subdir}`, 
+                    files: processableFiles 
+                });
+            } else {
+                // Exactly one file found, add to tasks
+                 // Ensure output directory exists
                 if (!fs.existsSync(studentOutputDirectory)){
-                    fs.mkdirSync(studentOutputDirectory);
+                    console.log(`[Prepare] Creating output directory: ${studentOutputDirectory}`);
+                    fs.mkdirSync(studentOutputDirectory, { recursive: true });
                 }
-
-                try {
-                    // Use the JavaScript-based PDF processor
-                    console.log(`Processing ${inputPdfPath} with DPI ${dpiValue}...`);
-                    
-                    // Render first page to image
-                    const imageBuffer = await renderFirstPageToImage(inputPdfPath, dpiValue);
-                    
-                    // Convert image to PDF
-                    await imageToPdf(imageBuffer, transformedPdfPath);
-                    
-                    console.log(`Successfully created ${transformedPdfPath}`);
-                } catch (error) {
-                    console.error(`Error processing PDF ${inputPdfPath}:`, error);
-                }
+                const inputPath = path.join(studentFolderPath, processableFiles[0]);
+                const outputPath = path.join(studentOutputDirectory, `${subdir}.pdf`); // Output is always .pdf
+                transformationTasks.push({ inputPath, outputPath });
             }
         }
     }
+
+    // Return both unambiguous tasks and ambiguities
+    console.log(`[Prepare] Scan complete. Tasks: ${transformationTasks.length}, Ambiguities: ${ambiguities.length}`);
+    return { tasks: transformationTasks, ambiguities: ambiguities };
 }
 
 /**
@@ -289,6 +383,8 @@ async function createSaddleStitchBooklet(inputPath, outputPath) {
 
 module.exports = {
     mergeStudentPDFs,
-	transformAndMergeStudentPDFs,
-    createSaddleStitchBooklet
+    prepareTransformations,
+    processSingleTransformation,
+    createSaddleStitchBooklet,
+    // AmbiguityError // No longer throwing, just returning ambiguities
 };

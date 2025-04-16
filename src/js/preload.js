@@ -12,11 +12,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   startTransformation: (mainDir, outputDir, descFile, dpi) => ipcRenderer.invoke('start-transformation', mainDir, outputDir, descFile, dpi),
   startMerging: (mainDir, outputDir, descFile) => ipcRenderer.invoke('start-merging', mainDir, outputDir, descFile),
   createBooklets: (outputDir) => ipcRenderer.invoke('create-booklets', outputDir),
+  resolveAmbiguity: (resolvedChoices) => ipcRenderer.invoke('resolve-ambiguity', resolvedChoices),
 
   // Main -> Renderer (receive)
   onDirectorySelected: (callback) => ipcRenderer.on('directory-selected', (_event, type, path) => callback(type, path)),
   onLoadConfig: (callback) => ipcRenderer.on('load-config', (_event, config) => callback(config)),
   onNameCollision: (callback) => ipcRenderer.on('name-collision', (_event, message) => callback(message)),
+  onAmbiguityRequest: (callback) => ipcRenderer.on('request-ambiguity-resolution', (_event, ambiguities) => callback(ambiguities)),
+  onTransformationProgress: (callback) => ipcRenderer.on('transformation-progress', (_event, progressData) => callback(progressData)),
 
   // Function to remove listeners if needed (optional but good practice)
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel)

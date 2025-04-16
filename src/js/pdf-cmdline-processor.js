@@ -3,7 +3,6 @@ const path = require('path');
 const { PDFDocument, PageSizes } = require('pdf-lib');
 const { PDFiumLibrary } = require('@hyzyla/pdfium');
 const sharp = require('sharp');
-const yargs = require('yargs');
 
 // --- Initialize PDFium Library ---
 let pdfiumLibrary = null;
@@ -142,61 +141,7 @@ async function imageToPdf(imageBuffer, outputPath) {
   fs.writeFileSync(outputPath, pdfBytes);
 }
 
-/**
- * Main function
- */
-async function main() {
-  // Ensure PDFium initializes before processing
-  try {
-      await initializePdfium();
-  } catch (initError) {
-      console.error("Failed to initialize PDF engine. Cannot proceed.", initError);
-      process.exit(1);
-  }
-
-  // Parse command line arguments
-  const argv = yargs
-    .option('dpi', {
-      describe: 'DPI value for rendering the PDF to an image',
-      type: 'number',
-      default: 300
-    })
-    .demandCommand(2)
-    .usage('Usage: $0 <input_pdf> <output_pdf> [options]')
-    .help()
-    .argv;
-  
-  const inputPdf = argv._[0];
-  const outputPdf = argv._[1];
-  const dpi = argv.dpi;
-  
-  try {
-    console.log(`Processing ${inputPdf} with DPI ${dpi}...`);
-    
-    // Render first page to image
-    const imageBuffer = await renderFirstPageToImage(inputPdf, dpi);
-    
-    // Convert image to PDF
-    await imageToPdf(imageBuffer, outputPdf);
-    
-    console.log(`Successfully created ${outputPdf}`);
-  } catch (error) {
-    console.error('Error processing PDF:', error);
-    process.exit(1);
-  }
-}
-
-// Run the script if it's called directly
-if (require.main === module) {
-  // Call main, it now handles initialization internally
-  main().catch(err => {
-    console.error("Script execution failed:", err);
-    process.exit(1);
-  });
-}
-
 module.exports = {
   renderFirstPageToImage,
   imageToPdf,
-  main
 };

@@ -98,10 +98,11 @@ h1 {
 
 .modal-content {
     background-color: #fefefe;
-    margin: 15% auto;
+    margin: 10% auto; /* Adjust vertical margin for less height */
     padding: 20px;
     border: 1px solid #888;
-    width: 30%;
+    width: 60%; /* Make modal wider */
+    max-width: 700px; /* Add a max-width */
 }
 
 .close-button {
@@ -123,23 +124,52 @@ h1 {
 #status-bar {
     display: flex;
     align-items: center;
-    background-color: #EFEFEF;  /* Light gray */
-    padding: 10px 20px;
+    background-color: #EFEFEF;  
+    padding: 10px 15px; /* Adjusted padding slightly */
     border-top: 2px solid #DADADA;
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
     transition: background-color 0.3s;
+    font-size: 13px; /* Slightly smaller base font */
 }
 
-/* Status message styling */
-#status-message {
-    margin-left: 10px;
-    font-size: 14px;
-    color: #333;  /* Dark gray */
+/* Style for individual parts */
+.status-part {
+    display: inline-block; /* Allow margin/padding */
+    margin-right: 15px; /* Space between elements */
+    white-space: nowrap; /* Prevent wrapping */
 }
 
+/* Specific styles for progress parts */
+#progress-count,
+#progress-percent {
+    text-align: right;
+    min-width: 50px; /* Reduced fixed width */
+    font-family: monospace; 
+    color: #555; 
+    margin-right: 8px; /* Reduced space between numbers/percent and message */
+}
+
+#progress-percent {
+    min-width: 40px; /* Reduced fixed width */
+    margin-right: 10px; /* Slightly more space before filename */
+}
+
+/* Style for the main message part */
+.status-message-main {
+    overflow: hidden; 
+    text-overflow: ellipsis; 
+    white-space: nowrap;
+    text-align: right; /* Align main message right */
+    margin-left: auto; /* Push to the right */
+    margin-right: 0; 
+}
+
+
+/* Status message styling (OLD - remove or adapt if needed) */
+/* #status-message { ... } */ 
 
 /* Color variants for different statuses */
 #status-bar.success {
@@ -155,4 +185,66 @@ h1 {
 #status-bar.processing {
     background-color: #FCF8E3;  /* Light yellow */
     color: #8A6D3B;  /* Dark yellow */
+}
+
+/* Ambiguity Modal Styles */
+#ambiguityModal {
+    /* Uses general .modal styles (display: none initially) */
+}
+
+.ambiguity-modal-content {
+    max-height: 65vh; /* Reduce max height */
+    overflow-y: auto; 
+    padding: 25px;
+    /* Width and margin are handled by general .modal-content now */
+}
+
+.ambiguity-item {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.ambiguity-item:last-child {
+    border-bottom: none;
+}
+
+.ambiguity-item h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 1.1em;
+    color: #555;
+}
+
+.ambiguity-item label {
+    display: block; /* Each file option on a new line */
+    margin-bottom: 5px;
+    cursor: pointer;
+}
+
+.ambiguity-item input[type="radio"] {
+    margin-right: 8px;
+}
+
+.ambiguity-navigation button {
+    min-width: 120px; /* Give buttons a minimum width */
+    padding: 10px 15px; /* Adjust padding if needed */
+}
+
+#confirmAmbiguityBtn {
+    /* min-width is handled by .ambiguity-navigation button */
+    margin-top: 0; /* Align with prev/next buttons */
+    /* Keep specific styles if needed */
+    background-color: #28a745; /* Green for confirm? */
+    color: white;
+}
+
+#confirmAmbiguityBtn:hover {
+    background-color: #218838;
+}
+
+.error-message {
+    color: #dc3545;
+    margin-top: 10px;
+    font-weight: bold;
 }
