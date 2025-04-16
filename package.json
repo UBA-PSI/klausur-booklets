@@ -13,11 +13,10 @@
   },
   "dependencies": {
     "@electron/remote": "^2.0.11",
-    "canvas": "^2.11.2",
+    "@hyzyla/pdfium": "^2.1.5",
     "electron": "^26.2.1",
-    "muhammara": "^4.1.0",
     "pdf-lib": "^1.17.1",
-    "pdfjs-dist": "^3.11.174",
+    "sharp": "^0.34.1",
     "yargs": "^17.7.2"
   },
   "devDependencies": {
@@ -28,6 +27,10 @@
   "build": {
     "appId": "com.psi.pdfmerger",
     "productName": "PSI PDF Merger Tool",
+    "asarUnpack": [
+      "**/node_modules/sharp/**/*",
+      "**/node_modules/@hyzyla/pdfium/dist/pdfium.wasm"
+    ],
     "mac": {
       "category": "public.app-category.education"
     },
