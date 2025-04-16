@@ -132,8 +132,7 @@ document.getElementById('startMergingBtn').addEventListener('click', async () =>
     }
 });
 
-// Keep the disabled button listener commented out or inactive
-/*
+// Re-enable the booklet creation listener and use the bridged API
 document.getElementById('createBookletsBtn').addEventListener('click', async () => {
     const outputDirectory = document.getElementById('outputDirectoryPath').value;
 
@@ -147,17 +146,15 @@ document.getElementById('createBookletsBtn').addEventListener('click', async () 
     updateStatus('processing', 'Creating booklets... Please wait.');
     
     try {
-        // Would use: await window.electronAPI.createBooklets(outputDirectory);
-        // But this is disabled for now
-        document.getElementById('status').textContent = 'Booklet creation is currently disabled.';
-        updateStatus('info', 'Booklet creation is currently disabled.');
-        // Old success message: 'Booklets created successfully! Check the booklets directory.';
+        // Use the exposed function from preload script
+        const resultMessage = await window.electronAPI.createBooklets(outputDirectory);
+        document.getElementById('status').textContent = resultMessage; // Display message from main process
+        updateStatus('success', resultMessage);
     } catch (error) {
         document.getElementById('status').textContent = 'Error creating booklets: ' + error.message;
         updateStatus('error', 'Error creating booklets: ' + error.message);
     }
 });
-*/
 
 document.getElementById('settingsButton').addEventListener('click', openModal);
 

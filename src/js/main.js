@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 
-const { mergeStudentPDFs, transformAndMergeStudentPDFs } = require('./pdf-merger');
+const { mergeStudentPDFs, transformAndMergeStudentPDFs, createSaddleStitchBooklet } = require('./pdf-merger');
 
 
 
@@ -137,38 +137,54 @@ ipcMain.handle('start-merging', async (event, mainDirectory, outputDirectory, de
     }
 });
 
-/* // Temporarily disabled booklet creation
+// Re-enabled booklet creation using JS
 ipcMain.handle('create-booklets', async (event, outputDirectory) => {
+    console.log(`IPC: Received create-booklets request for outputDir: ${outputDirectory}`);
     try {
         const pdfsDir = path.join(outputDirectory, 'pdfs');
         const bookletsDir = path.join(outputDirectory, 'booklets');
 
-        // Ensure the booklets directory exists
+        // Ensure the input pdfs directory exists
+        if (!fs.existsSync(pdfsDir)) {
+            console.error(`Error: Input PDF directory not found: ${pdfsDir}`);
+            throw new Error(`Input PDF directory not found: ${pdfsDir}. Please run merging first.`);
+        }
+
+        // Ensure the output booklets directory exists
         if (!fs.existsSync(bookletsDir)) {
-            fs.mkdirSync(bookletsDir);
+            console.log(`Creating booklets directory: ${bookletsDir}`);
+            fs.mkdirSync(bookletsDir, { recursive: true }); // Use recursive true just in case
         }
 
         const studentPDFs = fs.readdirSync(pdfsDir).filter(f => f.endsWith('.pdf'));
+        console.log(`Found ${studentPDFs.length} student PDFs in ${pdfsDir}`);
 
+        if (studentPDFs.length === 0) {
+            console.warn("No PDFs found in the 'pdfs' directory to create booklets from.");
+            return 'No PDFs found to create booklets from.';
+        }
+
+        // Process booklets sequentially to avoid overwhelming resources
         for (const pdfFile of studentPDFs) {
             const inputFilePath = path.join(pdfsDir, pdfFile);
             const outputFilePath = path.join(bookletsDir, pdfFile);
-
-            // Call the pdfimpose command for each student's PDF
-            const command = `source ${path.join(__dirname, '../../venv/bin/activate')} && pdfimpose saddle "${inputFilePath}" --output "${outputFilePath}"`;
-            exec(command, (error) => {
-                if (error) {
-                    console.error(`Error creating booklet for ${pdfFile}:`, error);
-                    throw error;
-                }
-            });
+            console.log(`Attempting to create booklet for: ${inputFilePath} -> ${outputFilePath}`);
+            try {
+                await createSaddleStitchBooklet(inputFilePath, outputFilePath);
+            } catch (bookletError) {
+                // Log specific error and continue with the next file
+                console.error(`Error creating booklet for ${pdfFile}:`, bookletError);
+                // Optionally re-throw if one failure should stop the whole process
+                // throw new Error(`Failed to create booklet for ${pdfFile}: ${bookletError.message}`); 
+            }
         }
 
+        console.log('Booklet creation process completed.');
         return 'Booklets created successfully!';
     } catch (error) {
-        console.error('Error in create-booklets:', error);
-        throw error;  // This will send the error back to the renderer process
+        console.error('Error in create-booklets handler:', error);
+        // Send the error back to the renderer process
+        throw new Error(`Booklet creation failed: ${error.message}`); 
     }
 });
-*/
 

@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveConfig: (config) => ipcRenderer.send('save-config', config),
   startTransformation: (mainDir, outputDir, descFile, dpi) => ipcRenderer.invoke('start-transformation', mainDir, outputDir, descFile, dpi),
   startMerging: (mainDir, outputDir, descFile) => ipcRenderer.invoke('start-merging', mainDir, outputDir, descFile),
+  createBooklets: (outputDir) => ipcRenderer.invoke('create-booklets', outputDir),
 
   // Main -> Renderer (receive)
   onDirectorySelected: (callback) => ipcRenderer.on('directory-selected', (_event, type, path) => callback(type, path)),
