@@ -126,7 +126,48 @@ app.on('activate', () => {
 
 
 
-const CONFIG_PATH = path.join(app.getPath('userData'), 'config.json');
+// --- Determine Configuration Path --- 
+function getConfigPath() {
+    let configDir;
+    // Use standard userData path for macOS (.app bundles)
+    if (process.platform === 'darwin') {
+        configDir = app.getPath('userData');
+    } else {
+        // For Windows/Linux, try to use a 'config' folder next to the executable
+        try {
+            // Path to the directory containing the executable
+            const appDir = path.dirname(process.execPath);
+            configDir = path.join(appDir, 'config');
+            // Important: Check if we can actually write here.
+            // This is a simple check; a more robust one might try creating the dir.
+            fs.accessSync(appDir, fs.constants.W_OK);
+            console.log(`Using portable config directory: ${configDir}`);
+        } catch (err) {
+            // Fallback to userData if portable path isn't writable or accessible
+            console.warn(`Portable config path not writable/accessible (${err.message}), falling back to userData path.`);
+            configDir = app.getPath('userData');
+        }
+    }
+
+    // Ensure the chosen config directory exists
+    if (!fs.existsSync(configDir)) {
+        try {
+            fs.mkdirSync(configDir, { recursive: true });
+            console.log(`Created config directory: ${configDir}`);
+        } catch (mkdirErr) {
+            // Very unlikely fallback: if we can't create userData, log error and maybe use temp?
+            console.error(`FATAL: Could not create config directory at ${configDir}. Error: ${mkdirErr.message}`);
+            // As a last resort, could use temp dir, but config would be lost on exit.
+            configDir = app.getPath('temp');
+        }
+    }
+
+    return path.join(configDir, 'config.json');
+}
+
+const CONFIG_PATH = getConfigPath();
+console.log(`Effective CONFIG_PATH: ${CONFIG_PATH}`); // Log the path being used
+// --- End Configuration Path --- 
 
 ipcMain.on('save-config', (event, config) => {
     try {
