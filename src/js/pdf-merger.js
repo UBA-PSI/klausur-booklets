@@ -169,11 +169,11 @@ async function transformAndMergeStudentPDFs(mainDirectory, outputDirectory, desc
  * @param {string} outputPath - Path to save the output booklet PDF.
  */
 async function createSaddleStitchBooklet(inputPath, outputPath) {
-    console.log(`[Booklet] Starting creation for ${inputPath} -> ${outputPath}`); // Log start
+    // console.log(`[Booklet] Starting creation for ${inputPath} -> ${outputPath}`); // Removed log
     const pdfBytes = fs.readFileSync(inputPath);
     const inputDoc = await PDFDocument.load(pdfBytes);
     const pageCount = inputDoc.getPageCount();
-    console.log(`[Booklet] Original page count: ${pageCount}`); // Log page count
+    // console.log(`[Booklet] Original page count: ${pageCount}`); // Removed log
 
     if (pageCount === 0) {
         console.warn(`Skipping booklet creation for empty PDF: ${inputPath}`);
@@ -183,7 +183,7 @@ async function createSaddleStitchBooklet(inputPath, outputPath) {
     let finalPageCount = pageCount;
     const pagesToAdd = (4 - (pageCount % 4)) % 4;
     finalPageCount += pagesToAdd;
-    console.log(`[Booklet] Final page count (multiple of 4): ${finalPageCount}`);
+    // console.log(`[Booklet] Final page count (multiple of 4): ${finalPageCount}`); // Removed log
 
     const newPdfDoc = await PDFDocument.create();
     const newIndices = [];
@@ -198,7 +198,7 @@ async function createSaddleStitchBooklet(inputPath, outputPath) {
             newIndices.push(finalPageCount - 1 - i);
         }
     }
-    console.log(`[Booklet] Calculated new page index order: ${JSON.stringify(newIndices)}`);
+    // console.log(`[Booklet] Calculated new page index order: ${JSON.stringify(newIndices)}`); // Removed log
 
     // Get dimensions from the first page
     const [firstInputPage] = inputDoc.getPages();
@@ -206,56 +206,52 @@ async function createSaddleStitchBooklet(inputPath, outputPath) {
     const inputHeight = firstInputPage.getHeight();
 
     // Determine output page size (e.g., landscape A3 for portrait A4 input)
-    // Place two input pages side-by-side
     const outputPageWidth = inputWidth * 2;
     const outputPageHeight = inputHeight;
-    console.log(`[Booklet] Input Page Size: ${inputWidth}x${inputHeight}`);
-    console.log(`[Booklet] Output Page Size (2-up): ${outputPageWidth}x${outputPageHeight}`);
+    // console.log(`[Booklet] Input Page Size: ${inputWidth}x${inputHeight}`); // Removed log
+    // console.log(`[Booklet] Output Page Size (2-up): ${outputPageWidth}x${outputPageHeight}`); // Removed log
 
-    // --- Corrected Logic v4 (Using embedPage) --- 
-    // 1. Pre-embed all necessary pages from the source doc into the new doc context
-    const embeddedPages = new Map(); // Use a Map to store embedded pages by original index
-    console.log(`[Booklet] Embedding ${pageCount} source pages...`);
+    // --- Logic using embedPage --- 
+    // 1. Pre-embed all necessary pages
+    const embeddedPages = new Map(); 
+    // console.log(`[Booklet] Embedding ${pageCount} source pages...`); // Removed log
     for (let i = 0; i < pageCount; i++) {
-        const sourcePage = inputDoc.getPage(i);
-        const [embeddedPage] = await newPdfDoc.embedPdf(inputDoc, [i]); // Embed the specific page
+        const [embeddedPage] = await newPdfDoc.embedPdf(inputDoc, [i]); 
         embeddedPages.set(i, embeddedPage);
-        // console.log(`[Booklet] Embedded source index ${i}`);
     }
-    console.log(`[Booklet] Finished embedding source pages.`);
+    // console.log(`[Booklet] Finished embedding source pages.`); // Removed log
 
     // 2. Iterate through the required OUTPUT pages
     for (let i = 0; i < finalPageCount / 2; i++) {
-        // Determine the source indices for the left and right side of this output page
         const leftSourceIndex = newIndices[i * 2];
         const rightSourceIndex = newIndices[i * 2 + 1];
 
-        // Add a new blank page of the output size
         const outputPage = newPdfDoc.addPage([outputPageWidth, outputPageHeight]);
-        console.log(`[Booklet] Created output page ${i + 1}`);
+        // console.log(`[Booklet] Created output page ${i + 1}`); // Removed log
 
         // --- Draw Left Page ---
         if (leftSourceIndex < pageCount) {
             const leftPageToDraw = embeddedPages.get(leftSourceIndex);
             if (leftPageToDraw) {
                  try {
-                    console.log(`[Booklet] Attempting to draw pre-embedded source index ${leftSourceIndex} onto left side`);
+                    // console.log(`[Booklet] Attempting to draw pre-embedded source index ${leftSourceIndex} onto left side`); // Removed log
                     outputPage.drawPage(leftPageToDraw, {
                         x: 0,
                         y: 0,
                         width: inputWidth,
                         height: inputHeight
                     });
-                    console.log(`[Booklet] Drew source index ${leftSourceIndex} onto left side`);
+                    // console.log(`[Booklet] Drew source index ${leftSourceIndex} onto left side`); // Removed log
                  } catch (drawError) {
                      console.error(`[Booklet] Error drawing left page (source index ${leftSourceIndex}) on output page ${i + 1}:`, drawError);
-                     throw drawError; // Re-throw to stop the process on error
+                     throw drawError; 
                  }
             } else {
-                 console.error(`[Booklet] Failed to find pre-embedded page for source index ${leftSourceIndex}`);
+                 console.error(`[Booklet] Critical Error: Failed to find pre-embedded page for source index ${leftSourceIndex}`);
+                 throw new Error(`Failed to find pre-embedded page for source index ${leftSourceIndex}`);
             }
         } else {
-            console.log(`[Booklet] Left side of output page ${i + 1} is blank (source index ${leftSourceIndex} was padding).`);
+            // console.log(`[Booklet] Left side of output page ${i + 1} is blank (source index ${leftSourceIndex} was padding).`); // Removed log
         }
 
         // --- Draw Right Page ---
@@ -263,31 +259,32 @@ async function createSaddleStitchBooklet(inputPath, outputPath) {
             const rightPageToDraw = embeddedPages.get(rightSourceIndex);
              if (rightPageToDraw) {
                 try {
-                    console.log(`[Booklet] Attempting to draw pre-embedded source index ${rightSourceIndex} onto right side`);
+                    // console.log(`[Booklet] Attempting to draw pre-embedded source index ${rightSourceIndex} onto right side`); // Removed log
                     outputPage.drawPage(rightPageToDraw, {
                         x: inputWidth,
                         y: 0,
                         width: inputWidth,
                         height: inputHeight
                     });
-                    console.log(`[Booklet] Drew source index ${rightSourceIndex} onto right side`);
+                    // console.log(`[Booklet] Drew source index ${rightSourceIndex} onto right side`); // Removed log
                  } catch (drawError) {
                     console.error(`[Booklet] Error drawing right page (source index ${rightSourceIndex}) on output page ${i + 1}:`, drawError);
-                    throw drawError; // Re-throw to stop the process on error
+                    throw drawError; 
                  }
              } else {
-                 console.error(`[Booklet] Failed to find pre-embedded page for source index ${rightSourceIndex}`);
+                 console.error(`[Booklet] Critical Error: Failed to find pre-embedded page for source index ${rightSourceIndex}`);
+                 throw new Error(`Failed to find pre-embedded page for source index ${rightSourceIndex}`);
              }
         } else {
-            console.log(`[Booklet] Right side of output page ${i + 1} is blank (source index ${rightSourceIndex} was padding).`);
+            // console.log(`[Booklet] Right side of output page ${i + 1} is blank (source index ${rightSourceIndex} was padding).`); // Removed log
         }
     }
-    // --- End Corrected Logic v4 ---
+    // --- End Logic ---
 
     // Save the new PDF
     const newPdfBytes = await newPdfDoc.save();
     fs.writeFileSync(outputPath, newPdfBytes);
-    console.log(`[Booklet] Successfully created 2-up booklet: ${outputPath}`);
+    console.log(`Booklet created: ${outputPath}`); // Keep final success log
 }
 
 module.exports = {
