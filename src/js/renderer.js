@@ -103,6 +103,13 @@ window.electronAPI.onLoadConfig((loadedConfig) => {
     if (coverTemplateTextarea) {
         coverTemplateTextarea.value = config.coverTemplateContent || DEFAULT_COVER_TEMPLATE;
     }
+    // Load filesize limits
+    if (config.minFileSizeKB !== undefined) { // Check existence to avoid overwriting default
+        document.getElementById('minFileSizeKB').value = config.minFileSizeKB;
+    }
+    if (config.maxFileSizeMB !== undefined) {
+        document.getElementById('maxFileSizeMB').value = config.maxFileSizeMB;
+    }
 });
 
 
@@ -113,6 +120,10 @@ function saveConfig() {
     config.dpi = parseInt(document.getElementById('dpi').value, 10);
     config.foldernamePattern = document.getElementById('foldername-pattern').value; // Save pattern
     
+    // Save filesize limits
+    config.minFileSizeKB = parseInt(document.getElementById('minFileSizeKB').value, 10) || 0; // Default to 0 if parsing fails
+    config.maxFileSizeMB = parseInt(document.getElementById('maxFileSizeMB').value, 10) || 1; // Default to 1MB if parsing fails
+
     // Save cover template content
     const coverTemplateTextarea = document.getElementById('coverTemplateContentInput');
     if (coverTemplateTextarea) {
@@ -242,6 +253,8 @@ function openMoodleCollisionModal(collidingNames, usedCSVs = false, csvMappingsC
 
 function closeMoodleCollisionModal() {
     moodleCollisionModal.style.display = 'none';
+    // Reset status bar to Ready if modal is closed without starting transformation
+    updateStatus('ready', 'Ready'); 
 }
 
 // Handle retry with CSV files
@@ -501,9 +514,16 @@ window.electronAPI.onTransformationProgress((progressData) => {
 });
 // --- End Progress Listener ---
 
+// --- Listener for Errors from Main Process ---
+window.electronAPI.onLogError((message) => {
+    logErrorToUI(message); // Use the function we created earlier
+});
+// --- End Error Listener ---
+
 // --- End Ambiguity Resolution Logic ---
 
 document.getElementById('startTransformationBtn').addEventListener('click', async () => {
+    clearErrorLogUI(); // Clear errors from previous runs
     const mainDirectory = document.getElementById('mainDirectoryPath').value;
     const outputDirectory = document.getElementById('outputDirectoryPath').value;
     // templatePath is no longer needed here
@@ -732,6 +752,68 @@ document.querySelector('#coverTemplateModal .cover-template-close').addEventList
     // Save config when closing the modal
     saveConfig();
 });
+
+// --- Error Logging to UI ---
+function logErrorToUI(message) {
+    const errorLogContainer = document.getElementById('errorLogContainer');
+    const errorLogOutput = document.getElementById('errorLogOutput');
+    
+    // Make the container visible if it's the first error
+    if (errorLogContainer.style.display === 'none') {
+        errorLogContainer.style.display = 'block';
+    }
+    
+    // Append the new message with a timestamp (optional)
+    const timestamp = new Date().toLocaleTimeString();
+    errorLogOutput.value += `[${timestamp}] ${message}\n`;
+    
+    // Scroll to the bottom
+    errorLogOutput.scrollTop = errorLogOutput.scrollHeight;
+}
+
+// Function to clear the error log UI
+function clearErrorLogUI() {
+    const errorLogContainer = document.getElementById('errorLogContainer');
+    const errorLogOutput = document.getElementById('errorLogOutput');
+    errorLogOutput.value = ''; // Clear content
+    errorLogContainer.style.display = 'none'; // Hide container
+}
+// --- End Error Logging ---
+
+// --- Clear Output Button Listener ---
+const clearOutputBtn = document.getElementById('clearOutputBtn');
+if (clearOutputBtn) {
+    clearOutputBtn.addEventListener('click', async () => {
+        const outputDirectory = document.getElementById('outputDirectoryPath').value;
+        if (!outputDirectory) {
+            updateStatus('error', 'Please select an output directory first.');
+            return;
+        }
+
+        const confirmation = confirm(
+            `Are you sure you want to permanently delete the contents of the following subfolders within '${outputDirectory}'?\n\n- pages\n- pdfs\n- booklets\n\nThis action cannot be undone.`
+        );
+
+        if (confirmation) {
+            updateStatus('processing', 'Clearing output folders...');
+            try {
+                const result = await window.electronAPI.clearOutputFolder(outputDirectory);
+                if (result.success) {
+                    updateStatus('success', result.message);
+                } else {
+                    updateStatus('error', result.message);
+                }
+            } catch (error) {
+                updateStatus('error', `Failed to clear output: ${error.message}`);
+            }
+        } else {
+            updateStatus('info', 'Clear output cancelled.');
+        }
+    });
+} else {
+    console.warn('Clear Output button (clearOutputBtn) not found in index.html.');
+}
+// --- End Clear Output --- 
 
 
 

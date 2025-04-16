@@ -2,6 +2,9 @@ const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { parse } = require('csv-parse/sync'); // Import sync parser
+const sharp = require('sharp'); // Add sharp for image validation
+const { PDFDocument } = require('pdf-lib'); // Add pdf-lib for PDF validation
+const decodeHeic = require('heic-decode'); // Needed for HEIC
 
 // Updated require to include new functions and error
 const {
@@ -429,6 +432,17 @@ async function parseCSVsInDirectory(mainDirectory) {
 // Function to prepare transformations and handle ambiguities
 async function prepareTransformations(mainDirectory, outputDirectory, folderPattern) {
     console.log("Preparing transformations...");
+
+    // Load config to get filesize limits
+    let config = {};
+    try {
+        config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
+    } catch (err) {
+        console.warn("Could not load config for filesize limits, using defaults.");
+    }
+    const minSizeBytes = (config.minFileSizeKB || 0) * 1024;
+    const maxSizeBytes = (config.maxFileSizeMB || 20) * 1024 * 1024; // Default 20MB
+    console.log(`Filesize limits: Min=${minSizeBytes} bytes, Max=${maxSizeBytes} bytes`);
     
     // Use the shared CSV parsing function
     const csvResult = await parseCSVsInDirectory(mainDirectory); // Assign the whole result object
@@ -465,38 +479,99 @@ async function prepareTransformations(mainDirectory, outputDirectory, folderPatt
         
         for (const studentFolder of studentFolders) {
             const studentFolderPath = path.join(pageDirPath, studentFolder);
-            const validFiles = fs.readdirSync(studentFolderPath).filter(file => {
+            const potentialFiles = fs.readdirSync(studentFolderPath);
+            let validatedFiles = []; // Store files that pass all checks
+
+            // Filter files by extension, integrity, and size limits
+            for (const file of potentialFiles) {
+                const filePath = path.join(studentFolderPath, file);
                 const ext = path.extname(file).toLowerCase();
-                return ['.pdf', '.png', '.jpg', '.jpeg', '.heic'].includes(ext);
-            });
+                const allowedExtensions = ['.pdf', '.png', '.jpg', '.jpeg', '.heic'];
+
+                if (!allowedExtensions.includes(ext)) continue; // Skip disallowed extensions
+
+                let isValid = false;
+                let fileBuffer;
+                try {
+                    fileBuffer = fs.readFileSync(filePath);
+                    // --- Integrity Check --- 
+                    if (ext === '.pdf') {
+                        await PDFDocument.load(fileBuffer); // Throws on error
+                        isValid = true;
+                    } else if (ext === '.heic') {
+                        const { data, width, height } = await decodeHeic({ buffer: fileBuffer });
+                        // Check metadata of the decoded PNG buffer
+                        await sharp(data, { raw: { width, height, channels: 4 } }).metadata(); 
+                        isValid = true;
+                    } else { // Other images (png, jpg, jpeg)
+                        await sharp(fileBuffer).metadata(); // Throws on error
+                        isValid = true;
+                    }
+                } catch (validationError) {
+                    const errorMsg = `Skipping file (Invalid/Corrupt): ${filePath} - Error: ${validationError.message}`;
+                    console.error(errorMsg);
+                    if (mainWindow) mainWindow.webContents.send('error-log', errorMsg);
+                    isValid = false;
+                }
+
+                if (!isValid) continue; // Skip if integrity check failed
+
+                // --- Size Check --- 
+                try {
+                    // We already have the buffer, use its length for size
+                    const fileSize = fileBuffer.length; 
+                    if (fileSize >= minSizeBytes && fileSize <= maxSizeBytes) {
+                        validatedFiles.push(file); // Keep file if valid and within limits
+                    } else {
+                        const sizeKB = (fileSize / 1024).toFixed(2);
+                        const sizeErrorMsg = `Skipping file (Size Limit): ${filePath} (${sizeKB} KB)`;
+                        console.warn(sizeErrorMsg);
+                        if (mainWindow) mainWindow.webContents.send('error-log', sizeErrorMsg);
+                    }
+                } catch (err) { // Should not happen if buffer read worked, but safety check
+                    const statErrorMsg = `Error checking size for file ${filePath}: ${err.message}`;
+                    console.error(statErrorMsg);
+                    if (mainWindow) mainWindow.webContents.send('error-log', statErrorMsg);
+                }
+            } // End loop through potential files
+
+            // Use the fully validated list now
+            const finalValidFiles = validatedFiles; 
+
+            if (finalValidFiles.length === 0) {
+                const skipMsg = `No valid files (checked type, integrity, size) found in ${studentFolderPath}, skipping folder for page ${pageDir}.`;
+                console.log(skipMsg);
+                // Optionally log this minor info to UI log?
+                // if (mainWindow) mainWindow.webContents.send('error-log', `INFO: ${skipMsg}`);
+                continue;
+            }
             
-            if (validFiles.length === 0) continue;
-            
+            // --- Proceed with ambiguity check / task creation using finalValidFiles --- 
             const parsedInfo = parseFolderName(studentFolder, folderPattern);
             const studentIdentifier = parsedInfo.primaryIdentifier;
-            const studentOutputDir = path.join(outputDirectory, 'pages', studentIdentifier); // Path corrected earlier
+            const studentOutputDir = path.join(outputDirectory, 'pages', studentIdentifier);
             if (!fs.existsSync(studentOutputDir)) {
                 fs.mkdirSync(studentOutputDir, { recursive: true });
             }
             const outputFilePath = path.join(studentOutputDir, `${pageDir}.pdf`);
             
-            if (validFiles.length === 1) {
+            if (finalValidFiles.length === 1) {
                 transformationTasks.push({
-                    inputPath: path.join(studentFolderPath, validFiles[0]),
+                    inputPath: path.join(studentFolderPath, finalValidFiles[0]),
                     outputPath: outputFilePath,
                     pageName: pageDir,
-                    originalFileName: validFiles[0],
-                    studentInfo: parsedInfo // Contains identifier, name, and potentially someNumber
+                    originalFileName: finalValidFiles[0],
+                    studentInfo: parsedInfo 
                 });
-            } else {
+            } else { // finalValidFiles.length > 1
                 ambiguities.push({
                     folderPath: studentFolderPath,
-                    files: validFiles,
+                    files: finalValidFiles, // Use the validated list
                     context: `Student: ${studentFolder}, Page: ${pageDir}`
                 });
             }
-        }
-    }
+        } // End loop through student folders
+    } // End loop through page directories
     
     console.log(`Preparation complete. Tasks: ${transformationTasks.length}, Ambiguities: ${ambiguities.length}. Email map size: ${Object.keys(someNumberToEmailMap).length}`);
     return { tasks: transformationTasks, ambiguities };
@@ -670,8 +745,20 @@ async function processTasksDirectly(tasks, outputDirectory, dpi) {
                 studentInfo: task.studentInfo
             });
         } catch (processingError) {
-            console.error(`Error during initial transformation for ${task.inputPath}:`, processingError);
             errorCount++;
+            const errorMsg = `Error transforming ${task.inputPath}: ${processingError.message}`;
+            console.error(errorMsg);
+            if (mainWindow) mainWindow.webContents.send('error-log', errorMsg);
+            // Create placeholder error file
+            try {
+                const errorFilePath = task.outputPath.replace(/\.pdf$/, '_error.txt'); 
+                fs.writeFileSync(errorFilePath, `Failed to process: ${path.basename(task.inputPath)}\nError: ${processingError.message}\n${processingError.stack || ''}`);
+                console.log(`Created error placeholder: ${errorFilePath}`);
+            } catch (writeError) {
+                const writeErrorMsg = `Failed to write error placeholder for ${task.outputPath}: ${writeError.message}`;
+                console.error(writeErrorMsg);
+                 if (mainWindow) mainWindow.webContents.send('error-log', writeErrorMsg);
+            }
         }
     }
 
@@ -877,7 +964,19 @@ ipcMain.handle('create-booklets', async (event, outputDirectory) => {
                 await createSaddleStitchBooklet(inputFilePath, outputFilePath);
             } catch (bookletError) {
                 // Log specific error and continue with the next file
-                console.error(`Error creating booklet for ${pdfFile}:`, bookletError);
+                const errorMsg = `Error creating booklet for ${pdfFile}: ${bookletError.message}`;
+                console.error(errorMsg);
+                if (mainWindow) mainWindow.webContents.send('error-log', errorMsg); // Log to UI
+                // Create placeholder error file
+                try {
+                    const errorFilePath = outputFilePath.replace(/\.pdf$/, '_booklet_error.txt');
+                    fs.writeFileSync(errorFilePath, `Failed to create booklet from: ${pdfFile}\nError: ${bookletError.message}\n${bookletError.stack || ''}`);
+                    console.log(`Created error placeholder: ${errorFilePath}`);
+                } catch (writeError) {
+                    const writeErrorMsg = `Failed to write booklet error placeholder for ${pdfFile}: ${writeError.message}`;
+                    console.error(writeErrorMsg);
+                    if (mainWindow) mainWindow.webContents.send('error-log', writeErrorMsg);
+                }
                 // Optionally re-throw if one failure should stop the whole process
                 // throw new Error(`Failed to create booklet for ${pdfFile}: ${bookletError.message}`); 
             }
@@ -1221,3 +1320,42 @@ ipcMain.handle('precheck-collisions', async (event, mainDirectory, folderPattern
         throw error;
     }
 });
+
+// --- Clear Output Handler ---
+ipcMain.handle('clear-output-folder', async (event, outputDirectory) => {
+    console.log(`IPC: Received clear-output-folder for: ${outputDirectory}`);
+    if (!outputDirectory || !fs.existsSync(outputDirectory)) {
+        const msg = "Output directory path is invalid or does not exist.";
+        console.error(`Clear Output Error: ${msg}`);
+        return { success: false, message: msg };
+    }
+
+    const foldersToClear = ['pages', 'pdfs', 'booklets'];
+    let errors = [];
+
+    for (const folder of foldersToClear) {
+        const folderPath = path.join(outputDirectory, folder);
+        if (fs.existsSync(folderPath)) {
+            console.log(`Attempting to clear: ${folderPath}`);
+            try {
+                fs.rmSync(folderPath, { recursive: true, force: true });
+                console.log(`Successfully cleared: ${folderPath}`);
+            } catch (err) {
+                const errorMsg = `Failed to clear ${folderPath}: ${err.message}`;
+                console.error(errorMsg);
+                errors.push(errorMsg);
+                // Optionally send to UI log immediately?
+                if (mainWindow) mainWindow.webContents.send('error-log', `ERROR: ${errorMsg}`);
+            }
+        } else {
+            console.log(`Directory does not exist, skipping clear: ${folderPath}`);
+        }
+    }
+
+    if (errors.length > 0) {
+        return { success: false, message: `Errors occurred during cleanup: ${errors.join('; ')}` };
+    } else {
+        return { success: true, message: 'Output folders (pages, pdfs, booklets) cleared successfully.' };
+    }
+});
+// --- End Clear Output Handler ---

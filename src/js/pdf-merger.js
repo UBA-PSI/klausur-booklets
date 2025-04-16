@@ -293,24 +293,37 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent)
         const submittedSeitenListString = sortedProcessedFiles.length > 0 
             ? sortedProcessedFiles.map(info => `- ${info.pageName}: ${info.originalFileName}`).join('\n')
             : 'None';
+        const pagesSuccessfullyMerged = []; // Track pages we actually add
+        const pagesFailedToMerge = []; // Track pages that failed
         // --- End Build List --- 
 
         // Merge actual PDF content (looping through found PDFs)
         for (const pdfFile of studentPDFs) {
             const pdfPathToMerge = path.join(studentDirPath, pdfFile); // Full path to PDF inside student dir
-            const pdfBuffer = fs.readFileSync(pdfPathToMerge);
-            const pdfDoc = await PDFDocument.load(pdfBuffer);
+            try {
+                const pdfBuffer = fs.readFileSync(pdfPathToMerge);
+                const pdfDoc = await PDFDocument.load(pdfBuffer); // Load potentially problematic PDF
 
-            if (!dimensionsDetermined) {
-                const [firstPage] = pdfDoc.getPages();
-                width = firstPage.getWidth();
-                height = firstPage.getHeight();
-                dimensionsDetermined = true;
-                console.log(`  Determined page dimensions from ${pdfFile}: ${width}x${height}`);
+                if (!dimensionsDetermined) {
+                    const [firstPage] = pdfDoc.getPages();
+                    width = firstPage.getWidth();
+                    height = firstPage.getHeight();
+                    dimensionsDetermined = true;
+                    console.log(`  Determined page dimensions from ${pdfFile}: ${width}x${height}`);
+                }
+
+                const [page] = await mergedPdf.copyPages(pdfDoc, [0]); // Copy page
+                mergedPdf.addPage(page);
+                pagesSuccessfullyMerged.push(path.basename(pdfFile, '.pdf')); // Add page name (without .pdf)
+            } catch (mergeError) {
+                const pageName = path.basename(pdfFile, '.pdf');
+                const errorMsg = `Error merging page ${pageName} for ${studentIdentifier}: ${mergeError.message}`;
+                console.error(errorMsg);
+                // TODO: Send error to UI log via main process
+                // We need a way to communicate this back to main.js to send IPC message.
+                // For now, just console log and track failure.
+                pagesFailedToMerge.push(pageName);
             }
-
-            const [page] = await mergedPdf.copyPages(pdfDoc, [0]);
-            mergedPdf.addPage(page);
         }
 
         // Determine missing pages based on processed page names
@@ -320,18 +333,38 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent)
 	    });
         const submittedPageNames = sortedProcessedFiles.map(info => info.pageName); // Use sorted list for accurate missing check
         const missingSeiten = seiteFolders.filter(seite => !submittedPageNames.includes(seite));
-        console.log(`  Submitted based on processed info: ${submittedPageNames.length}, Missing: ${missingSeiten.length}`);
+        // Add pages that failed to merge to the missing list as well
+        const finalMissingSeiten = [...new Set([...missingSeiten, ...pagesFailedToMerge])].sort();
+        console.log(`  Submitted based on processed info: ${submittedPageNames.length}, Merged successfully: ${pagesSuccessfullyMerged.length}, Failed/Missing: ${finalMissingSeiten.length}`);
 
         // Generate cover sheet using the studentInfo object and template CONTENT
-        const coverSheet = await generateCoverSheet(templateContent, submittedSeitenListString, missingSeiten, studentInfoForCover, width, height);
+        // Pass the updated missing list
+        const coverSheet = await generateCoverSheet(templateContent, submittedSeitenListString, finalMissingSeiten, studentInfoForCover, width, height);
         const [coverPage] = await mergedPdf.copyPages(coverSheet, [0]);
         mergedPdf.insertPage(0, coverPage);
         console.log(`  Generated and added cover sheet.`);
 
         const outputPdfFileName = `${studentInfoForCover.primaryIdentifier || studentIdentifier}.pdf`; // Use primary ID if available
         const outputPath = path.join(pdfsSubDirectory, outputPdfFileName); // Output merged PDF to root 'pdfs' dir
-        fs.writeFileSync(outputPath, await mergedPdf.save());
-        console.log(`  Successfully merged and saved to: ${outputPath}`);
+        
+        // Try saving the final merged PDF
+        try {
+            fs.writeFileSync(outputPath, await mergedPdf.save());
+            console.log(`  Successfully merged and saved to: ${outputPath}`);
+        } catch (saveError) {
+            const saveErrorMsg = `Error saving final merged PDF for ${studentIdentifier}: ${saveError.message}`;
+            console.error(saveErrorMsg);
+            // TODO: Send error to UI log via main process
+            // Create placeholder in pdfs folder
+            const errorFilePath = outputPath.replace(/\.pdf$/, '_merge_error.txt');
+            try {
+                fs.writeFileSync(errorFilePath, `Failed to save merged PDF.\nError: ${saveError.message}\n${saveError.stack || ''}`);
+                console.log(`Created error placeholder: ${errorFilePath}`);
+            } catch (writeError) {
+                console.error(`Failed to write merge error placeholder for ${studentIdentifier}: ${writeError.message}`);
+            }
+            // Indicate failure if needed, maybe throw error to main?
+        }
     }
     console.log("PDF Merging Process Completed.");
 }

@@ -15,7 +15,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   resolveAmbiguity: (resolvedChoices) => ipcRenderer.invoke('resolve-ambiguity', resolvedChoices),
   handleExportConfig: (config) => ipcRenderer.invoke('handle-export-config', config),
   handleImportConfig: () => ipcRenderer.invoke('handle-import-config'),
-  precheckCollisions: (inputDir, pattern, useCSVs = false) => ipcRenderer.invoke('precheck-collisions', inputDir, pattern, useCSVs),
+  precheckCollisions: (mainDir, pattern, useCSVs) => ipcRenderer.invoke('precheck-collisions', mainDir, pattern, useCSVs),
 
   // Main -> Renderer (receive)
   onDirectorySelected: (callback) => ipcRenderer.on('directory-selected', (_event, type, path) => callback(type, path)),
@@ -24,8 +24,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onAmbiguityRequest: (callback) => ipcRenderer.on('request-ambiguity-resolution', (_event, ambiguities) => callback(ambiguities)),
   onTransformationProgress: (callback) => ipcRenderer.on('transformation-progress', (_event, progressData) => callback(progressData)),
 
+  // Listener for logs from main process
+  onLogError: (callback) => ipcRenderer.on('error-log', (_event, message) => callback(message)),
+
   // Function to remove listeners if needed (optional but good practice)
-  removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel)
+  removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
+
+  // Function to clear output
+  clearOutputFolder: (outputDir) => ipcRenderer.invoke('clear-output-folder', outputDir)
 });
 
 console.log('electronAPI exposed on window object.'); 
