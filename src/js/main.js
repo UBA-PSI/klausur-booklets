@@ -136,7 +136,7 @@ ipcMain.on('select-directory', async (event, type) => {
 });
 
 
-ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirectory, descriptionFilePath, dpi) => {
+ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirectory, templatePath, dpi) => {
     console.log("IPC: Received start-transformation");
     pendingTransformationData = null; 
     currentTransformationDpi = dpi;   
@@ -316,48 +316,9 @@ ipcMain.handle('resolve-ambiguity', async (event, resolvedChoices) => {
         }
     }
     // --- Save processed info after loop --- 
-    console.log(`IPC: About to save processed info after ambiguity resolution`);
-    
-    // Fallback method to get an output directory if we can
-    let outputDir = null;
-    
-    // Try to extract from a processed task's outputPath if any succeeded
-    if (Object.keys(processedFileInfo).length > 0) {
-        // We know we processed at least one file, so we can use the directory from there
-        const anyStudentName = Object.keys(processedFileInfo)[0];
-        try {
-            const studentOutputDir = path.join(currentOutputDirectory || pendingTransformationData?.outputDirectory || '', anyStudentName);
-            outputDir = path.dirname(studentOutputDir); // Get parent directory
-            console.log(`IPC: Determined output directory from processed files: ${outputDir}`);
-        } catch (e) {
-            console.error("Failed to determine output directory from processed files:", e);
-        }
-    }
-    
-    // If we still don't have outputDir but do have finalTasks, get it from there
-    if (!outputDir && finalTasks.length > 0) {
-        const firstTask = finalTasks[0];
-        try {
-            // Extract the output directory from the first task's output path
-            outputDir = path.dirname(path.dirname(firstTask.outputPath)); // Go up two levels from outputPath
-            console.log(`IPC: Determined output directory from task: ${outputDir}`);
-        } catch (e) {
-            console.error("Failed to determine output directory from task:", e);
-        }
-    }
-    
-    // Final fallback - use the app's temp directory if we still have no path
-    if (!outputDir) {
-        outputDir = path.join(app.getPath('temp'), 'pdf-merger-tool-output');
-        console.log(`IPC: Using fallback temp directory: ${outputDir}`);
-        // Ensure it exists
-        if (!fs.existsSync(outputDir)) {
-            fs.mkdirSync(outputDir, { recursive: true });
-        }
-    }
-    
-    // Call the function with our determined path
-    await saveProcessedFileInfo(outputDir);
+    console.log(`IPC: About to save processed info, currentOutputDirectory = ${currentOutputDirectory}`); // Keep this log for now
+    // Revert to using the reliably set currentOutputDirectory
+    await saveProcessedFileInfo(currentOutputDirectory);
     // --- End Save ---
     console.log(`IPC: Resolved transformation processing complete. Success: ${successCount}, Errors: ${errorCount}`);
     if (errorCount > 0) {

@@ -92,16 +92,13 @@ window.electronAPI.onDirectorySelected((type, directoryPath) => {
         document.getElementById('outputDirectoryPath').value = directoryPath;
         config.outputDirectory = directoryPath; // Update config too
     } else if (type === 'coverTemplateFile') {
-        console.log('Handling coverTemplateFile selection...'); // Add log
         const inputElement = document.getElementById('cover-template-path');
         if (inputElement) {
             inputElement.value = directoryPath;
-            console.log(`Set cover-template-path input value to: ${directoryPath}`); // Add log
         } else {
-            console.error('Could not find element with ID cover-template-path'); // Add error log
+            console.error('Could not find element with ID cover-template-path');
         }
-        config.coverTemplateFilePath = directoryPath; // Now updates the higher-scoped config
-        console.log('Updated config.coverTemplateFilePath', config);
+        config.coverTemplateFilePath = directoryPath;
     }
 
     // Save the configuration
