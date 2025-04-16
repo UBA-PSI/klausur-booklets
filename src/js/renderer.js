@@ -168,74 +168,75 @@ const moodleCollisionRetryWithCSVBtn = document.getElementById('moodleCollisionR
 let lastInputDirectory = '';
 let lastFolderPattern = '';
 
-function openMoodleCollisionModal(collidingNames, usedCSVs = false, csvMappingsCount = 0, partialCsvCoverage = false, missingCsvPages = [], studentsAffected = []) {
-    collisionListDiv.innerHTML = ''; // Clear previous list
-    
-    // Create message about CSV status
-    const csvStatusDiv = document.createElement('div');
-    
-    if (usedCSVs) {
-        if (partialCsvCoverage) {
-            // Warning about partial CSV coverage - more prominent styles
-            csvStatusDiv.className = 'csv-status-info critical-warning';
-            csvStatusDiv.innerHTML = `
-                <h3>⚠️ CSV Files Missing in Some Directories</h3>
-                <p>You have CSV files in some page directories but not in others. This prevents proper student matching across pages.</p>
-                <p><strong>Missing CSV files in:</strong> ${missingCsvPages.join(', ')}</p>
-                <p><strong>Students appearing in multiple pages:</strong> ${studentsAffected.join(', ')}</p>
-                <p><strong>Action required:</strong> Please add the corresponding CSV files to <em>all</em> page directories before continuing.</p>
-                <p><small>CSV files must be placed in every page directory for the tool to correctly match students across pages.</small></p>
-            `;
-        } else if (csvMappingsCount > 0) {
-            csvStatusDiv.className = 'csv-status-info';
-            csvStatusDiv.innerHTML = `<p>CSV files were used and ${csvMappingsCount} email mappings were found, but collisions still exist.</p>`;
-            // Hide the retry button if we already used CSVs
-            if (moodleCollisionRetryWithCSVBtn) {
-                moodleCollisionRetryWithCSVBtn.style.display = 'none';
-            }
-        } else {
-            csvStatusDiv.className = 'csv-status-info';
-            csvStatusDiv.innerHTML = `<p>CSV files were checked but no valid mappings were found. Please ensure CSV files are present in each page folder with correct headers.</p>`;
-            // Show the retry button in case they add CSV files
-            if (moodleCollisionRetryWithCSVBtn) {
-                moodleCollisionRetryWithCSVBtn.style.display = 'inline-block';
-            }
-        }
-    } else {
+// Updated function signature to include mapping errors
+function openMoodleCollisionModal(collidingNames, usedCSVs = false, csvMappingsCount = 0, partialCsvCoverage = false, missingCsvPages = [], studentsAffected = [], mappingErrors = []) { 
+    const collisionListUl = document.getElementById('collisionList');
+    const mappingErrorListUl = document.getElementById('mappingErrorList');
+    const csvStatusDiv = document.getElementById('csvStatusInfo');
+    const mappingErrorSection = document.getElementById('mappingErrorSection');
+    const collisionNameSection = document.getElementById('collisionNameSection');
+
+    // Clear previous lists
+    collisionListUl.innerHTML = ''; 
+    mappingErrorListUl.innerHTML = '';
+    csvStatusDiv.innerHTML = ''; // Clear previous status
+
+    let hasMappingErrors = mappingErrors && mappingErrors.length > 0;
+    let hasCollisions = collidingNames && collidingNames.length > 0;
+
+    // --- Populate CSV Status Info --- 
+    let csvStatusHTML = '';
+    if (partialCsvCoverage) {
+        // Warning about partial CSV coverage - more prominent styles
+        csvStatusHTML = `
+            <h4 class="warning-heading">CSV Files Missing in Some Directories</h4>
+            <p>You have CSV files in some page directories but not in others. This prevents proper student matching across pages.</p>
+            <p><strong>Missing CSV files in:</strong> ${missingCsvPages.join(', ')}</p>
+            <p><strong>Students potentially affected (appear in multiple pages):</strong> ${studentsAffected.join(', ') || 'None'}</p>
+            <p><strong>Action required:</strong> Please add the corresponding CSV files to <em>all</em> page directories where these students appear before continuing.</p>
+            <p><small>CSV files must be placed in every page directory for the tool to correctly match students across pages.</small></p>
+        `;
+        csvStatusDiv.className = 'csv-status-info critical-warning'; // Use critical style
+    } else if (usedCSVs) {
+        csvStatusHTML = `<p>CSV files were checked. ${csvMappingsCount} email mappings were loaded.</p>`;
         csvStatusDiv.className = 'csv-status-info';
-        csvStatusDiv.innerHTML = `<p>CSV files have not been checked. If you have CSV files with email mappings in the page folders, click "Check Again After Changes".</p>`;
-        // Show the retry button
-        if (moodleCollisionRetryWithCSVBtn) {
-            moodleCollisionRetryWithCSVBtn.style.display = 'inline-block';
-        }
+    } else {
+        csvStatusHTML = `<p>CSV files were not used or not found. If you have CSV files with email mappings in the page folders, place them correctly and click "Check Again After Changes".</p>`;
+        csvStatusDiv.className = 'csv-status-info';
     }
-    
-    collisionListDiv.appendChild(csvStatusDiv);
-    
-    // Add the list of colliding names - only show this section if there are actual collisions
-    if (collidingNames && collidingNames.length > 0) {
-        const collisionsSection = document.createElement('div');
-        collisionsSection.className = 'collision-section';
-        
-        const listHeader = document.createElement('h3');
-        listHeader.textContent = 'Students with Same-Name Collisions:';
-        collisionsSection.appendChild(listHeader);
-        
-        const explanation = document.createElement('p');
-        explanation.innerHTML = `<small>These students have multiple entries with the same name within a single page folder.</small>`;
-        collisionsSection.appendChild(explanation);
-        
-        const list = document.createElement('ul');
+    csvStatusDiv.innerHTML = csvStatusHTML;
+
+    // --- Populate Missing CSV Mappings Section --- 
+    if (hasMappingErrors) {
+        mappingErrorListUl.innerHTML = ''; // Clear just in case
+        mappingErrors.forEach(err => {
+            const item = document.createElement('li');
+            item.innerHTML = `Page: <strong>${err.pageDir}</strong>, Folder: <code>${err.studentFolder}</code> (Expected Number: ${err.someNumber})`;
+            mappingErrorListUl.appendChild(item);
+        });
+        mappingErrorSection.style.display = 'block'; // Show the section
+    } else {
+        mappingErrorSection.style.display = 'none'; // Hide if no errors
+    }
+
+    // --- Populate Same-Name Collisions Section --- 
+    if (hasCollisions) {
+        collisionListUl.innerHTML = ''; // Clear just in case
         collidingNames.forEach(name => {
             const item = document.createElement('li');
             item.textContent = name;
-            list.appendChild(item);
+            collisionListUl.appendChild(item);
         });
-        collisionsSection.appendChild(list);
-        
-        collisionListDiv.appendChild(collisionsSection);
+        collisionNameSection.style.display = 'block'; // Show the section
+    } else {
+        collisionNameSection.style.display = 'none'; // Hide if no collisions
     }
     
+    // Show/hide the retry button based on whether CSVs were involved in the check
+    if (moodleCollisionRetryWithCSVBtn) {
+        moodleCollisionRetryWithCSVBtn.style.display = 'inline-block'; // Simpler: Always show retry button initially
+    }
+
     moodleCollisionModal.style.display = 'block';
 }
 
@@ -254,21 +255,24 @@ async function retryWithCSVFiles() {
     updateStatus('processing', 'Checking for changes and retrying...');
     
     try {
-        const collisionResult = await window.electronAPI.precheckCollisions(lastInputDirectory, lastFolderPattern, true);
+        // Force using CSVs on retry
+        const collisionResult = await window.electronAPI.precheckCollisions(lastInputDirectory, lastFolderPattern, true); 
         console.log("CSV-based pre-check result:", collisionResult);
         
-        if (collisionResult && collisionResult.collisionDetected) {
-            updateStatus('warning', 'Name collisions still detected. Please review and try again.');
+        // Check both collisionDetected and the new mappingErrorDetected flags
+        if (collisionResult && (collisionResult.collisionDetected || collisionResult.mappingErrorDetected)) { 
+            updateStatus('warning', 'Issues still detected. Please review the details and try again.');
             openMoodleCollisionModal(
                 collisionResult.collidingNames, 
                 collisionResult.usedCSVs, 
                 collisionResult.csvMappingsCount,
                 collisionResult.partialCsvCoverage,
                 collisionResult.missingCsvPages,
-                collisionResult.studentsAffected
+                collisionResult.studentsAffected,
+                collisionResult.mappingErrors // Pass mapping errors
             );
         } else {
-            // No collisions with CSV - proceed with transformation
+            // No collisions or mapping errors with CSV - proceed with transformation
             updateStatus('success', 'Collisions resolved! Proceeding with transformation...');
             
             // Start the actual transformation
@@ -524,21 +528,24 @@ document.getElementById('startTransformationBtn').addEventListener('click', asyn
             lastInputDirectory = mainDirectory;
             lastFolderPattern = currentPattern;
             
-            const collisionResult = await window.electronAPI.precheckCollisions(mainDirectory, currentPattern);
-            console.log("Pre-check result:", collisionResult);
-            if (collisionResult && collisionResult.collisionDetected) {
-                 updateStatus('warning', 'Potential name collisions detected. Please resolve.');
+            // Initial check can assume useCSVs = false, user can retry with them
+            const collisionResult = await window.electronAPI.precheckCollisions(mainDirectory, currentPattern, false); 
+            console.log("Initial Pre-check result:", collisionResult);
+            // Check both collisionDetected and mappingErrorDetected flags
+            if (collisionResult && (collisionResult.collisionDetected || collisionResult.mappingErrorDetected)) { 
+                 updateStatus('warning', 'Potential issues detected. Please resolve in the modal.');
                  openMoodleCollisionModal(
                     collisionResult.collidingNames, 
                     collisionResult.usedCSVs, 
                     collisionResult.csvMappingsCount,
                     collisionResult.partialCsvCoverage,
                     collisionResult.missingCsvPages,
-                    collisionResult.studentsAffected
+                    collisionResult.studentsAffected,
+                    collisionResult.mappingErrors // Pass mapping errors
                  );
                  return; // Stop the process, user needs to resolve
             }
-            console.log("Pre-check passed, no collisions detected.");
+            console.log("Pre-check passed, no issues detected.");
         } catch (precheckError) {
             console.error("Error during pre-check:", precheckError);
             updateStatus('error', `Error during pre-check: ${precheckError.message}`);

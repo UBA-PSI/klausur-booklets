@@ -1003,6 +1003,8 @@ ipcMain.handle('precheck-collisions', async (event, mainDirectory, folderPattern
     console.log(`IPC: Received precheck-collisions (useCSVs: ${useCSVs})`);
     const collisionDetails = {}; // { pageDir: [collidingIdentifier1, ...], ... }
     let collisionFound = false;
+    let mappingErrorFound = false; // Flag for missing someNumber mappings
+    const mappingErrors = []; // Store details of missing mappings
     
     // If requested, parse CSV files to help resolve collisions
     let emailMap = {};
@@ -1049,10 +1051,12 @@ ipcMain.handle('precheck-collisions', async (event, mainDirectory, folderPattern
 
             // Map identifiers found *within this specific page directory*
             const pageIdentifierMap = new Map(); // Map<IdentifierName, Array<{folderName, email}>>
+            let pageHasCsv = useCSVs && pagesWithCSV.has(pageDir);
 
             for (const studentFolder of studentFolders) {
                 const parsedInfo = parseFolderName(studentFolder, folderPattern);
                 let identifier = parsedInfo.primaryIdentifier; // Usually the name
+                let currentEmail = null; // Track email resolved for this folder
                 
                 // If using CSVs and this is a Moodle format folder name with someNumber
                 if (useCSVs && folderPattern?.startsWith('FULLNAMEWITHSPACES') && parsedInfo.someNumber) {
@@ -1060,7 +1064,18 @@ ipcMain.handle('precheck-collisions', async (event, mainDirectory, folderPattern
                     if (email) {
                         // Use email as identifier to help resolve collisions
                         identifier = email;
+                        currentEmail = email;
                         console.log(`Precheck: Resolved ${studentFolder} to ${email} using CSV mapping`);
+                    } else if (pageHasCsv) {
+                        // *** New Check: CSV exists for this page, but no mapping for this someNumber ***
+                        console.warn(`Precheck Mapping Error: Page '${pageDir}' has a CSV, but no email mapping found for someNumber '${parsedInfo.someNumber}' in folder '${studentFolder}'.`);
+                        mappingErrors.push({ 
+                            pageDir: pageDir, 
+                            studentFolder: studentFolder, 
+                            someNumber: parsedInfo.someNumber 
+                        });
+                        mappingErrorFound = true;
+                        // Don't use email as identifier if mapping missing
                     }
                 }
 
@@ -1075,7 +1090,7 @@ ipcMain.handle('precheck-collisions', async (event, mainDirectory, folderPattern
                 }
                 pageIdentifierMap.get(identifier).push({
                     folderName: studentFolder,
-                    email: useCSVs && parsedInfo.someNumber ? emailMap[parsedInfo.someNumber] : null,
+                    email: currentEmail, // Use the potentially resolved email
                     someNumber: parsedInfo.someNumber
                 });
             }
@@ -1141,25 +1156,31 @@ ipcMain.handle('precheck-collisions', async (event, mainDirectory, folderPattern
         }
 
         // Return overall result
-        if (collisionFound) {
+        // Combine collisionFound and mappingErrorFound
+        if (collisionFound || mappingErrorFound) { 
             // Extract just the unique names across all page collisions
             // Use the actual colliding names for the collision list - not the students affected by partial CSV
             const uniqueCollidingNames = [...actualCollidingNames];
             
-            console.log(`IPC: Pre-check found collisions in ${Object.keys(collisionDetails).length} page(s). Colliding names: ${uniqueCollidingNames.join(', ')}`);
+            console.log(`IPC: Pre-check finished. Collisions: ${collisionFound}, Mapping Errors: ${mappingErrorFound}. Colliding names: ${uniqueCollidingNames.join(', ')}. Mapping errors count: ${mappingErrors.length}`);
             return { 
-                collisionDetected: true, 
+                collisionDetected: collisionFound, // Keep original collision flag
+                mappingErrorDetected: mappingErrorFound, // Add new flag
                 collidingNames: uniqueCollidingNames,
-                usedCSVs: useCSVs, // Tell renderer if we already used CSVs
+                mappingErrors: mappingErrors, // Return details of mapping errors
+                usedCSVs: useCSVs, 
                 csvMappingsCount: useCSVs ? Object.keys(emailMap).length : 0,
                 partialCsvCoverage,
                 missingCsvPages,
                 studentsAffected: studentsAffectedByPartialCSV
             }; 
         } else {
-            console.log("IPC: Pre-check found no name collisions within any page directory.");
+            console.log("IPC: Pre-check found no name collisions or mapping errors within any page directory.");
             return { 
                 collisionDetected: false,
+                mappingErrorDetected: false, // No mapping errors
+                collidingNames: [],
+                mappingErrors: [], // Empty list
                 usedCSVs: useCSVs,
                 csvMappingsCount: useCSVs ? Object.keys(emailMap).length : 0,
                 partialCsvCoverage,

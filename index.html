@@ -130,12 +130,33 @@
 <div id="moodleCollisionModal" class="modal collision-modal-wide">
     <div class="modal-content">
         <span class="close-button moodle-collision-close">&times;</span>
-        <h2>Potential Name Collisions Detected (Moodle Pattern)</h2>
-        <p>The following student names appear multiple times in at least one page folder. Transformation has not started.</p>
-        <div id="collisionList" style="margin: 15px 0; padding: 10px; border: 1px solid #ccc; background-color: #f9f9f9; max-height: 150px; overflow-y: auto;">
-            <!-- List of names will be populated here -->
+        <h2>Potential Issues Detected (Moodle Pattern)</h2>
+        <!-- CSV Status Section -->
+        <div id="csvStatusInfo" class="csv-status-info">
+            <!-- Status message populated by JS -->
         </div>
-        <p><strong>Please resolve this issue using one of the following methods before continuing:</strong></p>
+
+        <!-- Missing CSV Mappings Section (NEW) -->
+        <div id="mappingErrorSection" class="collision-section" style="display: none;"> <!-- Hidden by default -->
+            <h3><span class="warning-icon">⚠️</span> Missing CSV Mappings</h3>
+            <p><small>The following students (identified by the number in their folder name) could not be found in the CSV file located in their respective page folder. This often means the wrong CSV file was placed in that folder.</small></p>
+            <ul id="mappingErrorList">
+                <!-- List of mapping errors will be populated here -->
+            </ul>
+            <p><strong>Action required:</strong> Please ensure the correct CSV file (containing these students) is placed in each listed page folder.</p>
+        </div>
+
+        <!-- Existing Same-Name Collisions Section -->
+        <div id="collisionNameSection" class="collision-section" style="display: none;"> <!-- Hidden by default -->
+            <h3><span class="warning-icon">⚠️</span> Same-Name Collisions</h3>
+            <p><small>These student identifiers (name or email) have multiple different submission folders associated with them within the same page folder, AND this could not be resolved automatically using emails from CSV files.</small></p>
+            <ul id="collisionList">
+                <!-- List of colliding names will be populated here -->
+            </ul>
+        </div>
+
+        <!-- Resolution Options -->
+        <p><strong>Please resolve the issues listed above using one of the following methods before continuing:</strong></p>
         <ol style="font-size: 0.95em;">
             <li>
                 <strong>Using CSV Files (Recommended):</strong> Place the Moodle Grading Worksheet CSV file inside <em>each</em> page subfolder within your input directory (e.g., put the 'Seite 1.csv' inside the 'Seite 1' folder). 
