@@ -58,14 +58,80 @@
     </div>
 	
 
-<div id="settingsModal" class="modal">
+<div id="settingsModal" class="modal settings-modal-wide">
     <div class="modal-content">
         <span class="close-button">&times;</span>
         <h2>Settings</h2>
-        <!-- Your settings content here -->
-        <label>DPI:</label>
-        <input type="number" id="dpi" value="300">
-        <!-- Add more settings as needed -->
+        
+        <!-- DPI Setting -->
+        <div class="form-group settings-group">
+            <label for="dpi" class="block-label">DPI:</label>
+            <input type="number" id="dpi" value="300" class="form-control full-width">
+            <small>Resolution for converting images. Higher values = better quality but larger files. 300 is standard for printing.</small>
+        </div>
+
+        <!-- Folder Pattern Setting -->
+        <div class="form-group settings-group">
+            <label for="foldername-pattern" class="block-label">Folder Name Pattern:</label>
+            
+            <!-- Pattern Presets -->
+            <div class="pattern-presets">
+                <div class="preset-option">
+                    <input type="radio" id="pattern-ilias" name="pattern-preset" value="FIRSTNAME_LASTNAME_USERNAME_STUDENTNUMBER">
+                    <label for="pattern-ilias">Ilias Format</label>
+                </div>
+                <div class="preset-option">
+                    <input type="radio" id="pattern-moodle" name="pattern-preset" value="FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file_">
+                    <label for="pattern-moodle">Moodle Format</label>
+                </div>
+                <div class="preset-option">
+                    <input type="radio" id="pattern-custom" name="pattern-preset" value="custom" checked>
+                    <label for="pattern-custom">Custom Format</label>
+                </div>
+            </div>
+            
+            <!-- Pattern Input -->
+            <input type="text" id="foldername-pattern" class="form-control full-width" placeholder="e.g., FIRSTNAME-LASTNAME or FULLNAMEWITHSPACES_NUMBER_assignsubmission_file_">
+            
+            <!-- Compact Pattern Help -->
+            <div class="pattern-help">
+                <details>
+                    <summary><strong>Pattern Help</strong> (click to expand)</summary>
+                    <div class="pattern-explanation compact">
+                        <p>Define how student folders are named. Use separator character from your folders (<code>_</code> or <code>-</code>).</p>
+                        <div class="two-columns">
+                            <div>
+                                <strong>Available Placeholders:</strong>
+                                <ul class="compact-list">
+                                    <li><code>FIRSTNAME</code></li>
+                                    <li><code>LASTNAME</code></li>
+                                    <li><code>FULLNAMEWITHSPACES</code></li>
+                                    <li><code>USERNAME</code></li>
+                                    <li><code>STUDENTNUMBER</code> (preferred identifier)</li>
+                                </ul>
+                            </div>
+                            <div>
+                                <strong>Examples:</strong>
+                                <ul class="compact-list">
+                                    <li>Ilias: <code>FIRSTNAME_LASTNAME_USERNAME_STUDENTNUMBER</code></li>
+                                    <li>Moodle: <code>FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file_</code></li>
+                                    <li>Simple: <code>LASTNAME-FIRSTNAME</code></li>
+                                </ul>
+                            </div>
+                        </div>
+                        <p><small><strong>Identifier Priority:</strong> Student Number > Username > Full Name > Original Folder Name</small></p>
+                    </div>
+                </details>
+            </div>
+        </div>
+
+        <hr>
+
+        <!-- Config Actions -->
+        <div class="button-group settings-actions">
+             <button id="exportConfigBtn" class="btn btn-secondary">Export Config</button>
+             <button id="importConfigBtn" class="btn btn-secondary">Import Config</button>
+        </div>
     </div>
 </div>
 

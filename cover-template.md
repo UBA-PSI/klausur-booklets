@@ -1,10 +1,9 @@
-
 # {{LAST_NAME}}
 ### {{FIRST_NAME}}
 
-({{FULL_NAME}})
+({{FULL_NAME}}, {{STUDENTNUMBER}})
 
-## Booklet
+### Booklet
 
 Dieses Booklet ist zugelassenes Hilfsmittel im Wintersemester 2024 und im Sommersemester 2025.
 

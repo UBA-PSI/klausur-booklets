@@ -17,15 +17,7 @@ class AmbiguityError extends Error {
 }
 // ---------------------------------
 
-// Simple name parsing (adjust if name format differs)
-function parseStudentName(fullName) {
-    const parts = fullName.trim().split(/\s+/);
-    const lastName = parts.pop() || ''; // Assume last part is last name
-    const firstName = parts.join(' ');
-    return { firstName, lastName };
-}
-
-async function generateCoverSheet(templatePath, submittedSeiten, missingSeiten, studentName, width, height) {
+async function generateCoverSheet(templatePath, submittedSeitenListString, missingSeiten, studentInfo, width, height) {
     let templateContent;
     try {
         templateContent = fs.readFileSync(templatePath, 'utf-8');
@@ -44,15 +36,23 @@ Student: {{LAST_NAME}}, {{FIRST_NAME}}
 {{MISSING_PAGES_LIST}}`;
     }
 
-    const { firstName, lastName } = parseStudentName(studentName);
-    const missingList = missingSeiten.length > 0 ? missingSeiten.join('\n') : 'None';
+    // Extract info, providing defaults
+    const fullName = studentInfo?.fullName || 'Unknown Name';
+    const firstName = studentInfo?.firstName || '';
+    const lastName = studentInfo?.lastName || 'Unknown';
+    const studentNumber = studentInfo?.studentNumber || '–'; // Use '–' if not available
 
-    // Replace template tags (add name tags)
+    // Sort the missing pages list alphabetically
+    const sortedMissingSeiten = [...missingSeiten].sort();
+    const missingList = sortedMissingSeiten.length > 0 ? sortedMissingSeiten.join('\n') : 'None';
+
+    // Replace template tags
     let processedContent = templateContent
-        .replace(/\{\{\s*FULL_NAME\s*\}\}/gi, studentName) // Add FULL_NAME
+        .replace(/\{\{\s*FULL_NAME\s*\}\}/gi, fullName) 
         .replace(/\{\{\s*LAST_NAME\s*\}\}/gi, lastName)
         .replace(/\{\{\s*FIRST_NAME\s*\}\}/gi, firstName)
-        .replace(/\{\{\s*SUBMITTED_PAGES_LIST\s*\}\}/gi, submittedSeiten)
+        .replace(/\{\{\s*STUDENTNUMBER\s*\}\}/gi, studentNumber) // Replace student number
+        .replace(/\{\{\s*SUBMITTED_PAGES_LIST\s*\}\}/gi, submittedSeitenListString) // This will be replaced *after* sorting the list
         .replace(/\{\{\s*MISSING_PAGES_LIST\s*\}\}/gi, missingList);
 
     const pdfDoc = await PDFDocument.create();
@@ -225,13 +225,11 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateFilePath
         fs.mkdirSync(pdfsSubDirectory, { recursive: true });
     }
 
-    const studentDirectories = fs.readdirSync(outputDirectory).filter(
+    // Read student identifiers (now potentially numbers) from output directory
+    const studentIdentifiers = fs.readdirSync(outputDirectory).filter(
         dir => dir !== 'pdfs' && dir !== 'booklets' &&
         fs.statSync(path.join(outputDirectory, dir)).isDirectory()).sort();
-    console.log(`Found ${studentDirectories.length} student directories in output.`);
-
-    // Removed reading description file - template is now separate
-    // const template = fs.readFileSync(descriptionFilePath, 'utf-8'); 
+    console.log(`Found ${studentIdentifiers.length} student identifier directories in output.`);
 
     // Determine path to template file (assuming root for now, adjust if needed)
     const actualTemplatePath = path.resolve(templateFilePath || 'cover-template.md'); 
@@ -241,45 +239,62 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateFilePath
          // Decide how to handle - throw error or use default content in generateCoverSheet
      }
 
-    for (const studentName of studentDirectories) {
-        console.log(`Processing student: ${studentName}`);
-        const studentDirPath = path.join(outputDirectory, studentName);
+    for (const studentIdentifier of studentIdentifiers) {
+        console.log(`Processing student identifier: ${studentIdentifier}`);
+        const studentDirPath = path.join(outputDirectory, studentIdentifier);
 
         // --- Read Processed File Info --- 
-        let processedFilesInfo = []; // Array of { pageName: string, originalFileName: string }
+        let processedFilesData = []; // Array of { pageName, originalFileName, studentInfo }
         const infoFilePath = path.join(studentDirPath, 'processed_files.json');
+        let studentInfoForCover = null; // Store student info for the cover sheet
         try {
             if (fs.existsSync(infoFilePath)) {
-                processedFilesInfo = JSON.parse(fs.readFileSync(infoFilePath, 'utf-8'));
-                console.log(`  Loaded processed file info for ${studentName}.`);
+                processedFilesData = JSON.parse(fs.readFileSync(infoFilePath, 'utf-8'));
+                console.log(`  Loaded ${processedFilesData.length} processed file entries for ${studentIdentifier}.`);
+                // Get studentInfo from the first entry (should be consistent)
+                if (processedFilesData.length > 0 && processedFilesData[0].studentInfo) {
+                    studentInfoForCover = processedFilesData[0].studentInfo;
+                } else {
+                    console.warn(`  Could not extract studentInfo from processed_files.json for ${studentIdentifier}`);
+                    // Create a fallback studentInfo object
+                    studentInfoForCover = { primaryIdentifier: studentIdentifier, fullName: studentIdentifier }; 
+                }
             } else {
-                console.warn(`  Processed file info not found for ${studentName} at ${infoFilePath}`);
+                console.warn(`  Processed file info not found for ${studentIdentifier} at ${infoFilePath}`);
+                // Create a fallback studentInfo object if file is missing
+                studentInfoForCover = { primaryIdentifier: studentIdentifier, fullName: studentIdentifier }; 
             }
         } catch (err) {
-            console.error(`  Error reading processed file info for ${studentName}:`, err);
+            console.error(`  Error reading processed file info for ${studentIdentifier}:`, err);
+            // Create a fallback studentInfo object on error
+            studentInfoForCover = { primaryIdentifier: studentIdentifier, fullName: studentIdentifier }; 
         }
         // --- End Read --- 
 
-        // Find the generated PDFs for merging (still needed for content)
+        // Find the generated PDFs for merging (still need content)
         const studentPDFs = fs.readdirSync(studentDirPath)
-                             .filter(file => file.endsWith('.pdf') && file !== `${studentName}.pdf`)
-                             .sort(); // Exclude final merged PDF if it exists from previous run
+                             .filter(file => file.endsWith('.pdf') && file !== `${studentIdentifier}.pdf`)
+                             .sort(); 
 
-        if (studentPDFs.length === 0 && processedFilesInfo.length === 0) { // Check both sources
-            console.log(`  No transformed PDFs or processed info found for ${studentName}, skipping merge.`);
+        if (studentPDFs.length === 0 && processedFilesData.length === 0) {
+            console.log(`  No transformed PDFs or processed info found for ${studentIdentifier}, skipping merge.`);
             continue; 
         }
-        console.log(`  Found ${studentPDFs.length} PDF file(s) and ${processedFilesInfo.length} processed file entries.`);
+        console.log(`  Found ${studentPDFs.length} PDF file(s) and ${processedFilesData.length} processed file entries.`);
 
         const mergedPdf = await PDFDocument.create();
-        // const submittedSeiten = []; // We'll build the list string directly
         let width = 595.28, height = 841.89; 
         let dimensionsDetermined = false;
 
         // --- Build Submitted List String from Processed Info --- 
-        const submittedPageNames = processedFilesInfo.map(info => info.pageName);
-        const submittedSeitenListString = processedFilesInfo.length > 0 
-            ? processedFilesInfo.map(info => `- ${info.pageName}: ${info.originalFileName}`).join('\n')
+        // Sort processedFilesData by pageName before creating the string
+        const sortedProcessedFiles = [...processedFilesData].sort((a, b) => {
+            // Basic lexicographical sort on pageName
+            return a.pageName.localeCompare(b.pageName);
+        });
+
+        const submittedSeitenListString = sortedProcessedFiles.length > 0 
+            ? sortedProcessedFiles.map(info => `- ${info.pageName}: ${info.originalFileName}`).join('\n')
             : 'None';
         // --- End Build List --- 
 
@@ -298,25 +313,25 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateFilePath
 
             const [page] = await mergedPdf.copyPages(pdfDoc, [0]);
             mergedPdf.addPage(page);
-            // const seiteName = path.basename(pdfFile, '.pdf'); // Old way
-            // submittedSeiten.push(seiteName);
         }
 
         // Determine missing pages based on processed page names
-        const seiteFolders = fs.readdirSync(mainDirectory).filter(item => {
+	    const seiteFolders = fs.readdirSync(mainDirectory).filter(item => {
 	        const itemPath = path.join(mainDirectory, item);
 	        return fs.statSync(itemPath).isDirectory();
 	    });
+        const submittedPageNames = sortedProcessedFiles.map(info => info.pageName); // Use sorted list for accurate missing check
         const missingSeiten = seiteFolders.filter(seite => !submittedPageNames.includes(seite));
         console.log(`  Submitted based on processed info: ${submittedPageNames.length}, Missing: ${missingSeiten.length}`);
 
-        // Generate cover sheet using the new list string
-        const coverSheet = await generateCoverSheet(actualTemplatePath, submittedSeitenListString, missingSeiten, studentName, width, height);
+        // Generate cover sheet using the studentInfo object and now sorted lists
+        const coverSheet = await generateCoverSheet(actualTemplatePath, submittedSeitenListString, missingSeiten, studentInfoForCover, width, height);
         const [coverPage] = await mergedPdf.copyPages(coverSheet, [0]);
         mergedPdf.insertPage(0, coverPage);
         console.log(`  Generated and added cover sheet.`);
 
-        const outputPath = path.join(pdfsSubDirectory, `${studentName}.pdf`);
+        const outputPdfFileName = `${studentInfoForCover.primaryIdentifier || studentIdentifier}.pdf`; // Use primary ID if available
+        const outputPath = path.join(pdfsSubDirectory, outputPdfFileName);
         fs.writeFileSync(outputPath, await mergedPdf.save());
         console.log(`  Successfully merged and saved to: ${outputPath}`);
     }
@@ -404,89 +419,6 @@ async function processSingleTransformation(inputPath, outputPath, dpiValue) {
         console.error(`[Transform Single] Error processing file ${inputPath}:`, error);
         throw error; 
     }
-}
-
-/**
- * Scans input directories, checks for ambiguities, and returns processing info.
- * Returns { tasks: [], ambiguities: [] } where tasks are unambiguous items 
- * and ambiguities lists folders needing resolution.
- * @param {string} mainDirectory 
- * @param {string} outputDirectory 
- * @returns {Promise<{tasks: Array<{inputPath: string, outputPath: string}>, ambiguities: Array<{folderPath: string, context: string, files: string[]}>}>} 
- */
-async function prepareTransformations(mainDirectory, outputDirectory) {
-    console.log("[Prepare] Scanning input directories...");
-    const transformationTasks = []; // Tasks ready to process
-    const ambiguities = [];         // Folders needing user input
-    const allowedExtensions = ['.pdf', '.png', '.jpg', '.jpeg', '.heic'];
-
-    const subdirectories = fs.readdirSync(mainDirectory).filter(item => {
-        const itemPath = path.join(mainDirectory, item);
-        return fs.statSync(itemPath).isDirectory();
-    });
-
-    for (const subdir of subdirectories) {
-        const subdirPath = path.join(mainDirectory, subdir);
-        const studentFolders = fs.readdirSync(subdirPath).filter(item => {
-            const itemPath = path.join(subdirPath, item);
-            return fs.statSync(itemPath).isDirectory();
-        });
-
-        // Check for student name collisions (remains important)
-        const nameCounts = {};
-        for (const studentFolder of studentFolders) {
-            const studentName = studentFolder.split('_')[0];
-            nameCounts[studentName] = (nameCounts[studentName] || 0) + 1;
-        }
-        const duplicates = Object.keys(nameCounts).filter(name => nameCounts[name] > 1);
-        if (duplicates.length > 0) {
-            throw new Error(`Name collision detected in directory ${subdir} for student(s): ${duplicates.join(', ')}`);
-        }
-
-        // Find processable files and check for ambiguity
-        for (const studentFolder of studentFolders) {
-            const studentName = studentFolder.split('_')[0];
-            const studentFolderPath = path.join(subdirPath, studentFolder);
-            const studentOutputDirectory = path.join(outputDirectory, studentName);
-
-            const processableFiles = fs.readdirSync(studentFolderPath).filter(file => {
-                 // Ensure case-insensitive check here too
-                 const ext = path.extname(file).toLowerCase(); 
-                 return allowedExtensions.includes(ext);
-            });
-
-            if (processableFiles.length === 0) {
-                console.log(`[Prepare] No processable files found in: ${studentFolderPath}`);
-                continue; // Skip folder if no valid files
-            } else if (processableFiles.length > 1) {
-                console.log(`[Prepare] Ambiguity detected in: ${studentFolderPath} - Files: ${processableFiles.join(', ')}`);
-                ambiguities.push({ 
-                    folderPath: studentFolderPath, 
-                    context: `Student: ${studentName}, Page: ${subdir}`, 
-                    files: processableFiles 
-                });
-            } else {
-                // Exactly one file found, add to tasks
-                if (!fs.existsSync(studentOutputDirectory)){
-                    console.log(`[Prepare] Creating output directory: ${studentOutputDirectory}`);
-                    fs.mkdirSync(studentOutputDirectory, { recursive: true });
-                }
-                const originalFileName = processableFiles[0];
-                const inputPath = path.join(studentFolderPath, originalFileName);
-                const outputPath = path.join(studentOutputDirectory, `${subdir}.pdf`); // Output is always .pdf
-                transformationTasks.push({ 
-                    inputPath, 
-                    outputPath, 
-                    originalFileName: originalFileName, // Add original filename
-                    pageName: subdir                 // Add page name (subdir)
-                });
-            }
-        }
-    }
-
-    // Return both unambiguous tasks and ambiguities
-    console.log(`[Prepare] Scan complete. Tasks: ${transformationTasks.length}, Ambiguities: ${ambiguities.length}`);
-    return { tasks: transformationTasks, ambiguities: ambiguities };
 }
 
 /**
@@ -616,8 +548,6 @@ async function createSaddleStitchBooklet(inputPath, outputPath) {
 
 module.exports = {
     mergeStudentPDFs,
-    prepareTransformations,
     processSingleTransformation,
     createSaddleStitchBooklet,
-    // AmbiguityError // No longer throwing, just returning ambiguities
 };

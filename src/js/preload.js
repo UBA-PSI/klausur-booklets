@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   startMerging: (mainDir, outputDir, descFile) => ipcRenderer.invoke('start-merging', mainDir, outputDir, descFile),
   createBooklets: (outputDir) => ipcRenderer.invoke('create-booklets', outputDir),
   resolveAmbiguity: (resolvedChoices) => ipcRenderer.invoke('resolve-ambiguity', resolvedChoices),
+  handleExportConfig: (config) => ipcRenderer.invoke('handle-export-config', config),
+  handleImportConfig: () => ipcRenderer.invoke('handle-import-config'),
 
   // Main -> Renderer (receive)
   onDirectorySelected: (callback) => ipcRenderer.on('directory-selected', (_event, type, path) => callback(type, path)),

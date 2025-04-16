@@ -70,17 +70,34 @@ window.electronAPI.onLoadConfig((loadedConfig) => {
     if (config.dpi) {
         document.getElementById('dpi').value = config.dpi;
     }
+    // Load foldername pattern
+    if (config.foldernamePattern) {
+        document.getElementById('foldername-pattern').value = config.foldernamePattern;
+        
+        const iliasPattern = document.getElementById('pattern-ilias').value;
+        const moodlePattern = document.getElementById('pattern-moodle').value;
+        
+        if (config.foldernamePattern === iliasPattern) {
+            document.getElementById('pattern-ilias').checked = true;
+        } else if (config.foldernamePattern === moodlePattern) {
+            document.getElementById('pattern-moodle').checked = true;
+        } else {
+            document.getElementById('pattern-custom').checked = true;
+        }
+    }
 });
 
 
 function saveConfig() {
-    // Use the exposed function
-    window.electronAPI.saveConfig({
-        mainDirectory: document.getElementById('mainDirectoryPath').value,
-        outputDirectory: document.getElementById('outputDirectoryPath').value,
-        coverTemplateFilePath: document.getElementById('cover-template-path').value,
-        dpi: parseInt(document.getElementById('dpi').value, 10)
-    });
+    // Get the current values from the UI
+    config.mainDirectory = document.getElementById('mainDirectoryPath').value;
+    config.outputDirectory = document.getElementById('outputDirectoryPath').value;
+    config.coverTemplateFilePath = document.getElementById('cover-template-path').value;
+    config.dpi = parseInt(document.getElementById('dpi').value, 10);
+    config.foldernamePattern = document.getElementById('foldername-pattern').value; // Save pattern
+
+    // Use the exposed function to save the updated config object
+    window.electronAPI.saveConfig(config);
 }
 
 window.electronAPI.onDirectorySelected((type, directoryPath) => {
@@ -393,6 +410,69 @@ document.getElementById('select-main-dir-button').addEventListener('click', () =
 
 document.getElementById('select-output-dir-button').addEventListener('click', () => {
     window.electronAPI.selectDirectory('outputDirectory');
+});
+
+// Add event listeners for Config Export/Import
+document.getElementById('exportConfigBtn').addEventListener('click', async () => {
+    console.log("Export config button clicked");
+    try {
+        const result = await window.electronAPI.handleExportConfig(config);
+        if (result.success) {
+            updateStatus('info', `Config exported to ${result.filePath}`);
+        } else if (!result.cancelled) {
+            updateStatus('error', `Failed to export config: ${result.error}`);
+        }
+    } catch (error) {
+        updateStatus('error', `Error during config export: ${error.message}`);
+    }
+});
+
+document.getElementById('importConfigBtn').addEventListener('click', async () => {
+    console.log("Import config button clicked");
+    try {
+        const result = await window.electronAPI.handleImportConfig();
+        if (result.success) {
+            // Config loaded successfully by main process, now update UI
+            // The main process should send the loaded config back via 'load-config'
+            // or we refetch it here. Assuming main process saves and renderer reloads.
+            // A simple reload or manual update based on result.config could work.
+            config = result.config; // Assume main process returns the loaded config
+            // Update UI fields from the newly loaded config
+            if (config.mainDirectory) document.getElementById('mainDirectoryPath').value = config.mainDirectory;
+            if (config.outputDirectory) document.getElementById('outputDirectoryPath').value = config.outputDirectory;
+            if (config.coverTemplateFilePath) document.getElementById('cover-template-path').value = config.coverTemplateFilePath;
+            if (config.dpi) document.getElementById('dpi').value = config.dpi;
+            if (config.foldernamePattern) document.getElementById('foldername-pattern').value = config.foldernamePattern;
+            
+            saveConfig(); // Persist the newly imported config
+            updateStatus('info', `Config imported successfully from ${result.filePath}`);
+        } else if (!result.cancelled) {
+            updateStatus('error', `Failed to import config: ${result.error}`);
+        }
+    } catch (error) {
+        updateStatus('error', `Error during config import: ${error.message}`);
+    }
+});
+
+// When the modal is closed, save the potentially updated config
+document.querySelector('#settingsModal .close-button').addEventListener('click', () => {
+    saveConfig();
+});
+
+// Handle pattern preset radio buttons
+document.querySelectorAll('input[name="pattern-preset"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+        const patternInput = document.getElementById('foldername-pattern');
+        if (e.target.value !== 'custom') {
+            // If a preset is selected, populate the input with the value
+            patternInput.value = e.target.value;
+            // Also update the config
+            config.foldernamePattern = e.target.value;
+        } else {
+            // For custom, don't change the input value but allow user editing
+            // Optionally could clear it: patternInput.value = '';
+        }
+    });
 });
 
 
