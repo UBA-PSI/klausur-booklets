@@ -28,36 +28,12 @@ import argparse
 import time
 import pathlib
 import tempfile
-import uuid # Added for backup ID
+import uuid
 from datetime import datetime, timedelta
 
 TARGET_ASSIGNMENT_COUNT = 4
 
 # --- Helper Functions for ID Extraction ---
-
-def enable_offline_feedback_plugin(content):
-    """Enable the offline feedback plugin by setting its value to 1."""
-    lines = content.splitlines()
-    modified = False
-    
-    # Look for the pattern: line with "offline" followed by "assignfeedback", "enabled", and then "value"
-    for i in range(len(lines)):
-        if "<plugin>offline</plugin>" in lines[i]:
-            # Check the next three lines for our pattern
-            if i+3 < len(lines):
-                if ("<subtype>assignfeedback</subtype>" in lines[i+1] and 
-                    "<n>enabled</n>" in lines[i+2] and 
-                    "<value>0</value>" in lines[i+3]):
-                    # Replace value 0 with value 1
-                    lines[i+3] = lines[i+3].replace("<value>0</value>", "<value>1</value>")
-                    modified = True
-                    break
-    
-    # If we modified content, return the new content
-    if modified:
-        return "\n".join(lines), True
-    else:
-        return content, False
 
 def find_max_id(pattern, text, cast_to=int):
     """Find all matches for a pattern and return the maximum ID found."""
@@ -343,12 +319,7 @@ def modify_assignment(file_path, new_name, new_due_ts, new_cutoff_ts, new_activa
                 content = new_content
             else: print(f"  - Warning: Could not find <allowsubmissionsfromdate> tag in {file_path}")
             
-        # Enable offline feedback plugin
-        content, plugin_enabled = enable_offline_feedback_plugin(content)
-        if plugin_enabled:
-            changes.append(f"  - Offline feedback plugin enabled")
-        else:
-            print(f"  - Warning: Could not find and enable offline feedback plugin in {file_path}")
+        
 
         if content != original_content:
             file_path.write_text(content)
@@ -396,12 +367,7 @@ def create_new_assignment_files(base_path, assign_template_content, inforef_temp
                                    f'<allowsubmissionsfromdate>{assignment_info["activation_ts"]}</allowsubmissionsfromdate>', 
                                    assign_content, count=1)
                                    
-        # Enable offline feedback plugin
-        assign_content, plugin_enabled = enable_offline_feedback_plugin(assign_content)
-        if plugin_enabled:
-            print("  - Enabled offline feedback plugin")
-        else:
-            print("  - Warning: Could not find and enable offline feedback plugin in template")
+        
 
         # Replace plugin_config IDs sequentially
         def replace_plugin_id(match):
@@ -549,8 +515,6 @@ def create_new_assignment_files(base_path, assign_template_content, inforef_temp
 
     except Exception as e:
         print(f"Error creating files for module {new_module_id}: {e}")
-        import traceback
-        traceback.print_exc()
         return start_plugin_config_id # Return original start ID on error
 
 def update_section_xml(section_xml_path, all_module_ids, section_title=None):
@@ -610,7 +574,6 @@ def update_section_xml(section_xml_path, all_module_ids, section_title=None):
 def update_moodle_backup_xml(xml_path, output_filename, original_backup_id, new_backup_id, all_assignment_details, section_id, added_module_ids, section_title=None, target_start_timestamp=None):
     """Modifies moodle_backup.xml: filename, backup_id, startdate, rebuilds activities, adds settings."""
     print(f"\nUpdating {xml_path.name}...")
-    print(f"DEBUG: Received target_start_timestamp in update_moodle_backup_xml: {target_start_timestamp}") # DEBUG
     if not xml_path.is_file():
         print(f"  Error: {xml_path} not found.")
         return False
@@ -620,65 +583,38 @@ def update_moodle_backup_xml(xml_path, output_filename, original_backup_id, new_
         original_content = content
         changes_made = False
 
-        # DEBUG: If we're looking for startdate, examine the file structure first
-        if target_start_timestamp is not None:
-            print("\nDEBUG: Searching for course date-related tags in moodle_backup.xml...")
-            # Check for the existence of various potential date tags
-            potential_tags = ["startdate", "start_date", "course_startdate", "original_course_startdate"]
-            for tag in potential_tags:
-                matches = re.findall(f"<{tag}[^>]*>([^<]+)</{tag}>", content)
-                if matches:
-                    print(f"  Found <{tag}> tags with values: {matches}")
-            
-            # Also check for course tag
-            course_tag = re.search(r"<course\b[^>]*>(.*?)</course>", content, re.DOTALL)
-            if course_tag:
-                print("  Found <course> tag, checking for date fields inside")
-                course_content = course_tag.group(1)
-                date_tags = re.findall(r"<(\w*date\w*)[^>]*>([^<]+)</\1>", course_content)
-                if date_tags:
-                    print(f"  Date-related tags inside <course>: {date_tags}")
-            
-            # Look for other structures that might contain the course start date
-            original_course_info = re.search(r"<original_course[^>]*>(.*?)</original_course>", content, re.DOTALL)
-            if original_course_info:
-                print("  Found <original_course> tag, checking for date fields inside")
-                course_content = original_course_info.group(1)
-                date_tags = re.findall(r"<(\w*date\w*)[^>]*>([^<]+)</\1>", course_content)
-                if date_tags:
-                    print(f"  Date-related tags inside <original_course>: {date_tags}")
-            
-            # Look for course/details section
-            course_details = re.search(r"<details>(.*?)</details>", content, re.DOTALL)
-            if course_details:
-                print("  Found <details> tag, checking for date fields inside")
-                details_content = course_details.group(1)
-                date_tags = re.findall(r"<(\w*date\w*)[^>]*>([^<]+)</\1>", details_content)
-                if date_tags:
-                    print(f"  Date-related tags inside <details>: {date_tags}")
-
         # 1. Modify backup filename in <information><name>
         new_content_1, count1 = re.subn(r'(<information>.*?<name>)(.*?)(</name>)', rf'\g<1>{output_filename}\g<3>', content, count=1, flags=re.DOTALL)
-        if count1 > 0 and content != new_content_1: print(f"  - Updated <information><name> to: {output_filename}"); changes_made = True
-        else: print("  - Warning: Could not find <information><name> tag.")
+        if count1 > 0 and content != new_content_1:
+            print(f"  - Updated <information><name> to: {output_filename}"); changes_made = True
+        else:
+            print("  - Warning: Could not find <information><name> tag.")
+            raise Exception("Could not find <information><name> tag.")
         content = new_content_1
 
         # 2. Modify backup filename in <setting>
         pattern_setting = re.compile(r'(<setting>\s*<level>root</level>\s*<name>filename</name>\s*<value>)(.*?)(</value>\s*</setting>)', re.DOTALL)
         new_content_2, count2 = pattern_setting.subn(rf'\g<1>{output_filename}\g<3>', content, count=1)
-        if count2 > 0 and content != new_content_2: print(f"  - Updated filename setting value to: {output_filename}"); changes_made = True
-        else: print("  - Warning: Could not find <setting> for filename.")
+        if count2 > 0 and content != new_content_2:
+            print(f"  - Updated filename setting value to: {output_filename}"); changes_made = True
+        else:
+            print("  - Warning: Could not find <setting> for filename.")
+            raise Exception("Could not find <setting> for filename.")
         content = new_content_2
 
         # 3. Modify backup_id
         if original_backup_id:
             new_content_3, count3 = re.subn(f'backup_id="{original_backup_id}"', f'backup_id="{new_backup_id}"', content, count=1)
-            if count3 > 0 and content != new_content_3: print(f"  - Updated backup_id to: {new_backup_id}"); changes_made = True
-            else: print("  - Warning: Could not find original backup_id to replace.")
+            if count3 > 0 and content != new_content_3:
+                print(f"  - Updated backup_id to: {new_backup_id}"); changes_made = True
+            else:
+                print("  - Warning: Could not find original backup_id to replace.")
+                raise Exception("Could not find original backup_id to replace.")
             content = new_content_3
         else:
              print("  - Warning: No original backup_id found, cannot replace.")
-
+             raise Exception("No original backup_id found, cannot replace.")
+        
         # 3.5. Update section title in <sections> if provided
         if section_title and section_id:
             section_title_pattern = rf'(<section>\s*<sectionid>{section_id}</sectionid>\s*<title>)(.*?)(</title>)'
@@ -689,6 +625,7 @@ def update_moodle_backup_xml(xml_path, output_filename, original_backup_id, new_
                 changes_made = True
             else: 
                 print("  - Warning: Could not find section title to update in <sections>.")
+                raise Exception("Could not find section title to update in <sections>.")
 
         # 4. Rebuild <activities> block
         activities_match = re.search(r'(<activities>)(.*?)(</activities>)', content, re.DOTALL)
@@ -768,10 +705,7 @@ def update_moodle_backup_xml(xml_path, output_filename, original_backup_id, new_
                 settings_end_match = re.search(r'(\s*)</settings>', content)
                 if settings_end_match:
                     indent = settings_end_match.group(1) + '  ' # Guess indentation
-                    # ... (generate new_settings_text as above using guessed indent) ...
-                    # ... (insert before </settings>) ...
                     print("  - Warning: Could not find existing <setting> blocks to determine indent. Used fallback.")
-                    # (Implementation of fallback insertion needed if this case is critical)
                 else:
                     print("  - Warning: Could not find </settings> tag or existing settings to insert new ones.")
 
@@ -811,7 +745,6 @@ def update_moodle_backup_xml(xml_path, output_filename, original_backup_id, new_
             if not changes_made_for_date:
                 startdate_pattern_global = re.compile(r'(<startdate>)\d+(</startdate>)')
                 new_content_6, count6 = startdate_pattern_global.subn(rf'\g<1>{target_start_timestamp}\g<2>', content, count=1)
-                print(f"DEBUG: Global regex (<startdate>) substitution count: {count6}") # DEBUG
 
                 if count6 > 0 and content != new_content_6:
                     # Display human-readable date along with timestamp
@@ -840,9 +773,6 @@ def update_moodle_backup_xml(xml_path, output_filename, original_backup_id, new_
 
     except Exception as e:
         print(f"Error modifying file {xml_path}: {e}")
-        # Optional: add traceback print here if needed during debugging
-        # import traceback
-        # traceback.print_exc()
         return False
 
 def create_mbz(source_dir, output_path):
@@ -861,7 +791,6 @@ def create_mbz(source_dir, output_path):
             print(f"  Adding {len(items_to_add)} items to archive...") # Less verbose now
             for item in items_to_add:
                 arcname = str(item.relative_to('.'))
-                # print(f"  Adding: {arcname}") # Removed per-file logging
                 tar.add(str(item), arcname=arcname)
         print(f"Archive created successfully: {output_path}")
     except Exception as e:
@@ -938,14 +867,9 @@ def main():
     target_start_timestamp = None
     if args.target_start_date:
         try:
-            # Parse as datetime object first
+            # Parse as datetime object and convert to Unix timestamp
             target_start_dt = datetime.strptime(args.target_start_date, "%Y-%m-%d")
-            # Convert to Unix timestamp (integer seconds since epoch)
-            # Moodle often uses the timestamp for the start of the day (00:00:00) in the server's timezone.
-            # Using timestamp() on a date-only object effectively does this for the local timezone.
-            # For full accuracy, consider server timezone if known, but this is usually sufficient.
             target_start_timestamp = int(target_start_dt.timestamp())
-            print(f"DEBUG: Parsed timestamp in main: {target_start_timestamp}") # DEBUG
             print(f"  Target start date specified: {args.target_start_date} (Timestamp: {target_start_timestamp})")
         except ValueError:
             print(f"Error: Invalid format for --target-start-date '{args.target_start_date}'. Use YYYY-MM-DD.")
@@ -1008,6 +932,7 @@ def main():
                       inforef_template_content = inforef_template_path.read_text()
                  else:
                       print(f"Warning: Could not read inforef.xml template from {inforef_template_path}. Cannot create new inforef files.")
+                      return
             elif target_assignment_count > 0:
                 print("Error: No existing assignments found to use as template, but target count > 0.")
                 return
@@ -1090,8 +1015,7 @@ def main():
             section_xml_path = temp_path / "sections" / f"section_{ids['section_id']}" / "section.xml"
             if not update_section_xml(section_xml_path, final_module_ids, args.section_title):
                 print("Error: Failed to update section.xml. Backup may be invalid.")
-                # Decide whether to proceed or stop
-                return # Or raise an exception
+                return
 
             # Update moodle_backup.xml
             moodle_backup_xml_path = temp_path / "moodle_backup.xml"
@@ -1108,8 +1032,7 @@ def main():
                 target_start_timestamp # Pass the new timestamp
             ):
                 print("Error: Failed to update moodle_backup.xml. Backup may be invalid.")
-                # Decide whether to proceed or stop
-                # return
+                return
 
             # Truncate log file
             log_file_path = temp_path / "moodle_backup.log"
@@ -1118,39 +1041,13 @@ def main():
             else:
                  print("\nLog file moodle_backup.log not found, skipping truncation.")
             
-            # --- 7.5 Enable offline feedback plugin in all assign.xml files using a simple find and replace ---
-            print("\nEnabling offline feedback plugin in all assign.xml files...")
-            assign_files = list(temp_path.glob("activities/assign_*/assign.xml"))
-            for file_path in assign_files:
-                try:
-                    content = file_path.read_text()
-                    # Simple string replacement
-                    if "<plugin>offline</plugin>" in content and "<value>0</value>" in content:
-                        # Replace only the value 0 that appears after offline plugin
-                        parts = content.split("<plugin>offline</plugin>")
-                        if len(parts) > 1:
-                            # Find where the value tag appears in the second part
-                            subparts = parts[1].split("<value>0</value>", 1)
-                            if len(subparts) > 1:
-                                # Replace just the first occurrence after the offline plugin
-                                parts[1] = subparts[0] + "<value>1</value>" + subparts[1]
-                                content = "<plugin>offline</plugin>".join(parts)
-                                file_path.write_text(content)
-                                print(f"  Enabled offline feedback in {file_path.relative_to(temp_path)}")
-                            else:
-                                print(f"  Could not find <value>0</value> tag after offline plugin in {file_path.relative_to(temp_path)}")
-                    else:
-                        print(f"  Could not find offline plugin configuration in {file_path.relative_to(temp_path)}")
-                except Exception as e:
-                    print(f"  Error processing {file_path.relative_to(temp_path)}: {e}")
-
             # 8. Re-pack as tar.gz
             create_mbz(temp_path, output_path)
 
         except Exception as e:
             print(f"\nAn error occurred during the process: {e}")
             import traceback
-            traceback.print_exc() # Print detailed traceback for debugging
+            traceback.print_exc() # Kept for error troubleshooting
         finally:
              print(f"Temporary directory {temp_dir} cleaned up.")
 
