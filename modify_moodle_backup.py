@@ -13,6 +13,30 @@ TARGET_ASSIGNMENT_COUNT = 4
 
 # --- Helper Functions for ID Extraction ---
 
+def enable_offline_feedback_plugin(content):
+    """Enable the offline feedback plugin by setting its value to 1."""
+    lines = content.splitlines()
+    modified = False
+    
+    # Look for the pattern: line with "offline" followed by "assignfeedback", "enabled", and then "value"
+    for i in range(len(lines)):
+        if "<plugin>offline</plugin>" in lines[i]:
+            # Check the next three lines for our pattern
+            if i+3 < len(lines):
+                if ("<subtype>assignfeedback</subtype>" in lines[i+1] and 
+                    "<n>enabled</n>" in lines[i+2] and 
+                    "<value>0</value>" in lines[i+3]):
+                    # Replace value 0 with value 1
+                    lines[i+3] = lines[i+3].replace("<value>0</value>", "<value>1</value>")
+                    modified = True
+                    break
+    
+    # If we modified content, return the new content
+    if modified:
+        return "\n".join(lines), True
+    else:
+        return content, False
+
 def find_max_id(pattern, text, cast_to=int):
     """Find all matches for a pattern and return the maximum ID found."""
     ids = [cast_to(match) for match in pattern.findall(text)]
@@ -41,6 +65,7 @@ def generate_assignment_dates(args):
     """Generate assignment dates based on command line arguments."""
     assignments = []
     extra_minutes = args.extra_time
+    name_prefix = args.assignment_name_prefix
     
     # Current time for the first activation time if needed
     now = datetime.now()
@@ -61,7 +86,7 @@ def generate_assignment_dates(args):
                 activation_dt = previous_cutoff_dt
                 
             assignments.append({
-                "name": f"Assignment {i+1}",
+                "name": f"{name_prefix} {i+1}",
                 "due_dt": due_dt,
                 "due_ts": int(due_dt.timestamp()),
                 "cutoff_dt": cutoff_dt,
@@ -89,7 +114,7 @@ def generate_assignment_dates(args):
                 activation_dt = previous_cutoff_dt
                 
             assignments.append({
-                "name": f"Assignment {i+1}",
+                "name": f"{name_prefix} {i+1}",
                 "due_dt": due_dt,
                 "due_ts": int(due_dt.timestamp()),
                 "cutoff_dt": cutoff_dt,
@@ -295,6 +320,13 @@ def modify_assignment(file_path, new_name, new_due_ts, new_cutoff_ts, new_activa
                 changes.append(f"  - Activation date changed to: {new_activation_ts} ({datetime.fromtimestamp(new_activation_ts)})")
                 content = new_content
             else: print(f"  - Warning: Could not find <allowsubmissionsfromdate> tag in {file_path}")
+            
+        # Enable offline feedback plugin
+        content, plugin_enabled = enable_offline_feedback_plugin(content)
+        if plugin_enabled:
+            changes.append(f"  - Offline feedback plugin enabled")
+        else:
+            print(f"  - Warning: Could not find and enable offline feedback plugin in {file_path}")
 
         if content != original_content:
             file_path.write_text(content)
@@ -341,6 +373,13 @@ def create_new_assignment_files(base_path, assign_template_content, inforef_temp
             assign_content = re.sub(r'<allowsubmissionsfromdate>\d+</allowsubmissionsfromdate>',
                                    f'<allowsubmissionsfromdate>{assignment_info["activation_ts"]}</allowsubmissionsfromdate>', 
                                    assign_content, count=1)
+                                   
+        # Enable offline feedback plugin
+        assign_content, plugin_enabled = enable_offline_feedback_plugin(assign_content)
+        if plugin_enabled:
+            print("  - Enabled offline feedback plugin")
+        else:
+            print("  - Warning: Could not find and enable offline feedback plugin in template")
 
         # Replace plugin_config IDs sequentially
         def replace_plugin_id(match):
@@ -492,8 +531,8 @@ def create_new_assignment_files(base_path, assign_template_content, inforef_temp
         traceback.print_exc()
         return start_plugin_config_id # Return original start ID on error
 
-def update_section_xml(section_xml_path, all_module_ids):
-    """Updates the sequence in section.xml."""
+def update_section_xml(section_xml_path, all_module_ids, section_title=None):
+    """Updates the sequence in section.xml and optionally the section title."""
     print(f"\nUpdating {section_xml_path.relative_to(section_xml_path.parent.parent.parent)}...") # More informative path
     if not section_xml_path.is_file():
         print(f"  Error: {section_xml_path} not found. Cannot update sequence.")
@@ -501,6 +540,9 @@ def update_section_xml(section_xml_path, all_module_ids):
     try:
         content = section_xml_path.read_text()
         original_content = content # Store original content
+        changes_made = False
+        
+        # Update sequence
         sequence_str = ",".join(map(str, all_module_ids))
         new_content, count = re.subn(
             r'(<sequence>)(.*?)(</sequence>)', # Match existing sequence
@@ -509,20 +551,41 @@ def update_section_xml(section_xml_path, all_module_ids):
             count=1
         )
         if count > 0 and new_content != original_content:
-            section_xml_path.write_text(new_content)
             print(f"  Updated sequence to: {sequence_str}")
-            return True
+            content = new_content
+            changes_made = True
         elif count == 0:
             print("  Error: Could not find <sequence>...</sequence> tag to update.")
             return False
-        else: # count > 0 but content unchanged (shouldn't happen with new IDs, but good practice)
+        else:
             print("  Sequence already up-to-date.")
+        
+        # Update section title if provided
+        if section_title:
+            new_content, count = re.subn(
+                r'(<name>)(.*?)(</name>)',  # Match existing name
+                rf'\g<1>{section_title}\g<3>',  # Replace with new title
+                content,
+                count=1
+            )
+            if count > 0 and new_content != content:
+                print(f"  Updated section title to: {section_title}")
+                content = new_content
+                changes_made = True
+            elif count == 0:
+                print("  Warning: Could not find <name> tag in section.xml.")
+        
+        if changes_made:
+            section_xml_path.write_text(content)
+            return True
+        else: 
+            print("  No changes needed to make.")
             return True # Considered success as it matches target
     except Exception as e:
         print(f"Error modifying file {section_xml_path}: {e}")
         return False
 
-def update_moodle_backup_xml(xml_path, output_filename, original_backup_id, new_backup_id, all_assignment_details, section_id, added_module_ids):
+def update_moodle_backup_xml(xml_path, output_filename, original_backup_id, new_backup_id, all_assignment_details, section_id, added_module_ids, section_title=None):
     """Modifies moodle_backup.xml: filename, backup_id, rebuilds activities, adds settings."""
     print(f"\nUpdating {xml_path.name}...")
     if not xml_path.is_file():
@@ -555,6 +618,17 @@ def update_moodle_backup_xml(xml_path, output_filename, original_backup_id, new_
             content = new_content_3
         else:
              print("  - Warning: No original backup_id found, cannot replace.")
+
+        # 3.5. Update section title in <sections> if provided
+        if section_title and section_id:
+            section_title_pattern = rf'(<section>\s*<sectionid>{section_id}</sectionid>\s*<title>)(.*?)(</title>)'
+            new_content_3_5, count3_5 = re.subn(section_title_pattern, rf'\g<1>{section_title}\g<3>', content, count=1, flags=re.DOTALL)
+            if count3_5 > 0 and content != new_content_3_5: 
+                print(f"  - Updated section title in <sections> to: {section_title}")
+                content = new_content_3_5
+                changes_made = True
+            else: 
+                print("  - Warning: Could not find section title to update in <sections>.")
 
         # 4. Rebuild <activities> block
         activities_match = re.search(r'(<activities>)(.*?)(</activities>)', content, re.DOTALL)
@@ -709,6 +783,10 @@ def main():
     parser.add_argument("--submission-time", default="23:59:59", help="Time for submissions (HH:MM:SS, default: 23:59:59)")
     parser.add_argument("--extra-time", type=int, default=60, help="Minutes between due time and cutoff time (default: 60)")
     
+    # New options for section title and assignment naming
+    parser.add_argument("--section-title", help="Exact title of the section in Moodle where assignments should be imported")
+    parser.add_argument("--assignment-name-prefix", default="Page", help="Prefix for assignment names, followed by incremented number (default: 'Page')")
+    
     args = parser.parse_args()
 
     # Validate date/time options
@@ -753,7 +831,7 @@ def main():
             activation_date = now if i == 0 else (now + timedelta(days=7 * i, minutes=args.extra_time))
             
             assignment_base_data.append({
-                "name": f"Assignment {i + 1}",
+                "name": f"{args.assignment_name_prefix} {i + 1}",
                 "due_ts": int(due_date.timestamp()),
                 "cutoff_ts": int(cutoff_date.timestamp()),
                 "activation_ts": int(activation_date.timestamp())
@@ -876,7 +954,7 @@ def main():
             # --- 7. Update Manifest Files ---
             # Update section.xml
             section_xml_path = temp_path / "sections" / f"section_{ids['section_id']}" / "section.xml"
-            if not update_section_xml(section_xml_path, final_module_ids):
+            if not update_section_xml(section_xml_path, final_module_ids, args.section_title):
                 print("Error: Failed to update section.xml. Backup may be invalid.")
                 # Decide whether to proceed or stop
                 return # Or raise an exception
@@ -884,7 +962,7 @@ def main():
             # Update moodle_backup.xml
             moodle_backup_xml_path = temp_path / "moodle_backup.xml"
             new_backup_id = uuid.uuid4().hex # Generate new random backup ID
-            if not update_moodle_backup_xml(moodle_backup_xml_path, output_filename, ids['original_backup_id'], new_backup_id, final_assignment_details, ids['section_id'], added_module_ids):
+            if not update_moodle_backup_xml(moodle_backup_xml_path, output_filename, ids['original_backup_id'], new_backup_id, final_assignment_details, ids['section_id'], added_module_ids, args.section_title):
                 print("Error: Failed to update moodle_backup.xml. Backup may be invalid.")
                 # Decide whether to proceed or stop
                 # return
@@ -895,6 +973,32 @@ def main():
                  truncate_log_file(log_file_path)
             else:
                  print("\nLog file moodle_backup.log not found, skipping truncation.")
+            
+            # --- 7.5 Enable offline feedback plugin in all assign.xml files using a simple find and replace ---
+            print("\nEnabling offline feedback plugin in all assign.xml files...")
+            assign_files = list(temp_path.glob("activities/assign_*/assign.xml"))
+            for file_path in assign_files:
+                try:
+                    content = file_path.read_text()
+                    # Simple string replacement
+                    if "<plugin>offline</plugin>" in content and "<value>0</value>" in content:
+                        # Replace only the value 0 that appears after offline plugin
+                        parts = content.split("<plugin>offline</plugin>")
+                        if len(parts) > 1:
+                            # Find where the value tag appears in the second part
+                            subparts = parts[1].split("<value>0</value>", 1)
+                            if len(subparts) > 1:
+                                # Replace just the first occurrence after the offline plugin
+                                parts[1] = subparts[0] + "<value>1</value>" + subparts[1]
+                                content = "<plugin>offline</plugin>".join(parts)
+                                file_path.write_text(content)
+                                print(f"  Enabled offline feedback in {file_path.relative_to(temp_path)}")
+                            else:
+                                print(f"  Could not find <value>0</value> tag after offline plugin in {file_path.relative_to(temp_path)}")
+                    else:
+                        print(f"  Could not find offline plugin configuration in {file_path.relative_to(temp_path)}")
+                except Exception as e:
+                    print(f"  Error processing {file_path.relative_to(temp_path)}: {e}")
 
             # 8. Re-pack as tar.gz
             create_mbz(temp_path, output_path)
