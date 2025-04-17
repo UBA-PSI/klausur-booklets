@@ -3,13 +3,17 @@
   "version": "1.0.0",
   "description": "An Electron app to merge student PDFs with a cover sheet",
   "main": "src/js/main.js",
+  "bin": {
+    "modify-mbz-js": "./bin/modify-mbz-js"
+  },
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
     "build": "electron-builder",
     "postinstall": "electron-builder install-app-deps",
     "lint": "eslint .",
-    "pdf-process": "node src/js/pdf-cmdline-processor.js"
+    "pdf-process": "node src/js/pdf-cmdline-processor.js",
+    "test:mbz": "node src/mbz-creator/test/mbzCreator.test.js"
   },
   "dependencies": {
     "@electron/remote": "^2.1.2",
@@ -23,7 +27,8 @@
     "marked": "^12.0.0",
     "pdf-lib": "^1.17.1",
     "sharp": "^0.34.1",
-    "tar": "^7.2.0"
+    "tar": "^7.2.0",
+    "yargs": "^17.7.2"
   },
   "devDependencies": {
     "dir-compare": "^5.0.0",

@@ -1,0 +1,129 @@
+#!/usr/bin/env node
+
+const yargs = require('yargs/yargs');
+const { hideBin } = require('yargs/helpers');
+const path = require('path');
+const { modifyMoodleBackup } = require('../src/mbz-creator/lib/mbzCreator');
+const { generateAssignmentDates } = require('../src/mbz-creator/lib/dateUtils');
+
+async function main() {
+    const argv = yargs(hideBin(process.argv))
+        .usage('Usage: $0 <input_mbz> [options]')
+        .positional('input_mbz', {
+            describe: 'Path to the input .mbz file',
+            type: 'string',
+        })
+        .option('o', {
+            alias: 'output_mbz',
+            describe: 'Path for the output .mbz file',
+            type: 'string',
+            default: 'modified_backup.mbz',
+        })
+        // Date/time options - Method A
+        .option('first-submission-date', {
+            describe: 'Date of the first assignment (YYYY-MM-DD)',
+            type: 'string',
+            conflicts: 'submission-dates',
+        })
+        .option('num-consecutive-weeks', {
+            describe: 'Number of consecutive weeks for assignments (requires --first-submission-date)',
+            type: 'number',
+            implies: 'first-submission-date',
+        })
+        // Date/time options - Method B
+        .option('submission-dates', {
+            describe: 'Comma-separated list of assignment dates (YYYY-MM-DD,YYYY-MM-DD,...)',
+            type: 'string',
+            conflicts: 'first-submission-date',
+        })
+        // Common options
+        .option('submission-time', {
+            describe: 'Time for submissions (HH:MM:SS)',
+            type: 'string',
+            default: '23:59:59',
+        })
+        .option('extra-time', {
+            describe: 'Minutes between due time and cutoff time',
+            type: 'number',
+            default: 60,
+        })
+        .option('assignment-name-prefix', {
+            describe: 'Prefix for assignment names',
+            type: 'string',
+            default: 'Page',
+        })
+        .option('num-assignments', { // Fallback if no date options provided
+             describe: 'Total number of assignments if no specific dates are given (uses default relative dates)',
+             type: 'number',
+             default: 2 // Default to 2 if no dates given
+        })
+        .option('section-title', {
+            describe: 'Exact title of the section in Moodle',
+            type: 'string',
+        })
+        .option('target-start-date', {
+            describe: 'Target course start date (YYYY-MM-DD)',
+            type: 'string',
+        })
+        .help()
+        .alias('h', 'help')
+        .strict() // Report errors for unknown options
+        .demandCommand(1, 'Input MBZ file path is required.') // Require the positional argument
+        .argv;
+
+    // Prepare options for modifyMoodleBackup
+    const options = {
+        inputMbzPath: path.resolve(argv.input_mbz),
+        outputMbzPath: path.resolve(argv.output_mbz),
+        sectionTitle: argv.sectionTitle,
+        targetStartTimestamp: null,
+        assignments: [],
+    };
+
+    // Calculate target start timestamp if provided
+    if (argv.targetStartDate) {
+        try {
+            // Parse as UTC date
+            options.targetStartTimestamp = Math.floor(new Date(`${argv.targetStartDate}T00:00:00Z`).getTime() / 1000);
+            console.log(`Target start date specified: ${argv.targetStartDate} (UTC Timestamp: ${options.targetStartTimestamp})`);
+        } catch (e) {
+            console.error(`Error: Invalid format for --target-start-date '${argv.targetStartDate}'. Use YYYY-MM-DD.`);
+            process.exit(1);
+        }
+    }
+
+    // Generate assignment dates based on provided arguments
+    const dateGenOpts = {
+        firstSubmissionDate: argv.firstSubmissionDate,
+        numConsecutiveWeeks: argv.numConsecutiveWeeks,
+        submissionDates: argv.submissionDates,
+        submissionTime: argv.submissionTime,
+        extraTime: argv.extraTime,
+        assignmentNamePrefix: argv.assignmentNamePrefix,
+        numAssignments: argv.numAssignments, // Pass this for the default case
+    };
+
+    try {
+        options.assignments = generateAssignmentDates(dateGenOpts);
+        if (options.assignments.length === 0 && !argv.firstSubmissionDate && !argv.submissionDates) {
+             console.warn(`Warning: No specific dates provided and default assignment generation yielded 0 assignments. Check --num-assignments.`);
+        }
+        console.log(`Generated data for ${options.assignments.length} assignments.`);
+    } catch (e) {
+        console.error(`Error generating assignment dates: ${e.message}`);
+        process.exit(1);
+    }
+
+    // Run the main function
+    try {
+        console.log("Starting Moodle backup modification...");
+        await modifyMoodleBackup(options);
+        console.log(`\nSuccessfully modified backup saved to: ${options.outputMbzPath}`);
+    } catch (error) {
+        console.error('\nError during backup modification:');
+        console.error(error.message || error);
+        process.exit(1);
+    }
+}
+
+main(); 
