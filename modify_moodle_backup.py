@@ -1,3 +1,25 @@
+# MIT License
+# 
+# Copyright (c) 2025 Dominik Herrmann
+# 
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+# 
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
 import os
 import shutil
 import tarfile
@@ -585,9 +607,10 @@ def update_section_xml(section_xml_path, all_module_ids, section_title=None):
         print(f"Error modifying file {section_xml_path}: {e}")
         return False
 
-def update_moodle_backup_xml(xml_path, output_filename, original_backup_id, new_backup_id, all_assignment_details, section_id, added_module_ids, section_title=None):
-    """Modifies moodle_backup.xml: filename, backup_id, rebuilds activities, adds settings."""
+def update_moodle_backup_xml(xml_path, output_filename, original_backup_id, new_backup_id, all_assignment_details, section_id, added_module_ids, section_title=None, target_start_timestamp=None):
+    """Modifies moodle_backup.xml: filename, backup_id, startdate, rebuilds activities, adds settings."""
     print(f"\nUpdating {xml_path.name}...")
+    print(f"DEBUG: Received target_start_timestamp in update_moodle_backup_xml: {target_start_timestamp}") # DEBUG
     if not xml_path.is_file():
         print(f"  Error: {xml_path} not found.")
         return False
@@ -596,6 +619,43 @@ def update_moodle_backup_xml(xml_path, output_filename, original_backup_id, new_
         content = xml_path.read_text()
         original_content = content
         changes_made = False
+
+        # DEBUG: If we're looking for startdate, examine the file structure first
+        if target_start_timestamp is not None:
+            print("\nDEBUG: Searching for course date-related tags in moodle_backup.xml...")
+            # Check for the existence of various potential date tags
+            potential_tags = ["startdate", "start_date", "course_startdate", "original_course_startdate"]
+            for tag in potential_tags:
+                matches = re.findall(f"<{tag}[^>]*>([^<]+)</{tag}>", content)
+                if matches:
+                    print(f"  Found <{tag}> tags with values: {matches}")
+            
+            # Also check for course tag
+            course_tag = re.search(r"<course\b[^>]*>(.*?)</course>", content, re.DOTALL)
+            if course_tag:
+                print("  Found <course> tag, checking for date fields inside")
+                course_content = course_tag.group(1)
+                date_tags = re.findall(r"<(\w*date\w*)[^>]*>([^<]+)</\1>", course_content)
+                if date_tags:
+                    print(f"  Date-related tags inside <course>: {date_tags}")
+            
+            # Look for other structures that might contain the course start date
+            original_course_info = re.search(r"<original_course[^>]*>(.*?)</original_course>", content, re.DOTALL)
+            if original_course_info:
+                print("  Found <original_course> tag, checking for date fields inside")
+                course_content = original_course_info.group(1)
+                date_tags = re.findall(r"<(\w*date\w*)[^>]*>([^<]+)</\1>", course_content)
+                if date_tags:
+                    print(f"  Date-related tags inside <original_course>: {date_tags}")
+            
+            # Look for course/details section
+            course_details = re.search(r"<details>(.*?)</details>", content, re.DOTALL)
+            if course_details:
+                print("  Found <details> tag, checking for date fields inside")
+                details_content = course_details.group(1)
+                date_tags = re.findall(r"<(\w*date\w*)[^>]*>([^<]+)</\1>", details_content)
+                if date_tags:
+                    print(f"  Date-related tags inside <details>: {date_tags}")
 
         # 1. Modify backup filename in <information><name>
         new_content_1, count1 = re.subn(r'(<information>.*?<name>)(.*?)(</name>)', rf'\g<1>{output_filename}\g<3>', content, count=1, flags=re.DOTALL)
@@ -715,6 +775,60 @@ def update_moodle_backup_xml(xml_path, output_filename, original_backup_id, new_
                 else:
                     print("  - Warning: Could not find </settings> tag or existing settings to insert new ones.")
 
+        # 6. Modify course start date if provided
+        if target_start_timestamp is not None:
+            # Try a broader set of patterns based on what we've found in our scan
+            changes_made_for_date = False
+            
+            # Pattern 1: <original_course_startdate> tag
+            pattern1 = re.compile(r'(<original_course_startdate>)\d+(</original_course_startdate>)')
+            new_content_6, count_p1 = pattern1.subn(rf'\g<1>{target_start_timestamp}\g<2>', content, count=1)
+            if count_p1 > 0 and content != new_content_6:
+                content = new_content_6
+                print(f"  - Updated <original_course_startdate> to: {target_start_timestamp}")
+                changes_made = True
+                changes_made_for_date = True
+            
+            # Pattern 2: <details><startdate> (inside course details)
+            pattern2 = re.compile(r'(<details>.*?<startdate>)\d+(</startdate>.*?</details>)', re.DOTALL)
+            new_content_6, count_p2 = pattern2.subn(rf'\g<1>{target_start_timestamp}\g<2>', content, count=1)
+            if count_p2 > 0 and content != new_content_6:
+                content = new_content_6
+                print(f"  - Updated <details><startdate> to: {target_start_timestamp}")
+                changes_made = True
+                changes_made_for_date = True
+            
+            # Pattern 3: <course><startdate> (in main course tag)
+            pattern3 = re.compile(r'(<course\b[^>]*>.*?<startdate>)\d+(</startdate>.*?</course>)', re.DOTALL)
+            new_content_6, count_p3 = pattern3.subn(rf'\g<1>{target_start_timestamp}\g<2>', content, count=1)
+            if count_p3 > 0 and content != new_content_6:
+                content = new_content_6
+                print(f"  - Updated <course><startdate> to: {target_start_timestamp}")
+                changes_made = True
+                changes_made_for_date = True
+            
+            # Pattern 4: Try original pattern one more time (already tried earlier)
+            if not changes_made_for_date:
+                startdate_pattern_global = re.compile(r'(<startdate>)\d+(</startdate>)')
+                new_content_6, count6 = startdate_pattern_global.subn(rf'\g<1>{target_start_timestamp}\g<2>', content, count=1)
+                print(f"DEBUG: Global regex (<startdate>) substitution count: {count6}") # DEBUG
+
+                if count6 > 0 and content != new_content_6:
+                    # Display human-readable date along with timestamp
+                    start_dt_readable = datetime.fromtimestamp(target_start_timestamp)
+                    print(f"  - Updated course <startdate> to: {target_start_timestamp} ({start_dt_readable.strftime('%Y-%m-%d %H:%M:%S')})")
+                    content = new_content_6
+                    changes_made = True
+            
+            # Final check if we couldn't find any expected patterns
+            if not changes_made_for_date:
+                # Provide a more helpful warning if the tag isn't found
+                print(f"  - Warning: Could not find the <startdate> tag in {xml_path.name} to update.")
+                # Suggest checking course.xml instead
+                course_xml_path = xml_path.parent / "course" / "course.xml"
+                if course_xml_path.exists():
+                    print(f"  - Note: You might need to check {course_xml_path.relative_to(xml_path.parent)} for the course start date instead.")
+         
         # Write changes if any were made
         if changes_made:
             xml_path.write_text(content)
@@ -787,6 +901,9 @@ def main():
     parser.add_argument("--section-title", help="Exact title of the section in Moodle where assignments should be imported")
     parser.add_argument("--assignment-name-prefix", default="Page", help="Prefix for assignment names, followed by incremented number (default: 'Page')")
     
+    # New option for target course start date
+    parser.add_argument("--target-start-date", help="Target course start date (YYYY-MM-DD). Modifies the backup's start date.")
+    
     args = parser.parse_args()
 
     # Validate date/time options
@@ -816,6 +933,23 @@ def main():
     if not input_path.is_file():
         print(f"Error: Input file not found at {input_path}")
         return
+
+    # Parse target start date if provided
+    target_start_timestamp = None
+    if args.target_start_date:
+        try:
+            # Parse as datetime object first
+            target_start_dt = datetime.strptime(args.target_start_date, "%Y-%m-%d")
+            # Convert to Unix timestamp (integer seconds since epoch)
+            # Moodle often uses the timestamp for the start of the day (00:00:00) in the server's timezone.
+            # Using timestamp() on a date-only object effectively does this for the local timezone.
+            # For full accuracy, consider server timezone if known, but this is usually sufficient.
+            target_start_timestamp = int(target_start_dt.timestamp())
+            print(f"DEBUG: Parsed timestamp in main: {target_start_timestamp}") # DEBUG
+            print(f"  Target start date specified: {args.target_start_date} (Timestamp: {target_start_timestamp})")
+        except ValueError:
+            print(f"Error: Invalid format for --target-start-date '{args.target_start_date}'. Use YYYY-MM-DD.")
+            return
 
     # --- Assignment Data Definition ---
     if args.first_submission_date or args.submission_dates:
@@ -962,7 +1096,17 @@ def main():
             # Update moodle_backup.xml
             moodle_backup_xml_path = temp_path / "moodle_backup.xml"
             new_backup_id = uuid.uuid4().hex # Generate new random backup ID
-            if not update_moodle_backup_xml(moodle_backup_xml_path, output_filename, ids['original_backup_id'], new_backup_id, final_assignment_details, ids['section_id'], added_module_ids, args.section_title):
+            if not update_moodle_backup_xml(
+                moodle_backup_xml_path, 
+                output_filename, 
+                ids['original_backup_id'], 
+                new_backup_id, 
+                final_assignment_details, 
+                ids['section_id'], 
+                added_module_ids, 
+                args.section_title,
+                target_start_timestamp # Pass the new timestamp
+            ):
                 print("Error: Failed to update moodle_backup.xml. Backup may be invalid.")
                 # Decide whether to proceed or stop
                 # return
