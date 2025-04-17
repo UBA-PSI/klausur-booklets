@@ -65,6 +65,11 @@ function findHighestId(data, idPropertyName) {
   return highest;
 }
 
+// Helper function to find text value in potentially nested structure
+function getTextValue(obj, key) {
+  return obj?.[key]?.[0]?.['#text'];
+}
+
 /**
  * Generates a new MBZ file by duplicating and modifying template assignment files.
  *
@@ -99,17 +104,40 @@ async function generateBatchMbz({ templateInfo, selectedDates, timeHour, timeMin
     console.warn('Section XML not found or accessible, sequence will not be updated.');
   }
 
-  // Ensure backupData structure is navigable
-  const backupInfo = backupData?.[0]?.moodle_backup?.[0]?.information?.[0];
-  if (!backupInfo || !backupInfo.contents?.[0]?.activities?.[0]?.activity || !backupInfo.settings?.[0]?.setting) {
-      throw new Error('Invalid moodle_backup.xml structure.');
+  // Ensure backupData structure is navigable using helper functions for robust traversal
+  function findInOrderArray(arr, key) {
+    if (!Array.isArray(arr)) return undefined;
+    return arr.find(obj => obj && typeof obj === 'object' && obj[key] !== undefined)?.[key];
   }
-  // Make sure activities and settings are arrays for easier manipulation
-  if (!Array.isArray(backupInfo.contents[0].activities[0].activity)) {
-    backupInfo.contents[0].activities[0].activity = [backupInfo.contents[0].activities[0].activity];
+
+  // Find the moodle_backup element
+  const mbzRoot = backupData.find(obj => obj.moodle_backup)?.moodle_backup[0];
+  if (!mbzRoot) throw new Error('Could not find moodle_backup root in parsed XML.');
+
+  // Find the information array
+  const infoArr = mbzRoot.information;
+  if (!Array.isArray(infoArr)) throw new Error('Could not find information array in moodle_backup.');
+
+  // Find contents and validate structure
+  const contentsArr = findInOrderArray(infoArr, 'contents');
+  if (!contentsArr || !contentsArr[0] || !contentsArr[0].activities) {
+    throw new Error('Invalid moodle_backup.xml structure: contents or activities missing.');
   }
-  if (!Array.isArray(backupInfo.settings[0].setting)) {
-    backupInfo.settings[0].setting = [backupInfo.settings[0].setting];
+
+  // Get the activities array (collection of activity objects)
+  const activitiesContainer = contentsArr[0].activities;
+  if (!Array.isArray(activitiesContainer)) {
+    throw new Error('Invalid moodle_backup.xml structure: activities is not an array.');
+  }
+
+  // Find settings 
+  const settingsArr = findInOrderArray(infoArr, 'settings');
+  if (!settingsArr || !settingsArr[0] || !settingsArr[0].setting) {
+    throw new Error('Invalid moodle_backup.xml structure: settings missing.');
+  }
+  const settingsList = settingsArr[0].setting;
+  if (!Array.isArray(settingsList)) {
+    settingsArr[0].setting = [settingsList]; // Ensure it's an array for easier manipulation
   }
 
   // 2. Find highest existing IDs to start incrementing from
@@ -119,6 +147,26 @@ async function generateBatchMbz({ templateInfo, selectedDates, timeHour, timeMin
   const highestContextId = findHighestId([backupData, assignData], '@_contextid'); // Check attribute contextid
 
   console.log(`Highest IDs found: Module=${highestModuleId}, Activity=${highestActivityId}, Context=${highestContextId}`);
+
+  // Filter out the original template activity from the backup data
+  const originalModuleId = templateInfo.moduleId; // Get the template module ID
+  const originalActivityDirName = path.basename(templateInfo.paths.templateAssignDir);
+
+  // Filter activities
+  const filteredActivities = activitiesContainer.filter(entry => {
+    const modIdNode = entry.activity?.find(prop => prop.moduleid);
+    return modIdNode?.moduleid?.[0]?.['#text'] !== originalModuleId;
+  });
+  // Replace the activities array with the filtered one
+  contentsArr[0].activities = filteredActivities;
+
+  // Filter settings related to the template activity
+  const filteredSettings = settingsList.filter(entry => {
+      const activityName = getTextValue(entry.setting?.find(prop => prop.activity), 'activity');
+      return activityName !== originalActivityDirName;
+  });
+  // Replace the settings array with the filtered one
+  settingsArr[0].setting = filteredSettings;
 
   // 3. Process each selected date to create a new assignment
   const newModuleIds = [];
@@ -195,17 +243,16 @@ async function generateBatchMbz({ templateInfo, selectedDates, timeHour, timeMin
       }
     }
 
-    // e. Prepare entries for moodle_backup.xml
+    // e. Prepare entries for moodle_backup.xml - match the exact structure format
     newActivitiesBackupEntries.push({
-        activity: [{
-            moduleid: [{ '#text': newModuleId }],
-            sectionid: [{ '#text': templateInfo.sectionId }],
-            modulename: [{ '#text': 'assign' }],
-            title: [{ '#text': newAssignmentName }],
-            directory: [{ '#text': `activities/${newAssignDirName}` }],
-            // insubsection might be needed depending on Moodle version
-            insubsection: [{ '#text': '' }]
-        }]
+      activity: [
+        { moduleid: [{ '#text': newModuleId }] },
+        { sectionid: [{ '#text': templateInfo.sectionId }] },
+        { modulename: [{ '#text': 'assign' }] },
+        { title: [{ '#text': newAssignmentName }] },
+        { directory: [{ '#text': `activities/${newAssignDirName}` }] },
+        { insubsection: [] }
+      ]
     });
 
     newSettingsBackupEntries.push(
@@ -217,8 +264,15 @@ async function generateBatchMbz({ templateInfo, selectedDates, timeHour, timeMin
   }
 
   // 4. Update moodle_backup.xml data structure
-  backupInfo.contents[0].activities[0].activity.push(...newActivitiesBackupEntries);
-  backupInfo.settings[0].setting.push(...newSettingsBackupEntries);
+  // Add new activities to the (now filtered) activities container
+  // activitiesContainer variable might reference the old unfiltered array, re-fetch it
+  const finalActivitiesContainer = contentsArr[0].activities;
+  finalActivitiesContainer.push(...newActivitiesBackupEntries);
+
+  // Add new settings to the (now filtered) settings list
+  // settingsContainer variable might reference the old unfiltered array, re-fetch it
+  const finalSettingsList = settingsArr[0].setting;
+  finalSettingsList.push(...newSettingsBackupEntries);
 
   // 5. Update section.xml data structure (if available)
   if (sectionData) {
@@ -226,11 +280,11 @@ async function generateBatchMbz({ templateInfo, selectedDates, timeHour, timeMin
     if (sectionNode) {
         const sequenceNode = sectionNode.section.find(prop => prop.sequence);
         if (sequenceNode) {
-            const currentSequence = sequenceNode.sequence[0]['#text'] || '';
-            const newSequence = currentSequence ? `${currentSequence},${newModuleIds.join(',')}` : newModuleIds.join(',');
+            // **Replace** the sequence entirely with the new IDs
+            const newSequence = newModuleIds.join(',');
             sequenceNode.sequence[0]['#text'] = newSequence;
         } else {
-            // Add sequence if it doesn't exist
+            // Add sequence if it doesn't exist (should normally exist)
             sectionNode.section.push({ sequence: [{ '#text': newModuleIds.join(',') }] });
         }
         // Write updated section.xml
@@ -245,7 +299,16 @@ async function generateBatchMbz({ templateInfo, selectedDates, timeHour, timeMin
   // 6. Write updated moodle_backup.xml
   await fs.writeFile(templateInfo.paths.backupXml, builder.build(backupData));
 
-  // 7. Create the new MBZ zip archive
+  // 7. Delete the original template directory *before* zipping
+  try {
+      console.log(`Removing original template directory: ${templateInfo.paths.templateAssignDir}`);
+      await fs.rm(templateInfo.paths.templateAssignDir, { recursive: true, force: true });
+  } catch (err) {
+      console.error(`Warning: Could not remove template directory: ${err.message}`);
+      // Decide if this should be a fatal error or just a warning
+  }
+
+  // 8. Create the new MBZ zip archive
   console.log(`Creating new MBZ archive at: ${outputPath}`);
   const newZip = new AdmZip();
 

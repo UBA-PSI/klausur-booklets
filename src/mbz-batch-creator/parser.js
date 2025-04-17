@@ -124,32 +124,87 @@ async function analyzeMbzTemplate(mbzFilePath) {
     const parser = new XMLParser(xmlOptions);
     const backupData = parser.parse(backupXml);
 
-    // With preserveOrder:true, we get different structure
-    const activitiesNode = backupData?.[0]?.moodle_backup?.[0]?.information?.[0]?.contents?.[0]?.activities?.[0];
-    const activities = activitiesNode?.activity;
+    // DEBUG: Output the parsed structure for troubleshooting
+    console.dir(backupData, { depth: null });
 
-    if (!activities) {
-        throw new Error('No activities found in moodle_backup.xml.');
+    // Helper to find a key in a preserveOrder array
+    function findInOrderArray(arr, key) {
+      if (!Array.isArray(arr)) return undefined;
+      return arr.find(obj => obj && typeof obj === 'object' && obj[key] !== undefined)?.[key];
     }
+
+    // Robust extraction of activities with defensive checks
+    const mbzRoot = (Array.isArray(backupData) ? backupData : [backupData])
+      .find(obj => obj.moodle_backup)?.moodle_backup[0];
+    if (!mbzRoot) throw new Error('Could not find moodle_backup root in parsed XML.');
+
+    const infoArr = mbzRoot.information;
+    if (!Array.isArray(infoArr)) throw new Error('Could not find information array in moodle_backup.');
+
+    const contentsArr = findInOrderArray(infoArr, 'contents');
+    if (!contentsArr) throw new Error('Could not find contents in information array.');
+
+    // In the structure, the activities are in the first object of the contents array
+    const activitiesContainer = contentsArr[0];
+    if (!activitiesContainer || !activitiesContainer.activities) {
+      throw new Error('Could not find activities in contents array.');
+    }
+
+    // Each activity is an object with an 'activity' array of properties
+    const activityObjects = activitiesContainer.activities;
+    if (!Array.isArray(activityObjects) || activityObjects.length === 0) {
+      throw new Error('No activity objects found in moodle_backup.xml.');
+    }
+
+    // Collect all the assign activities
+    const assignActivities = [];
     
-    // In preserveOrder:true format, each node is an object with the tag name as a property
-    const assignActivities = activities.filter(activityNode => {
-        const moduleName = activityNode?.activity?.[0]?.modulename?.[0]?.['#text'];
-        return moduleName === 'assign';
-    });
-    
+    for (const activityObj of activityObjects) {
+      if (!activityObj.activity || !Array.isArray(activityObj.activity)) continue;
+      
+      const activityProps = activityObj.activity;
+      let isAssign = false;
+      let moduleId = null;
+      let sectionId = null;
+      let directory = null;
+      
+      // Analyze the properties of this activity
+      for (const prop of activityProps) {
+        if (prop.modulename && prop.modulename[0] && prop.modulename[0]['#text'] === 'assign') {
+          isAssign = true;
+        }
+        if (prop.moduleid && prop.moduleid[0] && prop.moduleid[0]['#text']) {
+          moduleId = prop.moduleid[0]['#text'];
+        }
+        if (prop.sectionid && prop.sectionid[0] && prop.sectionid[0]['#text']) {
+          sectionId = prop.sectionid[0]['#text'];
+        }
+        if (prop.directory && prop.directory[0] && prop.directory[0]['#text']) {
+          directory = prop.directory[0]['#text'];
+        }
+      }
+      
+      // If this is an assign with all required properties, add it to our list
+      if (isAssign && moduleId && sectionId && directory) {
+        assignActivities.push({
+          moduleId,
+          sectionId,
+          directory,
+          activityProps
+        });
+      }
+    }
+
     if (assignActivities.length === 0) {
       throw new Error('No assignment activities found in the MBZ file.');
     }
-    
-    const activityNode = assignActivities[0].activity[0];
-    const moduleId = activityNode?.moduleid?.[0]?.['#text'];
-    const sectionId = activityNode?.sectionid?.[0]?.['#text'];
-    const directory = activityNode?.directory?.[0]?.['#text'];
-    
-    if (!moduleId || !sectionId || !directory) {
-        throw new Error('Template activity in moodle_backup.xml is missing required IDs or directory.');
-    }
+
+    // Use the first assignment as the template
+    const templateActivity = assignActivities[0];
+    const moduleId = templateActivity.moduleId;
+    const sectionId = templateActivity.sectionId;
+    const directory = templateActivity.directory;
+
     console.log(`Using template assignment: ModuleID=${moduleId}, SectionID=${sectionId}, RelDir=${directory}`);
 
     const assignXmlPath = path.join(baseDir, directory, 'assign.xml');
