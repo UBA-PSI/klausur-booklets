@@ -23,6 +23,85 @@ def find_first_id(pattern, text, cast_to=int):
     match = pattern.search(text)
     return cast_to(match.group(1)) if match else None
 
+# --- Date Handling Functions ---
+
+def parse_datetime(date_str, time_str):
+    """Parse date and time strings into a datetime object."""
+    try:
+        # Parse date in YYYY-mm-dd format
+        # Parse time in HH:MM:SS format
+        dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S")
+        return dt
+    except ValueError as e:
+        print(f"Error parsing date/time: {e}")
+        print("Please ensure date is in YYYY-MM-DD format and time in HH:MM:SS format")
+        raise
+
+def generate_assignment_dates(args):
+    """Generate assignment dates based on command line arguments."""
+    assignments = []
+    extra_minutes = args.extra_time
+    
+    # Current time for the first activation time if needed
+    now = datetime.now()
+    
+    # Option A: First date + consecutive weeks
+    if args.first_submission_date and args.num_consecutive_weeks:
+        first_dt = parse_datetime(args.first_submission_date, args.submission_time)
+        
+        for i in range(args.num_consecutive_weeks):
+            due_dt = first_dt + timedelta(weeks=i)
+            cutoff_dt = due_dt + timedelta(minutes=extra_minutes)
+            
+            # For the first assignment, activation is current time
+            # For subsequent assignments, activation is previous cutoff
+            if i == 0:
+                activation_dt = now
+            else:
+                activation_dt = previous_cutoff_dt
+                
+            assignments.append({
+                "name": f"Assignment {i+1}",
+                "due_dt": due_dt,
+                "due_ts": int(due_dt.timestamp()),
+                "cutoff_dt": cutoff_dt,
+                "cutoff_ts": int(cutoff_dt.timestamp()),
+                "activation_dt": activation_dt,
+                "activation_ts": int(activation_dt.timestamp())
+            })
+            
+            previous_cutoff_dt = cutoff_dt
+            
+    # Option B: List of dates
+    elif args.submission_dates:
+        date_list = args.submission_dates.split(',')
+        
+        for i, date_str in enumerate(date_list):
+            date_str = date_str.strip()
+            due_dt = parse_datetime(date_str, args.submission_time)
+            cutoff_dt = due_dt + timedelta(minutes=extra_minutes)
+            
+            # For the first assignment, activation is current time
+            # For subsequent assignments, activation is previous cutoff
+            if i == 0:
+                activation_dt = now
+            else:
+                activation_dt = previous_cutoff_dt
+                
+            assignments.append({
+                "name": f"Assignment {i+1}",
+                "due_dt": due_dt,
+                "due_ts": int(due_dt.timestamp()),
+                "cutoff_dt": cutoff_dt,
+                "cutoff_ts": int(cutoff_dt.timestamp()),
+                "activation_dt": activation_dt,
+                "activation_ts": int(activation_dt.timestamp())
+            })
+            
+            previous_cutoff_dt = cutoff_dt
+    
+    return assignments
+
 # --- Core Moodle Backup Modification Functions ---
 
 def extract_ids(base_path):
@@ -177,7 +256,7 @@ def find_assign_xml_files(base_path):
     print(f"Found {len(assign_files)} assignment files: {[str(f.relative_to(base_path)) for f in assign_files]}")
     return assign_files
 
-def modify_assignment(file_path, new_name, new_due_ts, new_cutoff_ts):
+def modify_assignment(file_path, new_name, new_due_ts, new_cutoff_ts, new_activation_ts=None):
     """Modifies name, duedate, and cutoffdate in an existing assign.xml."""
     # Simplified: assumes IDs are not changed for existing assignments
     print(f"\nModifying existing {file_path.relative_to(file_path.parent.parent.parent)}...")
@@ -207,6 +286,15 @@ def modify_assignment(file_path, new_name, new_due_ts, new_cutoff_ts):
             changes.append(f"  - Cutoff date changed to: {new_cutoff_ts} ({datetime.fromtimestamp(new_cutoff_ts)})")
             content = new_content
         else: print(f"  - Warning: Could not find <cutoffdate> tag in {file_path}")
+        
+        # Modify allowsubmissionsfromdate (activation time) if provided
+        if new_activation_ts is not None:
+            new_content, count = re.subn(r'(<allowsubmissionsfromdate>)(.*?)(</allowsubmissionsfromdate>)', 
+                                         rf'\g<1>{new_activation_ts}\g<3>', content, count=1)
+            if count > 0 and content != new_content:
+                changes.append(f"  - Activation date changed to: {new_activation_ts} ({datetime.fromtimestamp(new_activation_ts)})")
+                content = new_content
+            else: print(f"  - Warning: Could not find <allowsubmissionsfromdate> tag in {file_path}")
 
         if content != original_content:
             file_path.write_text(content)
@@ -247,6 +335,12 @@ def create_new_assignment_files(base_path, assign_template_content, inforef_temp
         assign_content = re.sub(r'<name>.*?</name>', f'<name>{assignment_info["name"]}</name>', assign_content, count=1)
         assign_content = re.sub(r'<duedate>\d+</duedate>', f'<duedate>{assignment_info["due_ts"]}</duedate>', assign_content, count=1)
         assign_content = re.sub(r'<cutoffdate>\d+</cutoffdate>', f'<cutoffdate>{assignment_info["cutoff_ts"]}</cutoffdate>', assign_content, count=1)
+        
+        # Set activation date if provided
+        if "activation_ts" in assignment_info:
+            assign_content = re.sub(r'<allowsubmissionsfromdate>\d+</allowsubmissionsfromdate>',
+                                   f'<allowsubmissionsfromdate>{assignment_info["activation_ts"]}</allowsubmissionsfromdate>', 
+                                   assign_content, count=1)
 
         # Replace plugin_config IDs sequentially
         def replace_plugin_id(match):
@@ -603,9 +697,40 @@ def main():
     parser.add_argument("input_mbz", help="Path to the input .mbz file (e.g., sample.tar.gz).")
     parser.add_argument("-o", "--output_mbz", default="testbackup.mbz", help="Path for the output .mbz file.")
     parser.add_argument("-n", "--num_assignments", type=int, default=TARGET_ASSIGNMENT_COUNT, help=f"Total number of assignments in output (default: {TARGET_ASSIGNMENT_COUNT}).")
+    
+    # Date/time options - Method A
+    parser.add_argument("--first-submission-date", help="Date of the first assignment (YYYY-MM-DD)")
+    parser.add_argument("--num-consecutive-weeks", type=int, help="Number of consecutive weeks to create assignments for")
+    
+    # Date/time options - Method B
+    parser.add_argument("--submission-dates", help="Comma-separated list of assignment dates (YYYY-MM-DD,YYYY-MM-DD,...)")
+    
+    # Common options
+    parser.add_argument("--submission-time", default="23:59:59", help="Time for submissions (HH:MM:SS, default: 23:59:59)")
+    parser.add_argument("--extra-time", type=int, default=60, help="Minutes between due time and cutoff time (default: 60)")
+    
     args = parser.parse_args()
 
+    # Validate date/time options
+    if args.first_submission_date and args.submission_dates:
+        print("Error: Cannot use both --first-submission-date and --submission-dates. Choose one method.")
+        return
+        
+    if args.first_submission_date and not args.num_consecutive_weeks:
+        print("Error: When using --first-submission-date, you must also specify --num-consecutive-weeks")
+        return
+        
+    if args.num_consecutive_weeks and not args.first_submission_date:
+        print("Error: When using --num-consecutive-weeks, you must also specify --first-submission-date")
+        return
+        
+    # If no date options provided, use default assignment count
     target_assignment_count = args.num_assignments
+    if args.first_submission_date and args.num_consecutive_weeks:
+        target_assignment_count = args.num_consecutive_weeks
+    elif args.submission_dates:
+        target_assignment_count = len(args.submission_dates.split(','))
+    
     input_path = pathlib.Path(args.input_mbz).resolve()
     output_path = pathlib.Path(args.output_mbz).resolve()
     output_filename = output_path.name
@@ -615,15 +740,24 @@ def main():
         return
 
     # --- Assignment Data Definition ---
-    # Ensure we have enough data entries
-    assignment_base_data = []
-    now = datetime.now()
-    for i in range(target_assignment_count):
-        assignment_base_data.append({
-            "name": f"Assignment {i + 1} (Updated)",
-            "due_ts": int((now + timedelta(days=7 * (i + 1))).timestamp()),
-            "cutoff_ts": int((now + timedelta(days=7 * (i + 1), hours=1)).timestamp())
-        })
+    if args.first_submission_date or args.submission_dates:
+        # Generate dates based on command line arguments
+        assignment_base_data = generate_assignment_dates(args)
+    else:
+        # Use default date generation if no specific dates provided
+        assignment_base_data = []
+        now = datetime.now()
+        for i in range(target_assignment_count):
+            due_date = now + timedelta(days=7 * (i + 1))
+            cutoff_date = due_date + timedelta(minutes=args.extra_time)
+            activation_date = now if i == 0 else (now + timedelta(days=7 * i, minutes=args.extra_time))
+            
+            assignment_base_data.append({
+                "name": f"Assignment {i + 1}",
+                "due_ts": int(due_date.timestamp()),
+                "cutoff_ts": int(cutoff_date.timestamp()),
+                "activation_ts": int(activation_date.timestamp())
+            })
 
     # Use a temporary directory
     with tempfile.TemporaryDirectory(prefix="moodle_mbz_") as temp_dir:
@@ -682,6 +816,10 @@ def main():
             # --- 6. Process Assignments (Modify or Add) ---
             print(f"\nProcessing target of {target_assignment_count} assignments...")
             for i in range(target_assignment_count):
+                if i >= len(assignment_base_data):
+                    print(f"Warning: Not enough assignment data for index {i}, skipping.")
+                    continue
+                    
                 assignment_info = assignment_base_data[i]
 
                 if i < original_assignment_count:
@@ -689,7 +827,13 @@ def main():
                     module_id = ids['existing_module_ids'][i]
                     file_path = temp_path / "activities" / f"assign_{module_id}" / "assign.xml"
                     if file_path.is_file():
-                        modify_assignment(file_path, assignment_info["name"], assignment_info["due_ts"], assignment_info["cutoff_ts"])
+                        modify_assignment(
+                            file_path, 
+                            assignment_info["name"], 
+                            assignment_info["due_ts"], 
+                            assignment_info["cutoff_ts"],
+                            assignment_info.get("activation_ts")
+                        )
                     else:
                         print(f"  Warning: Expected file {file_path} not found for modification.")
 
