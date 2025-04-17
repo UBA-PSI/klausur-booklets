@@ -16,6 +16,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   handleExportConfig: (config) => ipcRenderer.invoke('handle-export-config', config),
   handleImportConfig: () => ipcRenderer.invoke('handle-import-config'),
   precheckCollisions: (mainDir, pattern, useCSVs) => ipcRenderer.invoke('precheck-collisions', mainDir, pattern, useCSVs),
+  clearOutputFolder: (outputDir) => ipcRenderer.invoke('clear-output-folder', outputDir),
+  // --- New APIs for MBZ Batch Creator --- 
+  showOpenDialog: (options) => ipcRenderer.invoke('dialog:showOpenDialog', options),
+  showMessageBox: (options) => ipcRenderer.invoke('dialog:showMessageBox', options),
+  pathBasename: (filePath) => ipcRenderer.invoke('path:basename', filePath),
+  pathDirname: (filePath) => ipcRenderer.invoke('path:dirname', filePath),
+  createBatchAssignments: (options) => ipcRenderer.invoke('mbz:createBatchAssignments', options),
+  // --- End New APIs ---
 
   // Main -> Renderer (receive)
   onDirectorySelected: (callback) => ipcRenderer.on('directory-selected', (_event, type, path) => callback(type, path)),

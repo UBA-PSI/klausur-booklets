@@ -816,5 +816,78 @@ if (clearOutputBtn) {
 }
 // --- End Clear Output --- 
 
+// --- MBZ Batch Creator Initialization ---
+let mbzCreatorInstance = null; // Keep track of the UI instance
+
+// Make sure to get elements after the DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    const batchCreateMbzBtn = document.getElementById('batchCreateMbzBtn');
+    const mbzCreatorModal = document.getElementById('mbzCreatorModal');
+    const mbzCreatorContainer = document.getElementById('mbz-creator-container');
+    const mbzCreatorCloseBtn = mbzCreatorModal?.querySelector('.mbz-creator-close');
+
+    if (batchCreateMbzBtn) {
+        batchCreateMbzBtn.addEventListener('click', () => {
+            console.log('Batch Create MBZ button clicked'); // Debug log
+            if (mbzCreatorModal && mbzCreatorContainer) {
+                mbzCreatorModal.style.display = 'block';
+                // Initialize the UI only if it hasn't been initialized yet
+                if (!mbzCreatorInstance) {
+                    try {
+                        console.log('Initializing MBZ Batch Creator UI...'); // Debug log
+                        mbzCreatorInstance = MbzBatchCreatorUI.initialize(mbzCreatorContainer);
+                        console.log('MBZ Batch Creator UI Initialized:', mbzCreatorInstance); // Debug log
+                    } catch (error) {
+                        console.error('Failed to initialize MBZ Batch Creator UI:', error);
+                        mbzCreatorContainer.innerHTML = `<h2>Error Loading UI</h2><p>${error.message}</p>`;
+                        updateStatus('error', 'Failed to load Batch Creator UI.');
+                    }
+                }
+            } else {
+                console.error('MBZ Creator modal or container not found.');
+                updateStatus('error', 'Could not open Batch Creator UI.');
+            }
+        });
+    } else {
+        console.warn('Batch Create MBZ button (batchCreateMbzBtn) not found.');
+    }
+
+    if (mbzCreatorCloseBtn) {
+        mbzCreatorCloseBtn.addEventListener('click', () => {
+            if (mbzCreatorModal) {
+                mbzCreatorModal.style.display = 'none';
+            }
+        });
+    }
+
+    // Handle closing modal by clicking outside
+    window.addEventListener('click', (event) => {
+        if (event.target == mbzCreatorModal) {
+            mbzCreatorModal.style.display = 'none';
+        }
+        // Add similar checks for other modals if not already present
+        const settingsModal = document.getElementById('settingsModal');
+        if (event.target == settingsModal) {
+            settingsModal.style.display = "none";
+            saveConfig(); // Assuming settings modal also saves on close
+        }
+        const coverModal = document.getElementById('coverTemplateModal');
+        if (event.target == coverModal) {
+            coverModal.style.display = 'none';
+            saveConfig(); // Save on close
+        }
+        const ambiguityModal = document.getElementById('ambiguityModal');
+        if (event.target == ambiguityModal) {
+            // ambiguityModal.style.display = 'none'; // Decide if this should close it
+        }
+        const moodleCollisionModal = document.getElementById('moodleCollisionModal');
+        if (event.target == moodleCollisionModal) {
+             closeMoodleCollisionModal();
+        }
+
+    });
+});
+// --- End MBZ Batch Creator Initialization ---
+
 
 

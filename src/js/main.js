@@ -13,6 +13,10 @@ const {
     createSaddleStitchBooklet
 } = require('./pdf-merger');
 
+// --- MBZ Batch Creator Logic --- 
+const { createBatchAssignments } = require('../mbz-batch-creator'); // Fix path to correct location
+// --- End MBZ Batch Creator Logic --- 
+
 // Keep track of the main window
 let mainWindow = null;
 
@@ -1441,3 +1445,40 @@ ipcMain.handle('clear-output-folder', async (event, outputDirectory) => {
     }
 });
 // --- End Clear Output Handler ---
+
+// --- IPC Handlers for MBZ Batch Creator Dependencies --- 
+ipcMain.handle('dialog:showOpenDialog', async (event, options) => {
+    return await dialog.showOpenDialog(mainWindow, options); // Pass mainWindow for modal dialogs
+});
+
+ipcMain.handle('dialog:showMessageBox', async (event, options) => {
+    return await dialog.showMessageBox(mainWindow, options); // Pass mainWindow
+});
+
+ipcMain.handle('path:basename', (event, filePath) => {
+    return path.basename(filePath);
+});
+
+ipcMain.handle('path:dirname', (event, filePath) => {
+    return path.dirname(filePath);
+});
+// --- End IPC Handlers for Dependencies --- 
+
+// --- IPC Handler for MBZ Batch Creation --- 
+ipcMain.handle('mbz:createBatchAssignments', async (event, options) => {
+    console.log('IPC: Received mbz:createBatchAssignments with options:', options);
+    try {
+        // The options object from the renderer should match what createBatchAssignments expects
+        const result = await createBatchAssignments(options);
+        return result; // Return the { success, message, outputPath?, error? } object
+    } catch (error) {
+        console.error('IPC: Error during MBZ batch assignment creation:', error);
+        // Ensure a standard error format is returned to the renderer
+        return {
+            success: false,
+            message: `Error: ${error.message || 'An unknown error occurred.'}`,
+            error: error // Optionally pass the full error object
+        };
+    }
+});
+// --- End IPC Handler for MBZ Batch Creation --- 
