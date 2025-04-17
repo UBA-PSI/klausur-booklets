@@ -14,7 +14,9 @@ const {
 } = require('./pdf-merger');
 
 // --- MBZ Batch Creator Logic --- 
-const { createBatchAssignments } = require('../mbz-batch-creator'); // Fix path to correct location
+// const { createBatchAssignments } = require('../mbz-batch-creator'); // OLD IMPORT
+const { modifyMoodleBackup } = require('../mbz-creator/lib/mbzCreator'); // NEW IMPORT
+const { generateAssignmentDates } = require('../mbz-creator/lib/dateUtils'); // Might need this here
 // --- End MBZ Batch Creator Logic --- 
 
 // Keep track of the main window
@@ -1465,20 +1467,64 @@ ipcMain.handle('path:dirname', (event, filePath) => {
 // --- End IPC Handlers for Dependencies --- 
 
 // --- IPC Handler for MBZ Batch Creation --- 
-ipcMain.handle('mbz:createBatchAssignments', async (event, options) => {
-    console.log('IPC: Received mbz:createBatchAssignments with options:', options);
-    try {
-        // The options object from the renderer should match what createBatchAssignments expects
-        const result = await createBatchAssignments(options);
-        return result; // Return the { success, message, outputPath?, error? } object
-    } catch (error) {
-        console.error('IPC: Error during MBZ batch assignment creation:', error);
-        // Ensure a standard error format is returned to the renderer
-        return {
-            success: false,
-            message: `Error: ${error.message || 'An unknown error occurred.'}`,
-            error: error // Optionally pass the full error object
-        };
+ipcMain.handle('mbz:createBatchAssignments', async (event, incomingOptions) => {
+  console.log('IPC: Received mbz:createBatchAssignments with incoming options:', incomingOptions);
+
+  // **Adapt incomingOptions to the format required by modifyMoodleBackup**
+  // Assumptions based on old createBatchAssignments signature and typical UI inputs:
+  // - incomingOptions.mbzFilePath: Path to template MBZ (INPUT)
+  // - incomingOptions.selectedDates: Array of Date objects or ISO strings? Assume ISO strings for robustness.
+  // - incomingOptions.timeHour, incomingOptions.timeMinute: Deadline time components.
+  // - incomingOptions.namePrefix: Assignment name prefix.
+  // - incomingOptions.outputDir: Optional output directory.
+  // - Potentially missing: sectionTitle, targetStartDate - need defaults or UI additions?
+
+  try {
+    // 1. Prepare options for generateAssignmentDates
+    const submissionTime = `${String(incomingOptions.timeHour || 0).padStart(2, '0')}:${String(incomingOptions.timeMinute || 0).padStart(2, '0')}:00`;
+    const dateGenOpts = {
+        // Assuming selectedDates are ISO strings or YYYY-MM-DD strings
+        // If they are Date objects, need to format them first
+        submissionDates: incomingOptions.selectedDates?.map(d => typeof d === 'string' ? d.split('T')[0] : new Date(d).toISOString().split('T')[0]).join(','),
+        submissionTime: submissionTime,
+        // extraTime: 60, // Use default from modifyMoodleBackup or get from UI?
+        assignmentNamePrefix: incomingOptions.namePrefix || 'Assignment',
+    };
+    const assignments = generateAssignmentDates(dateGenOpts);
+    if (!assignments || assignments.length === 0) {
+        throw new Error("Failed to generate assignment date data from selected dates.");
     }
+
+    // 2. Prepare options for modifyMoodleBackup
+    const outputDir = incomingOptions.outputDir || path.dirname(incomingOptions.mbzFilePath);
+    const outputFilename = `${path.basename(incomingOptions.mbzFilePath, '.mbz')}-modified-${Date.now()}.mbz`;
+    const finalOutputPath = path.join(outputDir, outputFilename);
+
+    const modifyOptions = {
+        inputMbzPath: incomingOptions.mbzFilePath,
+        outputMbzPath: finalOutputPath,
+        assignments: assignments,
+        sectionTitle: incomingOptions.sectionTitle, // TODO: Ensure this is passed from UI
+        targetStartTimestamp: null, // TODO: Add UI input for target start date?
+    };
+
+    // Optional: Set targetStartTimestamp if provided from UI (example)
+    if (incomingOptions.targetStartDate) { // Assuming targetStartDate is YYYY-MM-DD string
+         modifyOptions.targetStartTimestamp = Math.floor(new Date(`${incomingOptions.targetStartDate}T00:00:00Z`).getTime() / 1000);
+    }
+
+    console.log("Calling modifyMoodleBackup with options:", modifyOptions);
+
+    // 3. Call the new function
+    await modifyMoodleBackup(modifyOptions);
+
+    // 4. Return success result
+    console.log(`modifyMoodleBackup completed successfully. Output: ${finalOutputPath}`);
+    return { success: true, outputPath: finalOutputPath };
+
+  } catch (error) {
+    console.error('Error during mbz:createBatchAssignments handling:', error);
+    return { success: false, message: error.message || 'An unknown error occurred.' };
+  }
 });
 // --- End IPC Handler for MBZ Batch Creation --- 

@@ -58,6 +58,19 @@ class MbzBatchCreatorUI {
           <input type="text" id="name-prefix-input" class="input-field" placeholder="e.g., Weekly Assignment" value="Booklet Page">
         </div>
 
+
+<div class="mb-3">
+<label for="mbzSectionTitle" class="form-label">Section Title (Optional):</label>
+<input type="text" class="form-control" id="mbzSectionTitle" placeholder="e.g., Weekly Assignments">
+<div class="form-text">If provided, the title of the main course section will be updated in the MBZ files.</div>
+</div>
+
+<div class="mb-3">
+<label for="mbzTargetStartDate" class="form-label">Target Start Date (Optional):</label>
+<input type="date" class="form-control" id="mbzTargetStartDate">
+ <div class="form-text">If provided, the course start date within the MBZ file will be updated.</div>
+</div>
+
         <div class="section time-section">
           <h3>3. Set Default Time for All Deadlines</h3>
           <div class="time-picker">
@@ -110,6 +123,8 @@ class MbzBatchCreatorUI {
       selectMbzBtn: this.container.querySelector('#select-mbz-btn'),
       selectedFileLabel: this.container.querySelector('#selected-file-label'),
       namePrefixInput: this.container.querySelector('#name-prefix-input'),
+      sectionTitleInput: this.container.querySelector('#mbzSectionTitle'),
+      targetStartDateInput: this.container.querySelector('#mbzTargetStartDate'),
       hourSelect: this.container.querySelector('#hour-select'),
       minuteSelect: this.container.querySelector('#minute-select'),
       calendarContainer: this.container.querySelector('#calendar-container'),
@@ -118,6 +133,9 @@ class MbzBatchCreatorUI {
       generateBtn: this.container.querySelector('#generate-btn'),
       statusMessage: this.container.querySelector('#status-message'),
     };
+     console.log("Found UI elements:", this.elements);
+     if (!this.elements.sectionTitleInput) console.warn("Could not find #mbzSectionTitle input");
+     if (!this.elements.targetStartDateInput) console.warn("Could not find #mbzTargetStartDate input");
   }
 
   /**
@@ -262,17 +280,32 @@ class MbzBatchCreatorUI {
       this.setStatus('Generating batch assignments... Please wait.', 'info');
       this.elements.generateBtn.disabled = true;
 
+      // Get values from UI elements
+      const namePrefix = this.elements.namePrefixInput?.value || 'Assignment';
+      const timeHour = parseInt(this.elements.hourSelect?.value || '0', 10);
+      const timeMinute = parseInt(this.elements.minuteSelect?.value || '0', 10);
+      // Get values from NEW elements
+      const sectionTitle = this.elements.sectionTitleInput?.value.trim() || null;
+      const targetStartDate = this.elements.targetStartDateInput?.value || null; // Expects YYYY-MM-DD
+
       // Prepare options for backend
       const outputDir = await window.electronAPI.pathDirname(this.mbzPath);
       
       const options = {
         mbzFilePath: this.mbzPath,
-        selectedDates: this.selectedDates,
-        timeHour: parseInt(this.elements.hourSelect?.value || '17', 10),
-        timeMinute: parseInt(this.elements.minuteSelect?.value || '0', 10),
-        namePrefix: this.elements.namePrefixInput?.value || 'Assignment',
-        outputDir: outputDir // Optional, defaults to input directory in backend
+        // Pass selectedDates directly (assuming they are Date objects from flatpickr)
+        // The main process handler now expects date strings, so format them here
+        selectedDates: this.selectedDates.map(date => this.calendar.formatDate(date, "Y-m-d")).sort(),
+        timeHour: timeHour,
+        timeMinute: timeMinute,
+        namePrefix: namePrefix,
+        outputDir: outputDir, // Pass output dir based on input
+        // Add the new values
+        sectionTitle: sectionTitle,
+        targetStartDate: targetStartDate,
       };
+      
+      console.log("UI: Sending options to main process:", options); // Log what the UI is sending
 
       // Call the backend function
       const result = await window.electronAPI.createBatchAssignments(options);
@@ -318,4 +351,8 @@ class MbzBatchCreatorUI {
 }
 
 // Expose the class to the global scope
-window.MbzBatchCreatorUI = MbzBatchCreatorUI; 
+window.MbzBatchCreatorUI = MbzBatchCreatorUI;
+
+// Remove the standalone setup function if the class is used
+// function setupMbzBatchModal() { ... }
+// document.addEventListener('DOMContentLoaded', setupMbzBatchModal); 
