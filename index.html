@@ -112,10 +112,11 @@
             margin-bottom: 0;
         }
         .directory-label {
-            width: 120px;
+            width: 60px;
             flex-shrink: 0;
             display: flex;
             align-items: center;
+            margin-bottom: 1.5em;
         }
         .directory-input {
             flex-grow: 1;
@@ -185,58 +186,75 @@
     <!-- Main View (Booklet Generator) -->
     <div id="main-view" class="view-container active">
         <div class="container-fluid px-4">
-            <!-- Directory Selection Card -->
+            <!-- Setup Card (renamed from Directory Configuration) -->
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center py-2">
                     <h5 class="mb-0 fs-6">
-                        <i class="bi bi-folder2-open text-primary me-1"></i>Directory Configuration
+                        <i class="bi bi-folder2-open text-primary me-1"></i>Setup
                     </h5>
-                    <span class="info-icon" data-bs-toggle="tooltip" title="Select the input directory containing student submissions organized by page, and an output directory where booklets will be saved.">
-                        <i class="bi bi-info-circle-fill text-info"></i>
-                    </span>
+                    <a href="#" class="text-decoration-none text-muted small" data-bs-toggle="collapse" data-bs-target="#directoryHelp" aria-expanded="false">
+                        <span>What are these directories for?</span>
+                        <i class="bi bi-info-circle-fill text-info ms-1"></i>
+                    </a>
                 </div>
-                <div class="card-body">
-                    <!-- Input Directory Row -->
-                    <div class="directory-row">
-                        <div class="directory-label">
-                            <label for="mainDirectoryPath" class="form-label mb-0">
-                                Input Directory
-                                <span class="info-icon ms-1" data-bs-toggle="tooltip" 
-                                    title="Select the folder containing page-based student submissions (e.g., 'Seite 1', 'Seite 2' folders)">
-                                    <i class="bi bi-info-circle-fill text-info small"></i>
-                                </span>
-                            </label>
-                        </div>
-                        <div class="directory-input">
-                            <div class="input-group">
-                                <input type="text" class="form-control" id="mainDirectoryPath" required>
-                                <button class="btn btn-outline-secondary" type="button" id="select-main-dir-button">
-                                    <i class="bi bi-folder2"></i> Browse
-                                </button>
-                            </div>
-                            <div class="invalid-feedback">Please select an input directory.</div>
-                        </div>
+                
+                <!-- Collapsible directory help section -->
+                <div class="collapse" id="directoryHelp">
+                    <div class="card-body bg-light py-2 border-bottom">
+                        <p class="mb-1 small"><strong>Input Directory:</strong> Select a folder containing student submissions organized in page-based subdirectories (like 'Seite 1', 'Seite 2'). Each subdirectory should contain student folders with their submissions.</p>
+                        <p class="mb-0 small"><strong>Output Directory:</strong> Select or create an empty directory where the processed files and final booklets will be saved. Existing files in this directory may be overwritten.</p>
                     </div>
-                    
-                    <!-- Output Directory Row -->
-                    <div class="directory-row">
-                        <div class="directory-label">
-                            <label for="outputDirectoryPath" class="form-label mb-0">
-                                Output Directory
-                                <span class="info-icon ms-1" data-bs-toggle="tooltip" 
-                                    title="Select where generated booklets will be saved">
-                                    <i class="bi bi-info-circle-fill text-info small"></i>
-                                </span>
-                            </label>
-                        </div>
-                        <div class="directory-input">
-                            <div class="input-group">
-                                <input type="text" class="form-control" id="outputDirectoryPath" required>
-                                <button class="btn btn-outline-secondary" type="button" id="select-output-dir-button">
-                                    <i class="bi bi-folder2"></i> Browse
-                                </button>
+                </div>
+                
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Directory inputs (80%) -->
+                        <div class="col-md-8">
+                            <!-- Input Directory Row -->
+                            <div class="directory-row">
+                                <div class="directory-label">
+                                    <label for="mainDirectoryPath" class="form-label mb-0">
+                                        Input
+                                    </label>
+                                </div>
+                                <div class="directory-input">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="mainDirectoryPath" required>
+                                        <button class="btn btn-outline-secondary" type="button" id="select-main-dir-button">
+                                            <i class="bi bi-folder2"></i> Browse
+                                        </button>
+                                    </div>
+                                    <div class="invalid-feedback">Please select an input directory.</div>
+                                </div>
                             </div>
-                            <div class="invalid-feedback">Please select an output directory.</div>
+                            
+                            <!-- Output Directory Row -->
+                            <div class="directory-row">
+                                <div class="directory-label">
+                                    <label for="outputDirectoryPath" class="form-label mb-0">
+                                        Output
+                                    </label>
+                                </div>
+                                <div class="directory-input">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="outputDirectoryPath" required>
+                                        <button class="btn btn-outline-secondary" type="button" id="select-output-dir-button">
+                                            <i class="bi bi-folder2"></i> Browse
+                                        </button>
+                                    </div>
+                                    <div class="invalid-feedback">Please select an output directory.</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Utility buttons column (20%) -->
+                        <div class="col-md-3 d-flex flex-column justify-content-center align-items-stretch">
+                            <button id="settingsButton" class="btn btn-outline-secondary mb-2">
+                                <i class="bi bi-gear me-1"></i> Settings
+                            </button>
+                            <button id="editCoverTemplateBtn" class="btn btn-outline-secondary">
+                                <i class="bi bi-file-earmark-text me-1"></i> Edit Cover Template
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -248,10 +266,25 @@
                     <h5 class="mb-0 fs-6">
                         <i class="bi bi-gear-fill text-primary me-1"></i>Processing Actions
                     </h5>
-                    <span class="info-icon" data-bs-toggle="tooltip" title="Follow these steps in order to create booklets from student submissions.">
-                        <i class="bi bi-info-circle-fill text-info"></i>
-                    </span>
+                    <a href="#" class="text-decoration-none text-muted small" data-bs-toggle="collapse" data-bs-target="#processingHelp" aria-expanded="false">
+                        <span>How does this work?</span>
+                        <i class="bi bi-info-circle-fill text-info ms-1"></i>
+                    </a>
                 </div>
+                
+                <!-- Collapsible processing help section -->
+                <div class="collapse" id="processingHelp">
+                    <div class="card-body bg-light py-2 border-bottom">
+                        <p class="mb-2 small">Follow these steps in sequence to create booklets:</p>
+                        <ol class="mb-0 ps-3 small">
+                            <li><strong>Clear Output Folder:</strong> Removes all files from the output directory. Use with caution!</li>
+                            <li><strong>Convert Inputs to PDFs:</strong> Converts all image files (PNG, JPG, etc.) to PDF format.</li>
+                            <li><strong>Merge PDFs:</strong> Combines all PDFs for each student based on the page structure.</li>
+                            <li><strong>Create Booklets:</strong> Creates final booklets with cover pages and appropriate metadata.</li>
+                        </ol>
+                    </div>
+                </div>
+                
                 <div class="card-body">
                     <!-- Main Action Buttons in Grid -->
                     <div class="action-buttons">
@@ -267,40 +300,6 @@
                         <button id="createBookletsBtn" class="btn btn-primary">
                             <i class="bi bi-journal-check me-1"></i> 3. Create Booklets
                         </button>
-                    </div>
-                    
-                    <!-- Utility Buttons -->
-                    <div class="utility-buttons">
-                        <button id="settingsButton" class="btn btn-outline-secondary">
-                            <i class="bi bi-gear me-1"></i> Settings
-                        </button>
-                        <button id="editCoverTemplateBtn" class="btn btn-outline-secondary">
-                            <i class="bi bi-file-earmark-text me-1"></i> Edit Cover Template
-                        </button>
-                    </div>
-                    
-                    <!-- Step Descriptions - Accordion -->
-                    <div class="mt-2">
-                        <div class="accordion" id="actionAccordion">
-                            <div class="accordion-item">
-                                <h2 class="accordion-header">
-                                    <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" 
-                                            data-bs-target="#collapseSteps" aria-expanded="false" aria-controls="collapseSteps">
-                                        <i class="bi bi-question-circle me-2"></i> What do these steps do?
-                                    </button>
-                                </h2>
-                                <div id="collapseSteps" class="accordion-collapse collapse" data-bs-parent="#actionAccordion">
-                                    <div class="accordion-body py-2">
-                                        <ol class="mb-0 ps-3">
-                                            <li><strong>Clear Output Folder:</strong> Removes all files from the output directory. Use with caution!</li>
-                                            <li><strong>Convert Inputs to PDFs:</strong> Converts all image files (PNG, JPG, etc.) to PDF format.</li>
-                                            <li><strong>Merge PDFs:</strong> Combines all PDFs for each student based on the page structure.</li>
-                                            <li><strong>Create Booklets:</strong> Creates final booklets with cover pages and appropriate metadata.</li>
-                                        </ol>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
