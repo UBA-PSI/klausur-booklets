@@ -723,14 +723,20 @@ h1 {
 
 /* Adjust the app header behavior for MBZ mode */
 body.mbz-mode .app-header {
-    position: static;
+    /* This rule might still be relevant if you want specific styling for the header in MBZ mode,
+       but ensure it doesn't conflict with the persistent main header. 
+       For now, let's keep it but comment out potentially problematic parts if needed.
+       If the main header looks okay, this whole rule might be removable too. */
+    position: static; 
     width: auto;
 }
 
-/* Hide the main header when in MBZ mode (since it's included in the left column) */
+/* Hide the main header when in MBZ mode (REMOVED - header is now persistent) */
+/* 
 body.mbz-mode #main-header {
     display: none;
 }
+*/
 
 /* Info toggle button styling */
 .info-toggle {

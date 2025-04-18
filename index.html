@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <!-- Update Content Security Policy to allow necessary resources -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:">
-    <title>PDF Merger</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:">
+    <title>Booklet & MBZ Creator</title>
     <link rel="stylesheet" type="text/css" href="src/assets/styles.css">
     <!-- Add Bootstrap CSS for styling -->
     <link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.min.css">
@@ -13,30 +13,23 @@
     <link rel="stylesheet" href="node_modules/bootstrap-icons/font/bootstrap-icons.css">
     <!-- Add Flatpickr CSS -->
     <link rel="stylesheet" type="text/css" href="node_modules/flatpickr/dist/flatpickr.min.css">
-    <!-- Add MBZ Creator CSS -->
-    <link rel="stylesheet" type="text/css" href="src/assets/mbz-creator.css">
+    <!-- Add MBZ Creator specific CSS -->
+    <link rel="stylesheet" type="text/css" href="src/assets/mbz_creator.css">
 </head>
 
 <body>
-    <!-- App Header - spans full width in main view -->
+    <!-- Single App Header - Content updated by AppSwitcher -->
     <div class="app-header" id="main-header">
         <div class="app-title-container">
             <h1 class="app-title">Booklet Generation Mode</h1>
         </div>
-        <button id="app-mode-switch" class="app-switcher">Go to Moodle Assignment Creation</button>
+        <button id="app-mode-switch" class="app-switcher">Switch Mode</button>
     </div>
 
     <!-- Main View (Booklet Generator) -->
     <div id="main-view" class="view-container active">
         <div class="container">
-            <h3>Usage</h3>
-            <p>1. Select the input directory containing your student submissions.</p>
-            <p>2. Select the output directory where the generated booklets will be saved.</p>
-            <p>3. Click the "Convert Inputs to PDFs" button to process your submissions.</p>
-            <p>4. Click the "Merge PDFs" button to combine the PDFs into a single booklet.</p>
-            <p>5. Click the "Create Booklets" button to generate the final booklet.</p>
-            
-
+            <h2>Select Directories</h2>
             <div class="input-group">
                 <label>Input Directory:</label>
                 <input type="text" id="mainDirectoryPath" required>
@@ -52,44 +45,40 @@
             </div>
 
             <hr>
+
             <div class="actions">
                 <div class="button-group">
+                    <button id="clearOutputBtn" class="btn btn-danger"><i class="bi bi-trash"></i> 0. Clear Output Folder</button>
+                    <button id="startTransformationBtn"><i class="bi bi-image"></i> 1. Convert Inputs to PDFs</button>
+                    <button id="startMergingBtn"><i class="bi bi-file-earmark-pdf"></i> 2. Merge PDFs</button>
+                    <button id="createBookletsBtn"><i class="bi bi-journal-check"></i> 3. Create Booklets</button>
                     <button id="settingsButton"><i class="bi bi-gear"></i> Settings</button>
                     <button id="editCoverTemplateBtn"><i class="bi bi-file-earmark-text"></i> Edit Cover Template</button>
                 </div>
             </div>
-            <div class="actions"></div>
-                <div class="button-group"></div>
-                    <button id="clearOutputBtn"><i class="bi bi-trash"></i> 0. Clear Output Folder</button>
-                    <button id="startTransformationBtn"><i class="bi bi-image"></i> 1. Convert Inputs to PDFs</button>
-                    <button id="startMergingBtn"><i class="bi bi-file-earmark-pdf"></i> 2. Merge PDFs</button>
-                    <button id="createBookletsBtn"><i class="bi bi-journal-check"></i> 3. Create Booklets</button>
-                </div>
-            </div>
-
-            <div id="status"></div>
-            <div id="status-bar">
-                <span id="progress-count" class="status-part"></span>
-                <span id="progress-percent" class="status-part"></span>
-                <span id="status-message" class="status-part status-message-main">Ready</span>
-            </div>
-
-            <!-- Error Log Area -->
-            <div id="errorLogContainer" style="margin-top: 15px; display: none;">
-                <!-- Hidden initially -->
+        </div>
+        <div class="container" style="margin-top: 15px;">
+            <div id="errorLogContainer" style="display: none;">
                 <h3>Processing Errors & Warnings:</h3>
                 <textarea id="errorLogOutput" readonly
-                    style="width: 100%; height: 305px; border: 1px solid #ccc; background-color: #f8f8f8; padding: 5px; font-family: 'Roboto'; font-size: 0.85em; resize: vertical;"></textarea>
+                    style="width: 100%; height: 150px; border: 1px solid #ccc; background-color: #f8f8f8; padding: 5px; font-family: monospace; font-size: 0.85em; resize: vertical;"></textarea>
             </div>
         </div>
     </div>
 
-    <!-- MBZ Creator View -->
+    <!-- MBZ Creator View - Content loaded dynamically -->
     <div id="mbz-creator-view" class="view-container">
-        <!-- Content will be generated by MbzBatchCreator component -->
+        <p>Loading Moodle Batch Creator...</p>
     </div>
 
-    <!-- Settings Modal -->
+    <!-- Status Bar - Placed outside view containers to be persistent -->
+    <div id="status-bar">
+        <span id="progress-count" class="status-part"></span>
+        <span id="progress-percent" class="status-part"></span>
+        <span id="status-message" class="status-part status-message-main">Ready</span>
+    </div>
+
+    <!-- Modals -->
     <div id="settingsModal" class="modal settings-modal-wide">
         <div class="modal-content">
             <span class="close-button">&times;</span>
@@ -183,8 +172,7 @@
             </div>
         </div>
     </div>
-
-    <!-- Collision Modal -->
+    
     <div id="moodleCollisionModal" class="modal collision-modal-wide">
         <div class="modal-content">
             <span class="close-button moodle-collision-close">&times;</span>
@@ -240,8 +228,7 @@
             </div>
         </div>
     </div>
-
-    <!-- Ambiguity Resolution Modal -->
+    
     <div id="ambiguityModal" class="modal">
         <div class="modal-content ambiguity-modal-content">
             <span class="close-button ambiguity-close">&times;</span>
@@ -257,8 +244,7 @@
             <div id="ambiguityError" class="error-message"></div>
         </div>
     </div>
-
-    <!-- Cover Template Modal -->
+    
     <div id="coverTemplateModal" class="modal cover-template-modal">
         <div class="modal-content">
             <span class="close-button cover-template-close">&times;</span>
@@ -284,10 +270,10 @@
                             <li><code>{{MISSING_PAGES_LIST}}</code>: A list of expected page directories not found for the student.</li>
                         </ul>
                         <p>Example:</p>
-                        <pre><code># Booklet
+                        <pre><code># Exam Submission
 
 **Student:** {{LAST_NAME}}, {{FIRST_NAME}}
-**Student Number:** {{STUDENTNUMBER}}
+**Number:** {{STUDENTNUMBER}}
 
 ## Submitted Pages:
 {{SUBMITTED_PAGES_LIST}}
@@ -300,10 +286,8 @@
         </div>
     </div>
 
-    <!-- Existing JS include files -->
+    <!-- Script Includes -->
     <script src="src/js/renderer.js"></script>
-    <script src="src/js/modal.js"></script>
-    <!-- New component JS files -->
     <script src="node_modules/flatpickr/dist/flatpickr.js"></script>
     <script src="src/assets/vertical-calendar.js"></script>
     <script src="src/assets/vertical-calendar-controller.js"></script>
@@ -311,56 +295,106 @@
     <script src="src/assets/app-switcher.js"></script>
     <script src="src/assets/batch-creator.js"></script>
 
-    <!-- Initialize SPA components -->
+    <!-- Initialization Script -->
     <script>
-        // Initialize app components after the DOM is loaded
         document.addEventListener('DOMContentLoaded', () => {
-            // Initialize the app switcher and make it global
+            // Initialize AppSwitcher
             window.appSwitcher = new AppSwitcher({
                 mainViewSelector: '#main-view',
                 mbzViewSelector: '#mbz-creator-view',
-                switchButtonSelector: '#app-mode-switch',
-                titleContainer: '#app-mode',
+                switchButtonSelector: '#app-mode-switch', 
+                titleElementSelector: '#main-header .app-title', // Target title within main header
                 mainViewTitle: 'Booklet Generation Mode',
                 mbzViewTitle: 'Moodle Batch Assignment Creation Mode'
             });
 
-            // Initialize the MBZ batch creator when needed
             let mbzCreatorInstance = null;
             let calendarControllerInstance = null;
 
-            // Listen for view changes
-            window.addEventListener('viewChanged', (event) => {
+            // Initialize MBZ creator only when its view becomes active
+            window.addEventListener('viewChanged', async (event) => {
                 if (event.detail.view === 'mbz' && !mbzCreatorInstance) {
                     const mbzContainer = document.getElementById('mbz-creator-view');
                     if (mbzContainer) {
-                        // Initialize the MBZ batch creator
-                        mbzCreatorInstance = MbzBatchCreator.initialize(mbzContainer);
+                        mbzCreatorInstance = MbzBatchCreator.initialize(mbzContainer); // initialize returns the instance
+                        // The buildUI method is now async, wait for it if necessary
+                        await mbzCreatorInstance.buildUI(); 
+                        // Re-find elements and attach listeners *after* UI is built
+                        mbzCreatorInstance.findElements(); 
+                        mbzCreatorInstance.setupCollapse(); // Setup collapse after elements are found
+                        mbzCreatorInstance.initCalendar();
+                        mbzCreatorInstance.attachEventListeners();
+                        mbzCreatorInstance.updateGenerateButtonState();
                         
-                        // Store the instance on the container element for access by other components
-                        mbzContainer._mbzCreator = mbzCreatorInstance;
-                        
-                        console.log('MBZ Batch Creator initialized and stored on container');
-                        
-                        // After calendar has been created, initialize the controller
-                        // Wait for calendar to be fully initialized
-                        setTimeout(() => {
-                            const calendarContainer = document.getElementById('vertical-calendar-container');
-                            if (calendarContainer && mbzCreatorInstance.calendar) {
-                                calendarControllerInstance = VerticalCalendarController.initialize(mbzCreatorInstance.calendar);
-                                // Link the controller with the batch creator
+                        // Initialize calendar controller after MBZ UI and calendar are ready
+                        setTimeout(() => { 
+                            if (mbzCreatorInstance.calendar) {
+                                // Pass the mbzCreatorInstance to the controller's initialize method
+                                calendarControllerInstance = VerticalCalendarController.initialize(
+                                    mbzCreatorInstance.calendar, 
+                                    mbzCreatorInstance 
+                                );
+                                // Link the controller with the batch creator (optional if not used elsewhere)
                                 mbzCreatorInstance.setController(calendarControllerInstance);
                             }
-                        }, 800);
+                        }, 100); // Short delay might be needed for calendar rendering
                     }
                 }
             });
 
-            // Handle initial view if needed
+            // Handle initial view based on hash
             if (window.location.hash === '#mbz') {
                 window.appSwitcher.showMbzView();
             }
+            
+            // Initialize modal functionality (if modal.js is removed)
+            function initializeModals() {
+                 const modals = document.querySelectorAll('.modal');
+                 modals.forEach(modal => {
+                     const closeButton = modal.querySelector('.close-button');
+                     if (closeButton) {
+                         closeButton.onclick = () => modal.style.display = 'none';
+                     }
+                     // Close on outside click
+                     window.addEventListener('click', (event) => {
+                         if (event.target === modal) {
+                             modal.style.display = 'none';
+                         }
+                     });
+                 });
+                 
+                 // Specific modal triggers
+                 const settingsBtn = document.getElementById('settingsButton');
+                 if (settingsBtn) settingsBtn.onclick = () => document.getElementById('settingsModal').style.display = 'block';
+                 
+                 const coverBtn = document.getElementById('editCoverTemplateBtn');
+                 if (coverBtn) coverBtn.onclick = () => document.getElementById('coverTemplateModal').style.display = 'block';
+                 
+                 // Save config when settings/cover modals close
+                 const settingsModal = document.getElementById('settingsModal');
+                 const coverModal = document.getElementById('coverTemplateModal');
+                 if(settingsModal) settingsModal.querySelector('.close-button').addEventListener('click', window.saveConfig || (() => console.warn('saveConfig not found')));
+                 if(coverModal) coverModal.querySelector('.close-button').addEventListener('click', window.saveConfig || (() => console.warn('saveConfig not found')));
+                 window.addEventListener('click', (event) => {
+                     if(settingsModal && event.target === settingsModal) window.saveConfig();
+                     if(coverModal && event.target === coverModal) window.saveConfig();
+                 });
+                 
+                 // Ensure ambiguity/collision modal logic still works without modal.js
+                 const ambiguityModal = document.getElementById('ambiguityModal');
+                 const ambiguityCloseBtn = ambiguityModal?.querySelector('.ambiguity-close');
+                 if(ambiguityCloseBtn) ambiguityCloseBtn.onclick = () => ambiguityModal.style.display = 'none';
+                 
+                 const moodleCollisionModal = document.getElementById('moodleCollisionModal');
+                 const moodleCollisionCloseBtn = moodleCollisionModal?.querySelector('.moodle-collision-close');
+                 if(moodleCollisionCloseBtn) moodleCollisionCloseBtn.onclick = () => moodleCollisionModal.style.display = 'none';
+                 const moodleCollisionOkBtn = document.getElementById('moodleCollisionOkBtn');
+                 if(moodleCollisionOkBtn) moodleCollisionOkBtn.onclick = () => moodleCollisionModal.style.display = 'none';
+                 
+            }
+            initializeModals();
         });
     </script>
+
 </body>
 </html>

@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   pathDirname: (filePath) => ipcRenderer.invoke('path:dirname', filePath),
   createBatchAssignments: (options) => ipcRenderer.invoke('mbz:createBatchAssignments', options),
   getUserDataPath: () => ipcRenderer.invoke('app:getUserDataPath'),
+  loadMbzCreatorHtml: () => ipcRenderer.invoke('load-mbz-creator-html'),
   // --- End New APIs ---
 
   // Main -> Renderer (receive)

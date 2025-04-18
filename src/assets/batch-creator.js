@@ -40,395 +40,23 @@ class MbzBatchCreator {
   }
   
   /**
-   * Builds the UI structure
+   * Builds the UI structure by fetching content from mbz_creator.html via IPC
    */
-  buildUI() {
-    // Create the two-column layout with polished design
-    this.container.innerHTML = `
-      <div class="app-header">
-            <div class="app-title-container">
-              <h1 class="app-title">Moodle Page Submissions Creator</h1>
-            </div>
-            <button class="app-switcher mbz-view-switch-button">Go to Booklet Generation Mode</button>
-          </div>  
-      <div class="mbz-creator-view">
-        <!-- Left Column: Configuration -->
-        <div class="mbz-creator-left">
-          <!-- App Header - Only spans the left column -->
-          
-          
-          <!-- 1. Template Selection -->
-          <div class="card shadow-sm mb-3">
-            <div class="card-body p-4">
-              <h5 class="card-title fw-bold mb-3">
-                1. Select Moodle Backup Template
-                <button class="btn btn-sm text-primary p-0 ms-2 info-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#templateInfo" aria-expanded="false">
-                  <i class="bi bi-info-circle"></i>
-                </button>
-              </h5>
-              
-              <div class="collapse mb-3" id="templateInfo">
-                <div class="card card-body bg-light py-2 text-muted small">
-                  The backup template defines the structure and settings for your assignments. 
-                  You can use the default template for Moodle 4.5 or provide your own custom MBZ file.
-                </div>
-              </div>
-              
-              <div class="d-flex align-items-center justify-content-between">
-                <div class="template-status">
-                  <span class="fw-medium" id="templateStatusText">Using Default Backup Template (Moodle 4.5)</span>
-                </div>
-                <button class="btn btn-outline-primary btn-sm" id="templateToggleBtn">Use Custom MBZ</button>
-              </div>
-              
-              <!-- Custom MBZ file selector (initially hidden) -->
-              <div id="customMbzSelector" class="mt-3" style="display: none;">
-                <div class="d-flex align-items-center">
-                  <button id="select-mbz-btn" class="btn btn-secondary">Select MBZ File</button>
-                  <span id="selected-file-label" class="ms-3 fst-italic">No file selected</span>
-                </div>
-                <div class="form-text mt-2">Select the '.mbz' template file provided with the script.</div>
-              </div>
-            </div>
-          </div>
-          
-          <!-- 2. Configuration -->
-          <div class="card shadow-sm mb-3">
-            <div class="card-body p-4">
-              <h5 class="card-title fw-bold mb-3">
-                2. Course Details
-                <button class="btn btn-sm text-primary p-0 ms-2 info-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#courseDetailsInfo" aria-expanded="false">
-                  <i class="bi bi-info-circle"></i>
-                </button>
-              </h5>
-              
-              <div class="collapse mb-3" id="courseDetailsInfo">
-                <div class="card card-body bg-light py-2 text-muted small">
-                  The section title must match exactly what's in your course. This is where the assignments will be inserted.
-                  The start date is critical for proper date calculations. You must configure the Moodle course to start at the time entered here.
-                  Otherwise, Moodle may change the deadlines during import.
-                  Important: Configure the course in Moodle to start at midnight (00:00 o'clock).
-                </div>
-              </div>
-              
-              <div class="ps-0 small text-muted">
-                The following must match your course configuration in Moodle (see docs).
-                <span class="d-block mt-1">Fields marked with <span class="text-danger">*</span> are required.</span>
-              </div>
-              
-              <div class="mt-3 mb-3 row">
-                <label for="mbzSectionTitle" class="col-sm-5 col-form-label">Moodle Section Title <span class="text-danger">*</span></label>
-                <div class="col-sm-7">
-                  <input type="text" class="form-control" id="mbzSectionTitle" placeholder="e.g., Exam Booklet Pages" required>
-                </div>
-              </div>
-              
-              <div class="mb-3 row">
-                <label for="mbzTargetStartDate" class="col-sm-5 col-form-label">Course Start Date <span class="text-danger">*</span></label>
-                <div class="col-sm-7">
-                  <input type="date" class="form-control" id="mbzTargetStartDate" required>
-                </div>
-              </div>
-              
-              <div class="ps-0 mb-3 small text-muted">
-                How shall the activities be named? A number will be appended automatically.
-              </div>
-              
-              <div class="mb-3 row">
-                <label for="name-prefix-input" class="col-sm-5 col-form-label">Assignment Name Prefix</label>
-                <div class="col-sm-7">
-                  <input type="text" class="form-control" id="name-prefix-input" placeholder="e.g., Page" value="Booklet Page">
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <!-- 3. Deadline Settings -->
-          <div class="card shadow-sm mb-3">
-            <div class="card-body p-4">
-              <h5 class="card-title fw-bold mb-3">
-                3. Deadline Settings
-                <button class="btn btn-sm text-primary p-0 ms-2 info-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#deadlineInfo" aria-expanded="false">
-                  <i class="bi bi-info-circle"></i>
-                </button>
-              </h5>
-              
-              <div class="collapse mb-3" id="deadlineInfo">
-                <div class="card card-body bg-light py-2 text-muted small">
-                  Set the time of day when all assignments are due. The grace period extends the cutoff time 
-                  after the deadline. Students can still submit during the grace period but their submissions 
-                  will be marked as late.
-                </div>
-              </div>
-              
-              <div class="row mb-3 align-items-center">
-                <label for="deadlineTime" class="col-sm-5 col-form-label">Deadline Time for All Pages</label>
-                <div class="col-sm-7 d-flex align-items-center">
-                  <input type="text" class="form-control" id="deadlineTime" placeholder="e.g., 23:59:59" value="17:00:00"> 
-                  <span class="ms-2 me-1">+</span>
-                  <input type="number" class="form-control ms-1" id="gracePeriod" value="5" min="0" style="width: 60px;">
-                  <span class="ms-1">min</span>
-                </div>
-              </div>
-              <div class="ps-0 mb-2 small text-muted">
-                The grace period is used to set the final cutoff time, i.e., how long Moodle will accept submissions after the displayed deadline.
-              </div>
-            </div>
-          </div>
-          
-          <!-- 4. Calendar Instructions -->
-          <div class="card shadow-sm mb-3">
-            <div class="card-header bg-light" data-bs-toggle="collapse" href="#calendarInfo" role="button" aria-expanded="true" aria-controls="calendarInfo">
-              <div class="d-flex justify-content-between align-items-center">
-                <h5 class="card-title mb-0 fw-bold">
-                  4. Select Deadline Days from Calendar
-                  <button class="btn btn-sm text-primary p-0 ms-2 info-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#calendarInstructionsInfo" aria-expanded="false" onclick="event.stopPropagation();">
-                    <i class="bi bi-info-circle"></i>
-                  </button>
-                </h5>
-                <i class="bi bi-chevron-down"></i>
-              </div>
-            </div>
-            <div class="collapse show" id="calendarInfo">
-              <div class="card-body bg-light py-2 border-bottom">
-                <div class="collapse" id="calendarInstructionsInfo">
-                  <div class="card card-body bg-light py-2 text-muted small mb-2">
-                    Click on dates in the calendar to select them as assignment deadlines. 
-                    Hold Ctrl/Cmd to select multiple dates, or Shift to select a range of dates.
-                  </div>
-                </div>
-                <p class="mb-1">
-                  <span class="fw-medium">Instructions:</span>
-                  <ul class="mb-0">
-                    <li>Click on a date to select it</li>
-                    <li>Hold <kbd>Ctrl</kbd> or <kbd>⌘</kbd> to select multiple dates</li>
-                    <li>Hold <kbd>Shift</kbd> to select a range of dates</li>
-                  </ul>
-                </p>
-              </div>
-            </div>
-          </div>
-          
-          <!-- 5. Preview -->
-          <div id="selected-dates-preview-section" class="card shadow-sm mb-3 hidden">
-            <div class="card-header bg-light" data-bs-toggle="collapse" href="#previewTable" role="button" aria-expanded="false" aria-controls="previewTable">
-              <div class="d-flex justify-content-between align-items-center">
-                <h5 class="card-title mb-0 fw-bold">
-                  5. Preview Selected Dates
-                  <button class="btn btn-sm text-primary p-0 ms-2 info-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#previewInfo" aria-expanded="false" onclick="event.stopPropagation();">
-                    <i class="bi bi-info-circle"></i>
-                  </button>
-                </h5>
-                <i class="bi bi-chevron-down"></i>
-              </div>
-            </div>
-            <div class="collapse" id="previewInfo">
-              <div class="card card-body bg-light py-2 border-bottom text-muted small">
-                This table shows how your assignments will appear in Moodle after import. 
-                Each assignment's "Available From" date is automatically calculated based on 
-                previous assignments.
-              </div>
-            </div>
-            <div class="collapse show" id="previewTable">
-              <div class="card-body p-0">
-                <div class="table-responsive">
-                  <table id="dates-table" class="table table-striped mb-0">
-                    <thead class="table-light">
-                      <tr>
-                        <th>#</th>
-                        <th>Assignment Name</th>
-                        <th>Due Date & Time</th>
-                        <th>Available From</th>
-                      </tr>
-                    </thead>
-                    <tbody id="dates-tbody"></tbody>
-                  </table>
-                </div>
-                <div class="px-3 py-2 bg-light border-top">
-                  <small class="text-muted">
-                    Review the generated assignment names and deadlines.
-                    'Available From' is always based on the previous assignment's due date.
-                    Changes to the dates can later be made in Moodle.
-                  </small>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Generate Button -->
-          <div class="card shadow-sm mb-3">
-            <div class="card-body p-4">                        
-              <div>
-                <button id="generate-btn" class="btn btn-primary btn-lg" disabled>Generate MBZ File</button>
-                <button class="btn btn-sm text-primary p-0 ms-2 info-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#generateInfo" aria-expanded="false">
-                  <i class="bi bi-info-circle"></i>
-                </button>                        
-                <div class="collapse mt-3 mb-3" id="generateInfo">
-                  <div class="card card-body bg-light py-2 text-muted small">
-                    Creates a Moodle backup (.mbz) file that you can import into your course. 
-                    This file will contain all assignments with the dates and settings you've specified.
-                  </div>
-                </div>
-                <div id="status-message" class="status-message mx-auto mt-3"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Right Column: Vertical Calendar -->
-        <div class="mbz-creator-right">
-          <div id="vertical-calendar-container" class="vertical-calendar-container"></div>
-        </div>
-      </div>
-    `;
-    
-    // Add styles for the polished design
-    const styleId = 'mbz-creator-styles';
-    if (!document.getElementById(styleId)) {
-      const styleEl = document.createElement('style');
-      styleEl.id = styleId;
-      styleEl.textContent = `
-        /* Card styling */
-        .mbz-creator-view .card {
-          border-radius: 8px;
-          border: 1px solid rgba(0,0,0,0.1);
-          margin-bottom: 15px;
-        }
-        
-        .mbz-creator-view .card-title {
-          color: #333;
-          font-size: 1.1rem;
-        }
-        
-        /* Improved form layout */
-        .mbz-creator-view .col-form-label {
-          font-size: 0.9rem;
-          font-weight: 500;
-          color: #555;
-        }
-        
-        /* Toggle button styling */
-        .mbz-creator-view .info-toggle {
-          box-shadow: none !important;
-          outline: none !important;
-          line-height: 1;
-          background: transparent !important;
-          border: none !important;
-        }
-        
-        .mbz-creator-view .info-toggle:focus,
-        .mbz-creator-view .info-toggle:active {
-          box-shadow: none !important;
-        }
-        
-        /* Remove info icon background/border */
-        .mbz-creator-view .info-toggle .bi-info-circle {
-          color: #0d6efd;
-        }
-        
-        /* Placeholder text styling */
-        .mbz-creator-view ::placeholder {
-          color: #adb5bd;
-          opacity: 1;
-        }
-        
-        /* Card header styling */
-        .mbz-creator-view .card-header {
-          cursor: pointer;
-          transition: background-color 0.2s;
-        }
-        
-        .mbz-creator-view .card-header:hover {
-          background-color: #e9ecef;
-        }
-        
-        /* Table styling */
-        .mbz-creator-view .table th {
-          font-weight: 600;
-          font-size: 0.85rem;
-        }
-        
-        .mbz-creator-view .table td {
-          font-size: 0.9rem;
-        }
-        
-        /* Generate button styling */
-        .mbz-creator-view #generate-btn {
-          background-color: #0066cc;
-          border-color: #0066cc;
-          font-weight: 500;
-          border-radius: 6px;
-        }
-        
-        .mbz-creator-view #generate-btn:hover {
-          background-color: #0056b3;
-          border-color: #0056b3;
-        }
-        
-        /* Status message styling */
-        .mbz-creator-view .status-message {
-          padding: 8px;
-          margin-top: 10px;
-          border-radius: 4px;
-          font-size: 0.9rem;
-        }
-        
-        .mbz-creator-view .status-message.error {
-          background-color: #f8d7da;
-          color: #721c24;
-        }
-        
-        .mbz-creator-view .status-message.success {
-          background-color: #d4edda;
-          color: #155724;
-        }
-        
-        .mbz-creator-view .status-message.info {
-          background-color: #d1ecf1;
-          color: #0c5460;
-        }
-        
-        /* Keyboard key styling */
-        .mbz-creator-view kbd {
-          padding: 0.1rem 0.4rem;
-          font-size: 0.8rem;
-          color: #fff;
-          background-color: #212529;
-          border-radius: 0.2rem;
-          box-shadow: inset 0 -0.1rem 0 rgba(0,0,0,.25);
-        }
-        
-        /* Column widths */
-        .mbz-creator-left { 
-          width: 60% !important; 
-          padding-right: 15px;
-        }
-        .mbz-creator-right { 
-          width: 40% !important; 
-          padding-left: 15px;
-        }
-        
-        /* Vertical calendar styles */
-        .vertical-calendar-container {
-          height: 100%;
-          border: 1px solid rgba(0,0,0,0.1);
-          border-radius: 8px;
-          overflow: hidden;
-          background-color: #fff;
-        }
-        
-        /* Template status styling */
-        .template-status {
-          color: #495057;
-        }
-        
-        /* Chevron rotation */
-        .rotate-icon {
-          transform: rotate(180deg);
-        }
-      `;
-      document.head.appendChild(styleEl);
+  async buildUI() {
+    try {
+      // Fetch the HTML content via IPC from the main process
+      const htmlContent = await window.electronAPI.loadMbzCreatorHtml();
+      if (!htmlContent) {
+        throw new Error('Received empty content for mbz_creator.html');
+      }
+      this.container.innerHTML = htmlContent;
+      console.log('MBZ Creator UI loaded via IPC');
+    } catch (error) {
+      console.error('Error building MBZ Creator UI via IPC:', error);
+      this.container.innerHTML = `<p class="text-danger">Error loading MBZ Creator UI: ${error.message}. Please check console.</p>`;
     }
+    
+    // Style injection is no longer needed here
   }
   
   /**
@@ -452,7 +80,7 @@ class MbzBatchCreator {
       previewTbody: this.container.querySelector('#dates-tbody'),
       generateBtn: this.container.querySelector('#generate-btn'),
       statusMessage: this.container.querySelector('#status-message'),
-      mbzViewSwitchButton: this.container.querySelector('.mbz-view-switch-button'),
+      // Removed mbzViewSwitchButton as it's no longer part of this template
       
       // Info sections
       templateInfo: this.container.querySelector('#templateInfo'),
@@ -562,11 +190,7 @@ class MbzBatchCreator {
     // Generate button
     this.elements.generateBtn?.addEventListener('click', () => this.generateBatchAssignments());
     
-    // Listener for the switch button within this view
-    this.elements.mbzViewSwitchButton?.addEventListener('click', () => {
-      // Use the global appSwitcher instance to go back to the main view
-      window.appSwitcher?.showMainView();
-    });
+    // Removed listener for mbzViewSwitchButton
     
     // Template toggle button
     this.elements.templateToggleBtn?.addEventListener('click', () => {
@@ -845,6 +469,16 @@ class MbzBatchCreator {
    */
   setController(controller) {
     this.controller = controller;
+  }
+  
+  /**
+   * Method called by the calendar controller to update selected dates
+   * @param {Date[]} newDates - Array of selected Date objects
+   */
+  updateSelectedDates(newDates) {
+    this.selectedDates = newDates;
+    console.log('MbzBatchCreator: Selected dates updated by controller:', this.selectedDates.map(d => d.toISOString().split('T')[0]));
+    this.updateGenerateButtonState(); // Update button state whenever dates change
   }
   
   /**

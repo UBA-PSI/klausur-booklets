@@ -1,0 +1,138 @@
+/* Card styling */
+.mbz-creator-view .card {
+  border-radius: 8px;
+  border: 1px solid rgba(0,0,0,0.1);
+  margin-bottom: 15px;
+}
+
+.mbz-creator-view .card-title {
+  color: #333;
+  font-size: 1.1rem;
+}
+
+/* Improved form layout */
+.mbz-creator-view .col-form-label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #555;
+}
+
+/* Toggle button styling */
+.mbz-creator-view .info-toggle {
+  box-shadow: none !important;
+  outline: none !important;
+  line-height: 1;
+  background: transparent !important;
+  border: none !important;
+}
+
+.mbz-creator-view .info-toggle:focus,
+.mbz-creator-view .info-toggle:active {
+  box-shadow: none !important;
+}
+
+/* Remove info icon background/border */
+.mbz-creator-view .info-toggle .bi-info-circle {
+  color: #0d6efd;
+}
+
+/* Placeholder text styling */
+.mbz-creator-view ::placeholder {
+  color: #adb5bd;
+  opacity: 1;
+}
+
+/* Card header styling */
+.mbz-creator-view .card-header {
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.mbz-creator-view .card-header:hover {
+  background-color: #e9ecef;
+}
+
+/* Table styling */
+.mbz-creator-view .table th {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.mbz-creator-view .table td {
+  font-size: 0.9rem;
+}
+
+/* Generate button styling */
+.mbz-creator-view #generate-btn {
+  background-color: #0066cc;
+  border-color: #0066cc;
+  font-weight: 500;
+  border-radius: 6px;
+}
+
+.mbz-creator-view #generate-btn:hover {
+  background-color: #0056b3;
+  border-color: #0056b3;
+}
+
+/* Status message styling */
+.mbz-creator-view .status-message {
+  padding: 8px;
+  margin-top: 10px;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.mbz-creator-view .status-message.error {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.mbz-creator-view .status-message.success {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.mbz-creator-view .status-message.info {
+  background-color: #d1ecf1;
+  color: #0c5460;
+}
+
+/* Keyboard key styling */
+.mbz-creator-view kbd {
+  padding: 0.1rem 0.4rem;
+  font-size: 0.8rem;
+  color: #fff;
+  background-color: #212529;
+  border-radius: 0.2rem;
+  box-shadow: inset 0 -0.1rem 0 rgba(0,0,0,.25);
+}
+
+/* Column widths */
+.mbz-creator-left {
+  width: 60% !important;
+  padding-right: 15px;
+}
+.mbz-creator-right {
+  width: 40% !important;
+  padding-left: 15px;
+}
+
+/* Vertical calendar styles */
+.vertical-calendar-container {
+  height: 100%;
+  border: 1px solid rgba(0,0,0,0.1);
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: #fff;
+}
+
+/* Template status styling */
+.template-status {
+  color: #495057;
+}
+
+/* Chevron rotation */
+.rotate-icon {
+  transform: rotate(180deg);
+} 

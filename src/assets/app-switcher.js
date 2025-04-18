@@ -11,8 +11,8 @@ class AppSwitcher {
     this.options = Object.assign({
       mainViewSelector: '#main-view',
       mbzViewSelector: '#mbz-creator-view',
-      switchButtonSelector: '#app-mode-switch',
-      titleContainer: '#app-mode',
+      switchButtonSelector: '#app-mode-switch', // Button in the main header
+      titleElementSelector: '#main-header .app-title', // Title element in the main header
       mainViewTitle: 'Booklet Generation Mode',
       mbzViewTitle: 'Moodle Batch Assignment Creation Mode'
     }, options);
@@ -24,11 +24,14 @@ class AppSwitcher {
     this.mainView = document.querySelector(this.options.mainViewSelector);
     this.mbzView = document.querySelector(this.options.mbzViewSelector);
     this.switchButton = document.querySelector(this.options.switchButtonSelector);
-    this.titleContainer = document.querySelector(this.options.titleContainer);
+    this.titleElement = document.querySelector(this.options.titleElementSelector);
     
     if (!this.mainView || !this.mbzView) {
       console.error('Could not find main or MBZ view elements.');
       return;
+    }
+    if (!this.titleElement) {
+      console.error('Could not find title element.');
     }
     
     this.init();
@@ -65,22 +68,32 @@ class AppSwitcher {
       this.mainView.classList.add('active');
       this.mbzView.classList.remove('active');
       
-      // Update title and full-width header
+      // Update title and body class
       document.body.classList.remove('mbz-mode');
-      if (this.titleContainer) {
-        this.titleContainer.textContent = this.options.mainViewTitle;
+      if (this.titleElement) {
+        this.titleElement.textContent = this.options.mainViewTitle;
       }
-       
-    } else {
+      
+      // Update switch button text and title
+      if (this.switchButton) {
+        this.switchButton.textContent = 'Go to Moodle Assignment Creation'; // Updated text
+        this.switchButton.setAttribute('title', 'Switch to Moodle Batch Assignment Creation');
+      }
+    } else { // mbz view
       this.mainView.classList.remove('active');
       this.mbzView.classList.add('active');
       
-      // Update title and partial-width header for MBZ view
+      // Update title and body class
       document.body.classList.add('mbz-mode');
-      if (this.titleContainer) {
-        this.titleContainer.textContent = this.options.mbzViewTitle;
+      if (this.titleElement) {
+        this.titleElement.textContent = this.options.mbzViewTitle;
       }
       
+      // Update switch button text and title
+      if (this.switchButton) {
+        this.switchButton.textContent = 'Go to Booklet Generation Mode'; // Updated text
+        this.switchButton.setAttribute('title', 'Switch to Booklet Generation');
+      }
     }
     
     // Trigger a custom event for other components to react

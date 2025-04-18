@@ -6,12 +6,22 @@ class VerticalCalendarController {
   /**
    * Initialize the controller
    * @param {VerticalCalendar} calendar - The vertical calendar instance to control
+   * @param {MbzBatchCreator} mbzInstance - The MBZ Batch Creator instance
    */
-  constructor(calendar) {
+  constructor(calendar, mbzInstance) {
     this.calendar = calendar;
-    this.isCtrlPressed = false;
-    this.isShiftPressed = false;
-    this.lastSelectedDate = null;
+    this.mbzCreator = mbzInstance; // Store reference to MbzBatchCreator
+    this.selectedDates = []; // Manage selection state here
+
+    // Preview related elements
+    this.namePrefixInput = null;
+    this.deadlineTimeInput = null;
+    this.gracePeriodInput = null;
+    this.previewTbody = null;
+    this.previewSection = null;
+
+    // Click handler reference
+    this.clickHandler = null;
 
     // Initialize the controller
     this.init();
@@ -21,225 +31,338 @@ class VerticalCalendarController {
    * Initialize the controller
    */
   init() {
-    // Attach keyboard event listeners
-    document.addEventListener('keydown', this.handleKeyDown.bind(this));
-    document.addEventListener('keyup', this.handleKeyUp.bind(this));
+    // Find preview elements (best effort, might need re-finding in updatePreview)
+    this.namePrefixInput = document.getElementById('name-prefix-input');
+    this.deadlineTimeInput = document.getElementById('deadlineTime');
+    this.gracePeriodInput = document.getElementById('gracePeriod');
+    this.previewTbody = document.getElementById('dates-tbody');
+    this.previewSection = document.getElementById('selected-dates-preview-section');
 
-    // Override the calendar's click handler to implement our multi-selection logic
-    this.overrideCalendarClickHandler();
-  }
-
-  /**
-   * Handle key down events
-   * @param {KeyboardEvent} event - The keyboard event
-   */
-  handleKeyDown(event) {
-    if (event.key === 'Control' || event.key === 'Meta') {
-      this.isCtrlPressed = true;
-    } else if (event.key === 'Shift') {
-      this.isShiftPressed = true;
+    // Ensure the preview section is visible from the start
+    if (this.previewSection) {
+      this.previewSection.style.display = 'block';
+      this.previewSection.classList.remove('hidden');
     }
+
+    // Attach input listeners for live preview updates
+    this.namePrefixInput?.addEventListener('input', () => this.updatePreview());
+    this.deadlineTimeInput?.addEventListener('input', () => this.updatePreview());
+    this.gracePeriodInput?.addEventListener('change', () => this.updatePreview());
+
+    // Add CSS for selection highlights and feedback
+    this.injectStyles();
+
+    // Use a delegated click handler for date selection
+    this.attachDelegatedClickHandler();
+
+    // Listen for calendar re-renders to reapply highlights
+    this.calendar.container.addEventListener('calendarRendered', () => {
+      this.reapplyHighlights();
+    });
+
+    // Initial application of highlights and preview
+    this.reapplyHighlights();
+    this.updatePreview();
   }
 
   /**
-   * Handle key up events
-   * @param {KeyboardEvent} event - The keyboard event
+   * Inject necessary CSS styles
    */
-  handleKeyUp(event) {
-    if (event.key === 'Control' || event.key === 'Meta') {
-      this.isCtrlPressed = false;
-    } else if (event.key === 'Shift') {
-      this.isShiftPressed = false;
-    }
+  injectStyles() {
+    const styleId = 'vertical-calendar-controller-styles';
+    if (document.getElementById(styleId)) return; // Inject only once
+
+    const styles = document.createElement('style');
+    styles.id = styleId;
+    styles.textContent = `
+      /* Custom selection styles */
+      .calendar-day.direct-selected {
+        background-color: #cfe2ff !important; /* Use important to override base styles */
+        color: #0d6efd !important;
+        font-weight: bold !important;
+        position: relative;
+        border: 1px solid #a6c8ff !important; /* Add a border for more emphasis */
+        box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.1);
+      }
+      
+      /* Add checkmark to selected days */
+      .calendar-day.direct-selected::after {
+        content: "✓";
+        position: absolute;
+        top: 2px; /* Adjust position */
+        right: 4px; /* Adjust position */
+        font-size: 11px; /* Adjust size */
+        color: #0a58ca; /* Slightly darker blue */
+        font-weight: bold;
+      }
+      
+      /* Animation for click feedback */
+      @keyframes clickPulse {
+        0% { transform: scale(1); box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.1); }
+        50% { transform: scale(1.05); box-shadow: inset 0 0 8px rgba(13, 110, 253, 0.3); }
+        100% { transform: scale(1); box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.1); }
+      }
+      
+      .calendar-day.click-pulse {
+        animation: clickPulse 0.3s ease-out;
+      }
+      
+      /* Ensure preview section is always visible if handled by JS */
+      #selected-dates-preview-section { 
+        display: block !important; 
+      }
+    `;
+    document.head.appendChild(styles);
   }
 
   /**
-   * Override the calendar's click handler
+   * Attach a single click handler to the calendar container
    */
-  overrideCalendarClickHandler() {
-    // Instead of replacing each element's click handler,
-    // add a single capture-phase handler to the container
-    // Remove any existing handlers we've added
+  attachDelegatedClickHandler() {
+    // Remove existing handler if present
     if (this.clickHandler) {
       this.calendar.container.removeEventListener('click', this.clickHandler, true);
     }
-    
-    // Define our click handler
+
     this.clickHandler = (event) => {
       const dateElement = event.target.closest('.calendar-day');
       if (!dateElement) return;
-      
-      this.handleDateClick(event, dateElement);
+
+      // Prevent original calendar handlers and default behavior
+      event.preventDefault();
+      event.stopPropagation();
+
+      // Only handle clicks on valid date elements
+      if (dateElement.classList.contains('other-month') || dateElement.classList.contains('past')) {
+        return;
+      }
+
+      // Add visual feedback
+      dateElement.classList.add('click-pulse');
+      setTimeout(() => dateElement.classList.remove('click-pulse'), 300);
+
+      const dateStr = dateElement.dataset.date;
+      if (!dateStr) return;
+
+      // Parse YYYY-MM-DD string as UTC date
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const date = new Date(Date.UTC(year, month - 1, day)); // month is 0-indexed
+
+      // Toggle selection logic
+      if (dateElement.classList.contains('direct-selected')) {
+        this.removeDateFromSelection(date);
+        dateElement.classList.remove('direct-selected');
+      } else {
+        this.addDateToSelection(date);
+        dateElement.classList.add('direct-selected');
+      }
+
+      // Sort dates after modification
+      this.selectedDates.sort((a, b) => a.getTime() - b.getTime());
+
+      // Update the batch creator and the preview table
+      this.updateBatchCreatorDates();
+      this.updatePreview();
     };
-    
-    // Add our handler in the capture phase
+
+    // Add the handler in the capture phase to run before potential default handlers
     this.calendar.container.addEventListener('click', this.clickHandler, true);
   }
 
   /**
-   * Handle date click with enhanced multi-selection
-   * @param {MouseEvent} event - The mouse event
-   * @param {HTMLElement} dateElement - The date element that was clicked
-   */
-  handleDateClick(event, dateElement) {
-    // Prevent the default click behavior
-    event.preventDefault();
-    event.stopPropagation();
-    
-    // Skip processing for past dates or dates in other months
-    if (dateElement.classList.contains('past') || dateElement.classList.contains('other-month')) {
-      return;
-    }
-    
-    // Get the date from the cell
-    const dateStr = dateElement.dataset.date;
-    if (!dateStr) return;
-    
-    const date = new Date(dateStr);
-    
-    // If neither ctrl nor shift is pressed, clear selection unless it's a toggle
-    if (!this.isCtrlPressed && !this.isShiftPressed) {
-      // Check if this date is already selected (for toggle behavior)
-      const isSelected = dateElement.classList.contains('direct-selected');
-      
-      // If not a toggle, clear all selections
-      if (!isSelected) {
-        this.calendar.selectedDates = [];
-        this.calendar.container.querySelectorAll('.direct-selected').forEach(el => {
-          el.classList.remove('direct-selected');
-        });
-      }
-    }
-    
-    // Handle shift selection (range select)
-    if (this.isShiftPressed && this.lastSelectedDate) {
-      const start = new Date(Math.min(this.lastSelectedDate.getTime(), date.getTime()));
-      const end = new Date(Math.max(this.lastSelectedDate.getTime(), date.getTime()));
-      
-      // Select all dates in the range
-      this.calendar.container.querySelectorAll('.calendar-day').forEach(el => {
-        // Skip processing for past dates or dates in other months
-        if (el.classList.contains('past') || el.classList.contains('other-month')) {
-          return;
-        }
-        
-        const cellDate = new Date(el.dataset.date);
-        if (cellDate >= start && cellDate <= end) {
-          el.classList.add('direct-selected');
-          this.addDateToSelection(cellDate);
-        }
-      });
-    } else {
-      // Toggle the selected state of the clicked date
-      if (dateElement.classList.contains('direct-selected')) {
-        dateElement.classList.remove('direct-selected');
-        this.removeDateFromSelection(date);
-      } else {
-        dateElement.classList.add('direct-selected');
-        this.addDateToSelection(date);
-      }
-      
-      // Update last selected date
-      this.lastSelectedDate = date;
-    }
-    
-    // Trigger the onDateSelect callback with updated selection
-    if (this.calendar.options.onDateSelect) {
-      this.calendar.options.onDateSelect(this.calendar.selectedDates);
-    }
-    
-    // Update the existing calendar controller if it exists
-    if (window.calendarController && window.calendarController.updatePreview) {
-      // Sync our selections with the calendar-fix.js controller
-      window.calendarController.selectedDates = [...this.calendar.selectedDates];
-      // Ask it to update the preview
-      window.calendarController.updatePreview();
-    }
-  }
-
-  /**
-   * Add a date to the calendar's selection
-   * @param {Date} date - The date to add
+   * Add a date to the selection if it doesn't exist
+   * @param {Date} date - The date to add (UTC)
    */
   addDateToSelection(date) {
-    // Check if date already exists in the selection
-    const exists = this.calendar.selectedDates.some(d => 
-      d.getFullYear() === date.getFullYear() && 
-      d.getMonth() === date.getMonth() && 
-      d.getDate() === date.getDate()
-    );
-    
+    const dateStr = this.formatDateString(date);
+    const exists = this.selectedDates.some(d => this.formatDateString(d) === dateStr);
     if (!exists) {
-      this.calendar.selectedDates.push(new Date(date));
+      this.selectedDates.push(date);
+      // Keep sorted
+      // this.selectedDates.sort((a, b) => a.getTime() - b.getTime()); // Sort is done after add/remove in handler
     }
   }
 
   /**
-   * Remove a date from the calendar's selection
-   * @param {Date} date - The date to remove
+   * Remove a date from the selection
+   * @param {Date} date - The date to remove (UTC)
    */
   removeDateFromSelection(date) {
-    this.calendar.selectedDates = this.calendar.selectedDates.filter(d => 
-      d.getFullYear() !== date.getFullYear() || 
-      d.getMonth() !== date.getMonth() || 
-      d.getDate() !== date.getDate()
-    );
+    const dateStr = this.formatDateString(date);
+    this.selectedDates = this.selectedDates.filter(d => this.formatDateString(d) !== dateStr);
   }
 
   /**
    * Refresh the controller (e.g., after calendar re-renders)
    */
   refresh() {
-    // Reattach click handlers
-    this.overrideCalendarClickHandler();
-    
-    // Reapply highlights based on selected dates
-    if (this.calendar && this.calendar.selectedDates && this.calendar.selectedDates.length > 0) {
-      // Clear existing highlights first
-      this.calendar.container.querySelectorAll('.direct-selected').forEach(el => {
-        el.classList.remove('direct-selected');
-      });
-      
-      // Apply highlights for each selected date
-      this.calendar.selectedDates.forEach(date => {
-        const dateStr = this.formatDateString(date);
-        const el = this.calendar.container.querySelector(`.calendar-day[data-date="${dateStr}"]`);
-        if (el) {
-          el.classList.add('direct-selected');
-        }
-      });
+    // Re-attach click handlers if needed (delegated might not need this, but good practice)
+    this.attachDelegatedClickHandler();
+    // Reapply visual selection state
+    this.reapplyHighlights();
+    // Update preview (might be redundant if reapplyHighlights covers it)
+    this.updatePreview();
+  }
+
+  /**
+   * Re-apply the 'direct-selected' class based on the internal selectedDates array
+   */
+  reapplyHighlights() {
+    if (!this.calendar || !this.calendar.container) return;
+
+    // Clear existing highlights first
+    this.calendar.container.querySelectorAll('.calendar-day.direct-selected')
+      .forEach(el => el.classList.remove('direct-selected'));
+
+    // Apply highlights based on the stored selectedDates
+    this.selectedDates.forEach(date => {
+      const dateStr = this.formatDateString(date); // Use UTC formatter
+      const dayEl = this.calendar.container.querySelector(`.calendar-day[data-date="${dateStr}"]`);
+      if (dayEl && !dayEl.classList.contains('other-month') && !dayEl.classList.contains('past')) {
+        dayEl.classList.add('direct-selected');
+      }
+    });
+  }
+
+  /**
+   * Update the preview table based on selected dates and input values
+   */
+  updatePreview() {
+    // Ensure elements are available (re-find if needed)
+    if (!this.previewTbody) this.previewTbody = document.getElementById('dates-tbody');
+    if (!this.previewSection) this.previewSection = document.getElementById('selected-dates-preview-section');
+
+    if (!this.previewTbody || !this.previewSection) {
+      console.error("Preview elements not found for update!");
+      return;
     }
-    
-    // Sync with calendarController if it exists
-    if (window.calendarController && window.calendarController.selectedDates) {
-      window.calendarController.selectedDates = [...this.calendar.selectedDates];
-      if (window.calendarController.updatePreview) {
-        window.calendarController.updatePreview();
+
+    // Show/hide the section based on whether dates are selected
+    const hasSelection = this.selectedDates.length > 0;
+    this.previewSection.style.display = hasSelection ? 'block' : 'none';
+    this.previewSection.classList.toggle('hidden', !hasSelection);
+
+    // Clear the table body
+    this.previewTbody.innerHTML = '';
+
+    // Skip the rest if no dates are selected
+    if (!hasSelection) {
+      return;
+    }
+
+    // Get input values (re-find inputs just in case they weren't ready initially)
+    if (!this.namePrefixInput) this.namePrefixInput = document.getElementById('name-prefix-input');
+    if (!this.deadlineTimeInput) this.deadlineTimeInput = document.getElementById('deadlineTime');
+
+    const namePrefix = this.namePrefixInput?.value || 'Assignment';
+    let hour = 17, minute = 0;
+
+    if (this.deadlineTimeInput && this.deadlineTimeInput.value) {
+      const timeParts = this.deadlineTimeInput.value.split(':');
+      if (timeParts.length >= 2) {
+        hour = parseInt(timeParts[0], 10);
+        minute = parseInt(timeParts[1], 10);
+        // Ignore seconds for calculation simplicity if present
       }
     }
+
+    // Use the already sorted internal selectedDates
+    const sortedDates = this.selectedDates;
+
+    // Build the table rows
+    sortedDates.forEach((date, index) => {
+      const [dueYear, dueMonth, dueDay] = this.formatDateString(date).split('-');
+      const dueHourStr = hour.toString().padStart(2, '0');
+      const dueMinuteStr = minute.toString().padStart(2, '0');
+      const formattedDueDate = `${dueDay}/${dueMonth}/${dueYear}, ${dueHourStr}:${dueMinuteStr}:00`;
+
+      let formattedAvailDate = 'N/A'; // Default for the first assignment
+
+      if (index > 0) {
+        const prevDueDate = sortedDates[index - 1];
+        // Calculate availability time based on previous UTC due date + 1 minute
+        const availTimeMillis = Date.UTC(prevDueDate.getUTCFullYear(), prevDueDate.getUTCMonth(), prevDueDate.getUTCDate(), hour, minute, 0) + 60000;
+        const availDate = new Date(availTimeMillis);
+
+        // Format Available Date using its UTC parts
+        const [availYear, availMonth, availDay] = this.formatDateString(availDate).split('-');
+        const availHourStr = availDate.getUTCHours().toString().padStart(2, '0');
+        const availMinuteStr = availDate.getUTCMinutes().toString().padStart(2, '0');
+        const availSecondStr = availDate.getUTCSeconds().toString().padStart(2, '0');
+        formattedAvailDate = `${availDay}/${availMonth}/${availYear}, ${availHourStr}:${availMinuteStr}:${availSecondStr}`;
+      } else {
+         // Default availability for the first assignment: start of today (local time)
+        const now = new Date();
+        const todayDay = now.getDate().toString().padStart(2, '0');
+        const todayMonth = (now.getMonth() + 1).toString().padStart(2, '0');
+        const todayYear = now.getFullYear();
+        formattedAvailDate = `${todayDay}/${todayMonth}/${todayYear}, 00:00:00`;
+      }
+
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${index + 1}</td>
+        <td>${namePrefix} ${index + 1}</td>
+        <td>${formattedDueDate}</td>
+        <td>${formattedAvailDate}</td>
+      `;
+      this.previewTbody.appendChild(row);
+    });
   }
-  
+
   /**
-   * Format a date as YYYY-MM-DD string
+   * Update the MbzBatchCreator instance with the current selection
+   */
+  updateBatchCreatorDates() {
+    if (this.mbzCreator && typeof this.mbzCreator.updateSelectedDates === 'function') {
+      this.mbzCreator.updateSelectedDates(this.selectedDates);
+    } else {
+      // Log error if instance or method is missing - might happen briefly during init
+      // console.warn('MbzBatchCreator instance or updateSelectedDates method not available yet.');
+    }
+  }
+
+  /**
+   * Helper method to format a date as YYYY-MM-DD using UTC components
    * @param {Date} date - The date to format
-   * @returns {string} - The formatted date string
+   * @returns {string} Date string in YYYY-MM-DD format
    */
   formatDateString(date) {
-    const year = date.getFullYear();
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const day = date.getDate().toString().padStart(2, '0');
+    if (!(date instanceof Date) || isNaN(date)) {
+        // console.warn("formatDateString received invalid date:", date);
+        return 'Invalid Date'; // Or handle appropriately
+    }
+    const year = date.getUTCFullYear();
+    const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+    const day = date.getUTCDate().toString().padStart(2, '0');
     return `${year}-${month}-${day}`;
   }
 
   /**
-   * Static method to initialize the controller for an existing calendar
+   * Static factory method to create and initialize the controller
    * @param {VerticalCalendar} calendar - The vertical calendar instance
-   * @returns {VerticalCalendarController} The controller instance
+   * @param {MbzBatchCreator} mbzInstance - The MBZ Batch Creator instance
+   * @returns {VerticalCalendarController | null} The controller instance or null if init fails
    */
-  static initialize(calendar) {
-    return new VerticalCalendarController(calendar);
+  static initialize(calendar, mbzInstance) {
+    if (!calendar || !calendar.container) {
+      console.error("Calendar instance or container not provided for controller initialization.");
+      return null;
+    }
+    if (!mbzInstance) {
+      console.warn("MbzBatchCreator instance not provided during controller initialization. Some features might be limited.");
+      // Proceeding without mbzInstance might be acceptable depending on requirements
+    }
+    try {
+      const controller = new VerticalCalendarController(calendar, mbzInstance);
+      console.log('Vertical Calendar Controller initialized successfully.');
+      return controller;
+    } catch (error) {
+      console.error('Error initializing VerticalCalendarController:', error);
+      return null;
+    }
   }
 }
 
-// Expose to global scope
+// Expose to global scope (optional, but can be useful for debugging)
 window.VerticalCalendarController = VerticalCalendarController; 

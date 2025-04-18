@@ -1475,6 +1475,21 @@ ipcMain.handle('app:getUserDataPath', (event) => {
 });
 // --- End IPC Handlers for Dependencies --- 
 
+// --- IPC Handler to load HTML template ---
+ipcMain.handle('load-mbz-creator-html', async (event) => {
+  try {
+    // Corrected path: Go up one level from src/js to src, then find the file
+    const htmlPath = path.join(__dirname, '..', 'mbz_creator.html'); 
+    console.log(`Attempting to load HTML from: ${htmlPath}`);
+    const htmlContent = fs.readFileSync(htmlPath, 'utf-8');
+    return htmlContent;
+  } catch (error) {
+    console.error('Error loading mbz_creator.html:', error);
+    throw new Error(`Could not load MBZ Creator template: ${error.message}`); // Rethrow to renderer
+  }
+});
+// --- End HTML Loader ---
+
 // --- IPC Handler for MBZ Batch Creation --- 
 ipcMain.handle('mbz:createBatchAssignments', async (event, incomingOptions) => {
   console.log('IPC: Received mbz:createBatchAssignments with incoming options:', incomingOptions);
