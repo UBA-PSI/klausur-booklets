@@ -1,37 +1,45 @@
 /**
- * Vertical Calendar Controller
- * Extends the VerticalCalendar functionality to improve multi-selection
+ * VerticalCalendarController
+ * Extends the VerticalCalendar component with multi-selection capabilities
+ * including Ctrl+Click and Shift+Click support
  */
 class VerticalCalendarController {
   /**
    * Initialize the controller
-   * @param {VerticalCalendar} calendar - The vertical calendar instance to control
+   * @param {VerticalCalendar} calendar - The calendar instance to control
    */
   constructor(calendar) {
     this.calendar = calendar;
+    this.container = calendar.container;
+    this.lastSelectedDate = null;
     this.isCtrlPressed = false;
     this.isShiftPressed = false;
-    this.lastSelectedDate = null;
-
-    // Initialize the controller
+    this.selectedDates = [];
+    
+    // Initialize controller
     this.init();
   }
-
+  
   /**
-   * Initialize the controller
+   * Initialize the controller with event listeners
    */
   init() {
-    // Attach keyboard event listeners
+    // Attach keyboard listeners for Ctrl and Shift keys
     document.addEventListener('keydown', this.handleKeyDown.bind(this));
     document.addEventListener('keyup', this.handleKeyUp.bind(this));
-
-    // Override the calendar's click handler to implement our multi-selection logic
-    this.overrideCalendarClickHandler();
+    
+    // Override the calendar's click handler
+    this.attachDateClickHandlers();
+    
+    // Initialize with any pre-selected dates
+    if (this.calendar.selectedDates && this.calendar.selectedDates.length > 0) {
+      this.selectedDates = [...this.calendar.selectedDates];
+      this.refresh();
+    }
   }
-
+  
   /**
-   * Handle key down events
-   * @param {KeyboardEvent} event - The keyboard event
+   * Handle keydown events to track modifier keys
    */
   handleKeyDown(event) {
     if (event.key === 'Control' || event.key === 'Meta') {
@@ -40,10 +48,9 @@ class VerticalCalendarController {
       this.isShiftPressed = true;
     }
   }
-
+  
   /**
-   * Handle key up events
-   * @param {KeyboardEvent} event - The keyboard event
+   * Handle keyup events to track modifier keys
    */
   handleKeyUp(event) {
     if (event.key === 'Control' || event.key === 'Meta') {
@@ -52,131 +59,156 @@ class VerticalCalendarController {
       this.isShiftPressed = false;
     }
   }
-
+  
   /**
-   * Override the calendar's click handler
+   * Attach click handlers to date elements
    */
-  overrideCalendarClickHandler() {
-    // Find all date cells in the calendar
-    const dateElements = this.calendar.container.querySelectorAll('.vc-date');
-    
-    // Remove existing click listeners and add our own
-    dateElements.forEach(dateElement => {
-      // Clone the element to remove all event listeners
-      const newElement = dateElement.cloneNode(true);
-      dateElement.parentNode.replaceChild(newElement, dateElement);
+  attachDateClickHandlers() {
+    // Remove any existing click handlers
+    const dateElements = this.container.querySelectorAll('.calendar-day[data-date]');
+    dateElements.forEach(el => {
+      // Clear any existing handlers by cloning the element
+      const newEl = el.cloneNode(true);
+      el.parentNode.replaceChild(newEl, el);
       
-      // Add our custom click handler
-      newElement.addEventListener('click', (event) => {
-        this.handleDateClick(event, newElement);
+      // Add our custom handler
+      newEl.addEventListener('click', (event) => {
+        this.handleDateClick(newEl, event);
       });
     });
+    
+    // Listen for calendar render events to reattach handlers
+    this.container.addEventListener('calendarRendered', () => {
+      setTimeout(() => this.attachDateClickHandlers(), 0);
+    });
   }
-
+  
   /**
-   * Handle date click with enhanced multi-selection
-   * @param {MouseEvent} event - The mouse event
-   * @param {HTMLElement} dateElement - The date element that was clicked
+   * Handle date click with multi-selection support
    */
-  handleDateClick(event, dateElement) {
-    // Get the date from the cell
-    const dateStr = dateElement.dataset.date;
-    if (!dateStr) return;
-    
-    const date = new Date(dateStr);
-    
-    // If neither ctrl nor shift is pressed, clear selection unless it's a toggle
-    if (!this.isCtrlPressed && !this.isShiftPressed) {
-      // Check if this date is already selected (for toggle behavior)
-      const isSelected = dateElement.classList.contains('selected');
-      
-      // If not a toggle, clear all selections
-      if (!isSelected) {
-        this.calendar.selectedDates = [];
-        this.calendar.container.querySelectorAll('.selected').forEach(el => {
-          el.classList.remove('selected');
-        });
-      }
+  handleDateClick(dateEl, event) {
+    if (!dateEl.hasAttribute('data-date') || dateEl.classList.contains('past') || dateEl.classList.contains('other-month')) {
+      return; // Don't handle clicks on disabled dates
     }
     
-    // Handle shift selection (range select)
+    const dateStr = dateEl.getAttribute('data-date');
+    const clickedDate = new Date(dateStr + 'T00:00:00'); // Create date object
+    
+    // Handle selection based on modifier keys
     if (this.isShiftPressed && this.lastSelectedDate) {
-      const start = new Date(Math.min(this.lastSelectedDate.getTime(), date.getTime()));
-      const end = new Date(Math.max(this.lastSelectedDate.getTime(), date.getTime()));
-      
-      // Select all dates in the range
-      this.calendar.container.querySelectorAll('.vc-date').forEach(el => {
-        const cellDate = new Date(el.dataset.date);
-        if (cellDate >= start && cellDate <= end) {
-          el.classList.add('selected');
-          this.addDateToSelection(cellDate);
-        }
-      });
+      // Shift+Click: Select range
+      this.selectDateRange(this.lastSelectedDate, clickedDate);
+    } else if (this.isCtrlPressed) {
+      // Ctrl+Click: Toggle single date
+      this.toggleDate(clickedDate);
     } else {
-      // Toggle the selected state of the clicked date
-      if (dateElement.classList.contains('selected')) {
-        dateElement.classList.remove('selected');
-        this.removeDateFromSelection(date);
-      } else {
-        dateElement.classList.add('selected');
-        this.addDateToSelection(date);
-      }
-      
-      // Update last selected date
-      this.lastSelectedDate = date;
+      // Normal click: Replace selection with single date
+      this.selectedDates = [clickedDate];
     }
     
-    // Trigger the onDateSelect callback with updated selection
+    // Update the last selected date
+    this.lastSelectedDate = clickedDate;
+    
+    // Update the calendar UI
+    this.refresh();
+    
+    // Notify calendar of selection changes
     if (this.calendar.options.onDateSelect) {
-      this.calendar.options.onDateSelect(this.calendar.selectedDates);
+      this.calendar.options.onDateSelect(this.selectedDates);
     }
-  }
-
-  /**
-   * Add a date to the calendar's selection
-   * @param {Date} date - The date to add
-   */
-  addDateToSelection(date) {
-    // Check if date already exists in the selection
-    const exists = this.calendar.selectedDates.some(d => 
-      d.getFullYear() === date.getFullYear() && 
-      d.getMonth() === date.getMonth() && 
-      d.getDate() === date.getDate()
-    );
     
-    if (!exists) {
-      this.calendar.selectedDates.push(new Date(date));
+    // Update the calendar's internal selectedDates array
+    this.calendar.selectedDates = [...this.selectedDates];
+    
+    // Trigger event on the container
+    this.container.dispatchEvent(new CustomEvent('dateSelected', {
+      detail: { dates: this.selectedDates }
+    }));
+  }
+  
+  /**
+   * Toggle a date's selection state
+   */
+  toggleDate(date) {
+    const dateStr = date.toDateString();
+    const index = this.selectedDates.findIndex(d => d.toDateString() === dateStr);
+    
+    if (index !== -1) {
+      // Remove date if already selected
+      this.selectedDates.splice(index, 1);
+    } else {
+      // Add date if not selected
+      this.selectedDates.push(date);
     }
   }
-
+  
   /**
-   * Remove a date from the calendar's selection
-   * @param {Date} date - The date to remove
+   * Select a range of dates (inclusive)
    */
-  removeDateFromSelection(date) {
-    this.calendar.selectedDates = this.calendar.selectedDates.filter(d => 
-      d.getFullYear() !== date.getFullYear() || 
-      d.getMonth() !== date.getMonth() || 
-      d.getDate() !== date.getDate()
-    );
+  selectDateRange(startDate, endDate) {
+    // Ensure startDate is before endDate
+    if (startDate > endDate) {
+      [startDate, endDate] = [endDate, startDate];
+    }
+    
+    // Create array of dates in the range
+    const dates = [];
+    const current = new Date(startDate);
+    
+    while (current <= endDate) {
+      dates.push(new Date(current));
+      current.setDate(current.getDate() + 1);
+    }
+    
+    // Add range to selection (avoid duplicates)
+    dates.forEach(date => {
+      const dateStr = date.toDateString();
+      const isAlreadySelected = this.selectedDates.some(d => d.toDateString() === dateStr);
+      
+      if (!isAlreadySelected) {
+        this.selectedDates.push(date);
+      }
+    });
   }
-
+  
   /**
-   * Refresh the controller (e.g., after calendar re-renders)
+   * Update the UI to reflect the current selection state
    */
   refresh() {
-    this.overrideCalendarClickHandler();
+    // Clear all selections first
+    const allDateElements = this.container.querySelectorAll('.calendar-day[data-date]');
+    allDateElements.forEach(el => {
+      el.classList.remove('selected');
+    });
+    
+    // Apply selection styling
+    this.selectedDates.forEach(date => {
+      const dateStr = this.formatDateString(date);
+      const dateEl = this.container.querySelector(`.calendar-day[data-date="${dateStr}"]`);
+      
+      if (dateEl) {
+        dateEl.classList.add('selected');
+      }
+    });
   }
-
+  
   /**
-   * Static method to initialize the controller for an existing calendar
-   * @param {VerticalCalendar} calendar - The vertical calendar instance
-   * @returns {VerticalCalendarController} The controller instance
+   * Format a date as YYYY-MM-DD string
+   */
+  formatDateString(date) {
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  
+  /**
+   * Static method to initialize a controller for a calendar
    */
   static initialize(calendar) {
     return new VerticalCalendarController(calendar);
   }
 }
 
-// Expose to global scope
+// Make the controller available globally
 window.VerticalCalendarController = VerticalCalendarController; 

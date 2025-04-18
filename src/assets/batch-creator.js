@@ -56,82 +56,113 @@ class MbzBatchCreator {
             <button id="app-mode-switch" class="app-switcher">Switch Mode</button>
           </div>
           
-          <h2 class="mt-4 mb-3">Batch Assignment Creator</h2>
-          
-          <!-- 1. Template Selection -->
-          <div class="section">
-            <h5 class="mb-3">1. Select Template MBZ</h5>
-            <div class="d-flex align-items-center">
-              <button id="select-mbz-btn" class="btn btn-secondary">Select MBZ File</button>
-              <span id="selected-file-label" class="ms-3 fst-italic">No file selected</span>
-            </div>
-            <div class="form-text mt-2">Select the '.mbz' template file provided with the script.</div>
-          </div>
-          
-          <!-- 2. Configuration -->
-          <div class="section mt-4">
-            <h5 class="mb-3">2. Configure Assignment Details</h5>
-            
-            <div class="mb-3">
-              <label for="name-prefix-input" class="form-label">Assignment Name Prefix:</label>
-              <input type="text" id="name-prefix-input" class="form-control" 
-                 placeholder="e.g., Weekly Assignment" value="Booklet Page">
-              <div class="form-text">Prefix used for naming assignments (e.g., "Booklet Page 1", "Booklet Page 2").</div>
-            </div>
-            
-            <div class="mb-3">
-              <label for="mbzSectionTitle" class="form-label">Moodle Section Title:</label>
-              <input type="text" class="form-control" id="mbzSectionTitle" 
-                 placeholder="e.g., Exam Booklet Pages">
-              <div class="form-text">Exact title of the section in your Moodle course where assignments will be added.</div>
+          <!-- Main configuration form -->
+          <div class="config-form">
+            <!-- 1. Template Selection -->
+            <div class="config-section">
+              <h5 class="section-title">1. Select Moodle Backup Template</h5>
+              <div class="form-section template-selection">
+                <div class="form-check mb-2">
+                  <input class="form-check-input" type="radio" name="templateChoice" id="useDefault" checked>
+                  <label class="form-check-label" for="useDefault">
+                    Use Default (Moodle 4.5)
+                  </label>
+                </div>
+                <div class="form-check mb-3 d-flex justify-content-between align-items-center">
+                  <div>
+                    <input class="form-check-input" type="radio" name="templateChoice" id="useCustom">
+                    <label class="form-check-label" for="useCustom">
+                      Use Custom File
+                    </label>
+                  </div>
+                  <button id="select-mbz-btn" class="btn btn-outline-secondary">Choose File</button>
+                </div>
+                <div class="selected-file-info">
+                  <span id="selected-file-label" class="fst-italic text-muted">No file selected</span>
+                </div>
+              </div>
             </div>
             
-            <div class="mb-3">
-              <label for="mbzTargetStartDate" class="form-label">Moodle Course Start Date:</label>
-              <input type="date" class="form-control" id="mbzTargetStartDate">
-              <div class="form-text">Must match the start date of the target Moodle course. Set course start time to 00:00.</div>
+            <!-- 2. Course Details -->
+            <div class="config-section">
+              <h5 class="section-title">2. Course Details</h5>
+              <div class="form-section">
+                <div class="mb-3">
+                  <label for="mbzSectionTitle" class="form-label">Moodle Section Title</label>
+                  <input type="text" class="form-control" id="mbzSectionTitle" 
+                     placeholder="Exam Booklet Pages">
+                </div>
+                
+                <div class="mb-3">
+                  <label for="name-prefix-input" class="form-label">Assignment Name Prefix</label>
+                  <input type="text" id="name-prefix-input" class="form-control" 
+                     placeholder="Page" value="Page">
+                </div>
+                
+                <div class="mb-3">
+                  <label for="mbzTargetStartDate" class="form-label">Course Start Date as configured in Moodle</label>
+                  <input type="date" class="form-control" id="mbzTargetStartDate">
+                </div>
+              </div>
             </div>
-          </div>
-          
-          <!-- 3. Time Configuration -->
-          <div class="section mt-4">
-            <h5 class="mb-3">3. Set Default Deadline Time</h5>
-            <div class="d-flex align-items-center">
-              <label for="hour-select" class="form-label me-2">Time:</label>
-              <select id="hour-select" class="form-select me-1" style="width: auto;">
-                ${Array.from({length: 24}, (_, i) => `<option value="${i}" ${i === 17 ? 'selected' : ''}>${String(i).padStart(2, '0')}</option>`).join('')}
-              </select>
-              <span class="mx-1">:</span>
-              <select id="minute-select" class="form-select ms-1" style="width: auto;">
-                ${Array.from({length: 12}, (_, i) => `<option value="${i*5}" ${i*5 === 0 ? 'selected' : ''}>${String(i*5).padStart(2, '0')}</option>`).join('')}
-              </select>
+            
+            <!-- 3. Deadline Settings -->
+            <div class="config-section">
+              <h5 class="section-title">3. Deadline Settings</h5>
+              <div class="form-section">
+                <div class="mb-3">
+                  <label for="time-settings" class="form-label">Deadline Time for All Pages</label>
+                  <div class="d-flex time-selector" id="time-settings">
+                    <select id="hour-select" class="form-select me-1">
+                      ${Array.from({length: 24}, (_, i) => `<option value="${i}" ${i === 17 ? 'selected' : ''}>${String(i).padStart(2, '0')}</option>`).join('')}
+                    </select>
+                    <span class="mx-1 align-self-center">:</span>
+                    <select id="minute-select" class="form-select ms-1">
+                      ${Array.from({length: 12}, (_, i) => `<option value="${i*5}" ${i*5 === 0 ? 'selected' : ''}>${String(i*5).padStart(2, '0')}</option>`).join('')}
+                    </select>
+                  </div>
+                </div>
+                
+                <div class="mb-3">
+                  <label for="grace-period" class="form-label">Additional Grace Period until Cutoff (minutes)</label>
+                  <input type="number" class="form-control grace-period-input" id="grace-period" value="5" min="0" max="1440">
+                </div>
+              </div>
             </div>
-            <div class="form-text">Default time for all assignment deadlines (e.g., 17:00 for 5 PM).</div>
-          </div>
-          
-          <!-- 5. Preview -->
-          <div id="selected-dates-preview-section" class="section mt-4 hidden">
-            <h5 class="mb-3">5. Preview Selected Dates</h5>
-            <div class="table-responsive">
-              <table id="dates-table" class="table table-striped table-hover">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Assignment Name</th>
-                    <th>Due Date & Time</th>
-                    <th>Available From</th>
-                  </tr>
-                </thead>
-                <tbody id="dates-tbody"></tbody>
-              </table>
+            
+            <!-- Preview Assignments (Collapsible) -->
+            <div class="config-section">
+              <button class="preview-toggle-btn collapsed" type="button" data-bs-toggle="collapse" 
+                     data-bs-target="#previewSection" aria-expanded="false" aria-controls="previewSection">
+                <span class="preview-title">Preview Assignment Table</span>
+                <span class="toggle-icon">▼</span>
+              </button>
+              
+              <div class="collapse" id="previewSection">
+                <div id="selected-dates-preview-section" class="preview-content">
+                  <div class="table-responsive">
+                    <table id="dates-table" class="table table-striped table-hover">
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Assignment Name</th>
+                          <th>Due Date & Time</th>
+                          <th>Available From</th>
+                        </tr>
+                      </thead>
+                      <tbody id="dates-tbody"></tbody>
+                    </table>
+                  </div>
+                  <div class="text-muted mt-2 small">Review the generated assignment names and deadlines. 'Available From' is based on the previous assignment's due date.</div>
+                </div>
+              </div>
             </div>
-            <div class="form-text mt-2">Review the generated assignment names and deadlines. 'Available From' is based on the previous assignment's due date.</div>
-          </div>
-          
-          <!-- Generate Button -->
-          <div class="mt-4 mb-4 text-center">
-            <button id="generate-btn" class="btn btn-primary btn-lg px-4" disabled>Generate Batch MBZ File</button>
-            <div id="status-message" class="status-message mx-auto mt-3"></div>
+            
+            <!-- Generate Button -->
+            <div class="generate-section">
+              <button id="generate-btn" class="btn btn-primary btn-lg w-100" disabled>Generate Batch MBZ File</button>
+              <div id="status-message" class="status-message mx-auto mt-3"></div>
+            </div>
           </div>
         </div>
         
@@ -141,6 +172,122 @@ class MbzBatchCreator {
         </div>
       </div>
     `;
+    
+    // Add custom CSS for the updated UI
+    const styleEl = document.createElement('style');
+    styleEl.textContent = `
+      .mbz-creator-view {
+        display: flex;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      
+      .mbz-creator-left {
+        width: 60%;
+        padding: 1rem;
+        overflow-y: auto;
+        max-height: 100vh;
+      }
+      
+      .mbz-creator-right {
+        width: 40%;
+        border-left: 1px solid #e9ecef;
+      }
+      
+      .config-form {
+        padding: 0.5rem 0;
+      }
+      
+      .config-section {
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+        background-color: #fff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      }
+      
+      .section-title {
+        margin-top: 0;
+        margin-bottom: 1.25rem;
+        font-weight: 600;
+        color: #212529;
+      }
+      
+      .form-section {
+        padding: 0.25rem 0;
+      }
+      
+      .selected-file-info {
+        font-size: 0.875rem;
+        padding: 0.25rem 0;
+      }
+      
+      .time-selector {
+        max-width: 150px;
+      }
+      
+      .grace-period-input {
+        max-width: 120px;
+      }
+      
+      .preview-toggle-btn {
+        width: 100%;
+        text-align: left;
+        background: none;
+        border: none;
+        padding: 0.75rem 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: #212529;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      
+      .preview-toggle-btn:hover {
+        background-color: #f8f9fa;
+      }
+      
+      .preview-toggle-btn .toggle-icon {
+        transition: transform 0.2s ease;
+      }
+      
+      .preview-toggle-btn.collapsed .toggle-icon {
+        transform: rotate(-90deg);
+      }
+      
+      .preview-content {
+        padding: 1rem 0.5rem;
+      }
+      
+      .generate-section {
+        padding: 1rem 0;
+        margin-top: 1rem;
+      }
+      
+      .status-message {
+        margin-top: 1rem;
+        padding: 0.5rem;
+        border-radius: 4px;
+        text-align: center;
+      }
+      
+      .status-message.info {
+        background-color: #cff4fc;
+        color: #055160;
+      }
+      
+      .status-message.success {
+        background-color: #d1e7dd;
+        color: #0a3622;
+      }
+      
+      .status-message.error {
+        background-color: #f8d7da;
+        color: #842029;
+      }
+    `;
+    document.head.appendChild(styleEl);
   }
   
   /**
@@ -160,6 +307,8 @@ class MbzBatchCreator {
       previewTbody: this.container.querySelector('#dates-tbody'),
       generateBtn: this.container.querySelector('#generate-btn'),
       statusMessage: this.container.querySelector('#status-message'),
+      previewToggleBtn: this.container.querySelector('.preview-toggle-btn'),
+      previewCollapseEl: this.container.querySelector('#previewSection')
     };
     
     if (!this.elements.calendarContainer) {
@@ -190,8 +339,49 @@ class MbzBatchCreator {
     this.elements.selectMbzBtn?.addEventListener('click', () => this.selectMbzFile());
     this.elements.generateBtn?.addEventListener('click', () => this.generateBatchAssignments());
     
-    // Note: Input change listeners that triggered the old updatePreview are removed.
-    // calendar-fix.js will now handle updating the preview based on these inputs.
+    // Add toggle functionality for the preview section
+    this.elements.previewToggleBtn?.addEventListener('click', () => {
+      const isCollapsed = this.elements.previewToggleBtn.classList.contains('collapsed');
+      this.elements.previewToggleBtn.classList.toggle('collapsed', !isCollapsed);
+      
+      // If we have Bootstrap available, this will work automatically through data attributes
+      // If not, we handle the collapse manually
+      if (!window.bootstrap) {
+        if (isCollapsed) {
+          this.elements.previewCollapseEl.style.display = 'block';
+        } else {
+          this.elements.previewCollapseEl.style.display = 'none';
+        }
+      }
+    });
+    
+    // Template choice radio buttons
+    const useDefaultRadio = this.container.querySelector('#useDefault');
+    const useCustomRadio = this.container.querySelector('#useCustom');
+    
+    if (useDefaultRadio && useCustomRadio) {
+      useDefaultRadio.addEventListener('change', () => {
+        if (useDefaultRadio.checked) {
+          // Use default template logic
+          this.mbzPath = 'default'; // Special value to indicate using default
+          this.elements.selectedFileLabel.textContent = 'Using default Moodle 4.5 template';
+          this.updateGenerateButtonState();
+        }
+      });
+      
+      useCustomRadio.addEventListener('change', () => {
+        if (useCustomRadio.checked) {
+          // Prompt for custom file
+          this.mbzPath = null;
+          this.elements.selectedFileLabel.textContent = 'No file selected';
+          this.updateGenerateButtonState();
+          // Optionally trigger file selection
+          if (confirm('Would you like to select a custom template file now?')) {
+            this.selectMbzFile();
+          }
+        }
+      });
+    }
   }
   
   /**

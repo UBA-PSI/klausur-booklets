@@ -293,6 +293,7 @@
     <!-- New component JS files -->
     <script src="node_modules/flatpickr/dist/flatpickr.js"></script>
     <script src="src/assets/vertical-calendar.js"></script>
+    <script src="src/assets/vertical-calendar-controller.js"></script>
     <script src="src/assets/calendar-fix.js"></script>
     <script src="src/assets/app-switcher.js"></script>
     <script src="src/assets/batch-creator.js"></script>
@@ -324,6 +325,18 @@
                     }
                 }
             });
+
+            // Initialize vertical calendar controller for any calendars
+            document.addEventListener('calendarRendered', (event) => {
+                // Get the calendar instance from the event target element
+                const calendarElement = event.target;
+                const calendarInstance = calendarElement._calendarInstance;
+                
+                if (calendarInstance && calendarInstance instanceof VerticalCalendar) {
+                    // Initialize multi-selection controller
+                    VerticalCalendarController.initialize(calendarInstance);
+                }
+            }, true); // Use capturing to ensure we get the event
 
             // Handle initial view if needed
             if (window.location.hash === '#mbz') {
