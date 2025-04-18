@@ -192,10 +192,8 @@ class MbzBatchCreator {
     this.elements.selectMbzBtn?.addEventListener('click', () => this.selectMbzFile());
     this.elements.generateBtn?.addEventListener('click', () => this.generateBatchAssignments());
     
-    // Update preview whenever relevant inputs change
-    this.elements.namePrefixInput?.addEventListener('input', () => this.updatePreview());
-    this.elements.hourSelect?.addEventListener('change', () => this.updatePreview());
-    this.elements.minuteSelect?.addEventListener('change', () => this.updatePreview());
+    // Note: Input change listeners that triggered the old updatePreview are removed.
+    // calendar-fix.js will now handle updating the preview based on these inputs.
   }
   
   /**
@@ -232,61 +230,11 @@ class MbzBatchCreator {
    * Handle date selection from the calendar
    */
   handleDateSelection(selectedDates) {
+    // This function might still be called by the base VerticalCalendar, 
+    // but calendar-fix.js is the primary handler now.
+    // We can keep this minimal or potentially remove it if VerticalCalendar's onDateSelect is nullified.
     this.selectedDates = selectedDates;
-    this.updatePreview();
     this.updateGenerateButtonState();
-  }
-  
-  /**
-   * Update the preview section with selected dates
-   */
-  updatePreview() {
-    if (!this.elements.previewTbody || !this.elements.previewSection) return;
-    
-    if (this.selectedDates.length === 0) {
-      this.elements.previewSection.classList.add('hidden');
-      return;
-    }
-    
-    // Sort dates chronologically
-    const sortedDates = [...this.selectedDates].sort((a, b) => a.getTime() - b.getTime());
-    const namePrefix = this.elements.namePrefixInput?.value || 'Assignment';
-    const hour = parseInt(this.elements.hourSelect?.value || '17', 10);
-    const minute = parseInt(this.elements.minuteSelect?.value || '0', 10);
-    
-    // Clear existing entries
-    this.elements.previewTbody.innerHTML = '';
-    
-    // Build rows for all assignments
-    sortedDates.forEach((date, index) => {
-      const dueDate = new Date(date);
-      dueDate.setHours(hour, minute, 0, 0);
-      
-      // Set availability based on previous assignment's due date
-      let availDate;
-      if (index > 0) {
-        availDate = new Date(sortedDates[index - 1]);
-        availDate.setHours(hour, minute, 0, 0);
-        // Add a 1 minute buffer
-        availDate.setMinutes(availDate.getMinutes() + 1);
-      } else {
-        // First assignment available from now or start of day
-        availDate = new Date();
-        availDate.setHours(0, 0, 0, 0);
-      }
-      
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td>${index + 1}</td>
-        <td>${namePrefix} ${index + 1}</td>
-        <td>${dueDate.toLocaleString()}</td>
-        <td>${availDate.toLocaleString()}</td>
-      `;
-      this.elements.previewTbody.appendChild(row);
-    });
-    
-    // Show the preview section
-    this.elements.previewSection.classList.remove('hidden');
   }
   
   /**
@@ -351,8 +299,7 @@ class MbzBatchCreator {
         mbzFilePath: this.mbzPath,
         selectedDates: this.selectedDates.map(date => {
           // Format date as YYYY-MM-DD
-          const d = new Date(date);
-          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
         }).sort(),
         timeHour: timeHour,
         timeMinute: timeMinute,
