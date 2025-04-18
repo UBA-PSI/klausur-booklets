@@ -109,19 +109,24 @@ class MbzBatchCreator {
      * Clears all selected dates and updates the calendar and preview.
      */
     clearSelectedDates() {
-        this.logger.log('Clearing selected dates.');
-        this.selectedDates = [];
-        if (window.VerticalCalendarController && typeof window.VerticalCalendarController.clearSelection === 'function') {
-             window.VerticalCalendarController.clearSelection(); // Clear calendar visuals & internal state
+        this.logger.log('Clearing selected dates via Controller API.');
+        // Use the globally exposed API method from VerticalCalendarController
+        if (window.VerticalCalendarControllerAPI && typeof window.VerticalCalendarControllerAPI.clearSelection === 'function') {
+             window.VerticalCalendarControllerAPI.clearSelection();
         } else {
-            this.logger.warn('VerticalCalendarController or clearSelection method not found.');
-            // Fallback: attempt to manually clear visual state if controller isn't ready
+            // Fallback/Warning if the controller API isn't ready (shouldn't normally happen)
+            this.logger.warn('VerticalCalendarControllerAPI or clearSelection method not found. Attempting manual clear.');
+            this.selectedDates = []; // Clear local array
             this.elements.calendarContainer?.querySelectorAll('.calendar-day.direct-selected')
-                .forEach(el => el.classList.remove('direct-selected'));
-            this.elements.datesTbody.innerHTML = ''; // Clear preview table
-            this.elements.selectedDatesPreviewSection.style.display = 'none';
+                .forEach(el => {
+                    el.classList.remove('direct-selected');
+                    delete el.dataset.selectionIndex; // Also clear index data attribute
+                });
+            if(this.elements.datesTbody) this.elements.datesTbody.innerHTML = ''; // Clear preview table
+            if(this.elements.selectedDatesPreviewSection) this.elements.selectedDatesPreviewSection.style.display = 'none';
+            this.validateInputsAndToggleButton(); // Update button state after manual clear
         }
-        this.validateInputsAndToggleButton(); // Update button state
+        // Note: validateInputsAndToggleButton is called implicitly by the controller's clearSelection->updateBatchCreatorDates
     }
 
     /**

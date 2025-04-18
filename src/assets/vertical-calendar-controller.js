@@ -85,15 +85,22 @@ class VerticalCalendarController {
         box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.1);
       }
       
-      /* Add checkmark to selected days */
+      /* Display index number on selected days */
       .calendar-day.direct-selected::after {
-        content: "✓";
+        /* Use a data attribute set by JS for the content */
+        content: attr(data-selection-index); 
         position: absolute;
-        top: 2px; /* Adjust position */
-        right: 4px; /* Adjust position */
-        font-size: 11px; /* Adjust size */
+        top: 1px; /* Adjust position */
+        right: 3px; /* Adjust position */
+        font-size: 10px; /* Smaller font size for index */
         color: #0a58ca; /* Slightly darker blue */
         font-weight: bold;
+        padding: 0 2px; /* Add slight padding */
+        line-height: 1; /* Ensure consistent line height */
+        min-width: 8px; /* Ensure minimum width */
+        text-align: center; /* Center text within pseudo-element */
+        background-color: rgba(255, 255, 255, 0.6); /* Optional: slight background for readability */
+        border-radius: 2px; /* Optional: slightly rounded corners */
       }
       
       /* Animation for click feedback */
@@ -149,16 +156,19 @@ class VerticalCalendarController {
       const date = new Date(Date.UTC(year, month - 1, day)); // month is 0-indexed
 
       // Toggle selection logic
-      if (dateElement.classList.contains('direct-selected')) {
-        this.removeDateFromSelection(date);
-        dateElement.classList.remove('direct-selected');
+      const dateIndex = this.selectedDates.findIndex(d => this.formatDateString(d) === dateStr);
+      if (dateIndex !== -1) {
+        // Date exists, remove it
+        this.selectedDates.splice(dateIndex, 1);
       } else {
-        this.addDateToSelection(date);
-        dateElement.classList.add('direct-selected');
+        // Date doesn't exist, add it
+        this.selectedDates.push(date);
+        // Keep sorted
+        this.selectedDates.sort((a, b) => a.getTime() - b.getTime());
       }
 
-      // Sort dates after modification
-      this.selectedDates.sort((a, b) => a.getTime() - b.getTime());
+      // Reapply all highlights and indices based on the updated sorted array
+      this.reapplyHighlights();
 
       // Update the batch creator and the preview table
       this.updateBatchCreatorDates();
@@ -170,56 +180,37 @@ class VerticalCalendarController {
   }
 
   /**
-   * Add a date to the selection if it doesn't exist
-   * @param {Date} date - The date to add (UTC)
-   */
-  addDateToSelection(date) {
-    const dateStr = this.formatDateString(date);
-    const exists = this.selectedDates.some(d => this.formatDateString(d) === dateStr);
-    if (!exists) {
-      this.selectedDates.push(date);
-      // Keep sorted
-      // this.selectedDates.sort((a, b) => a.getTime() - b.getTime()); // Sort is done after add/remove in handler
-    }
-  }
-
-  /**
-   * Remove a date from the selection
-   * @param {Date} date - The date to remove (UTC)
-   */
-  removeDateFromSelection(date) {
-    const dateStr = this.formatDateString(date);
-    this.selectedDates = this.selectedDates.filter(d => this.formatDateString(d) !== dateStr);
-  }
-
-  /**
    * Refresh the controller (e.g., after calendar re-renders)
    */
   refresh() {
     // Re-attach click handlers if needed (delegated might not need this, but good practice)
     this.attachDelegatedClickHandler();
-    // Reapply visual selection state
+    // Reapply visual selection state and indices
     this.reapplyHighlights();
-    // Update preview (might be redundant if reapplyHighlights covers it)
+    // Update preview
     this.updatePreview();
   }
 
   /**
-   * Re-apply the 'direct-selected' class based on the internal selectedDates array
+   * Re-apply the 'direct-selected' class and index data attribute based on the internal selectedDates array
    */
   reapplyHighlights() {
     if (!this.calendar || !this.calendar.container) return;
 
-    // Clear existing highlights first
+    // Clear existing highlights and indices first
     this.calendar.container.querySelectorAll('.calendar-day.direct-selected')
-      .forEach(el => el.classList.remove('direct-selected'));
+      .forEach(el => {
+        el.classList.remove('direct-selected');
+        delete el.dataset.selectionIndex;
+      });
 
-    // Apply highlights based on the stored selectedDates
-    this.selectedDates.forEach(date => {
+    // Apply highlights and indices based on the sorted selectedDates
+    this.selectedDates.forEach((date, index) => { // Index is 0-based here
       const dateStr = this.formatDateString(date); // Use UTC formatter
       const dayEl = this.calendar.container.querySelector(`.calendar-day[data-date="${dateStr}"]`);
       if (dayEl && !dayEl.classList.contains('other-month') && !dayEl.classList.contains('past')) {
         dayEl.classList.add('direct-selected');
+        dayEl.dataset.selectionIndex = index + 1;
       }
     });
   }
@@ -339,6 +330,16 @@ class VerticalCalendarController {
   }
 
   /**
+   * Clears the current date selection, updates UI, and notifies MbzBatchCreator.
+   */
+  clearSelection() {
+    this.selectedDates = [];
+    this.reapplyHighlights(); // This will clear existing highlights and indices
+    this.updatePreview();
+    this.updateBatchCreatorDates(); // Notify the batch creator
+  }
+
+  /**
    * Static factory method to create and initialize the controller
    * @param {VerticalCalendar} calendar - The vertical calendar instance
    * @param {MbzBatchCreator} mbzInstance - The MBZ Batch Creator instance
@@ -355,6 +356,12 @@ class VerticalCalendarController {
     }
     try {
       const controller = new VerticalCalendarController(calendar, mbzInstance);
+      // Make the clearSelection method globally accessible IF the controller initialized
+      if (controller) {
+          window.VerticalCalendarControllerAPI = {
+              clearSelection: controller.clearSelection.bind(controller)
+          };
+      }
       console.log('Vertical Calendar Controller initialized successfully.');
       return controller;
     } catch (error) {
@@ -364,5 +371,5 @@ class VerticalCalendarController {
   }
 }
 
-// Expose to global scope (optional, but can be useful for debugging)
+// Expose the Class itself to global scope (optional, but useful for debugging/initialization)
 window.VerticalCalendarController = VerticalCalendarController; 
