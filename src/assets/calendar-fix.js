@@ -10,6 +10,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Apply CSS once
     const styles = document.createElement('style');
     styles.textContent = `
+      /* Column widths */
+      .mbz-creator-left { width: 60% !important; }
+      .mbz-creator-right { width: 40% !important; }
+      
       /* Custom selection styles */
       .calendar-day.direct-selected {
         background-color: #cfe2ff !important;
@@ -40,16 +44,11 @@ document.addEventListener('DOMContentLoaded', () => {
         animation: clickPulse 0.3s ease;
       }
       
-      /* Always ensure the preview section is visible when it should be */
+      /* Always show the preview section */
       #selected-dates-preview-section { 
         display: block !important;
         opacity: 1 !important;
         visibility: visible !important;
-      }
-      
-      /* When no dates are selected, collapse the preview section */
-      .no-dates-selected #previewSection {
-        display: none !important;
       }
     `;
     document.head.appendChild(styles);
@@ -77,11 +76,8 @@ document.addEventListener('DOMContentLoaded', () => {
         this.namePrefixInput = document.getElementById('name-prefix-input');
         this.hourSelect = document.getElementById('hour-select');
         this.minuteSelect = document.getElementById('minute-select');
-        this.graceInput = document.getElementById('grace-period');
         this.previewTbody = document.getElementById('dates-tbody');
         this.previewSection = document.getElementById('selected-dates-preview-section');
-        this.previewCollapseSection = document.getElementById('previewSection');
-        this.previewToggleBtn = document.querySelector('.preview-toggle-btn');
 
         // Find the calendar container
         this.calendarContainer = document.getElementById('vertical-calendar-container');
@@ -98,6 +94,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Use delegation - attach one handler to the container
         this.calendarContainer.addEventListener('click', (e) => {
+          // Check if our custom controller has already handled this event
+          if (e.defaultPrevented) return;
+          
           // Find the clicked day element
           const dayEl = e.target.closest('.calendar-day');
           // Only handle clicks on actual date elements, not disabled ones
@@ -138,11 +137,6 @@ document.addEventListener('DOMContentLoaded', () => {
           
           // Update the preview
           this.updatePreview();
-          
-          // If this is the first selected date, open the preview section
-          if (this.selectedDates.length === 1 && this.previewToggleBtn && this.previewToggleBtn.classList.contains('collapsed')) {
-            this.previewToggleBtn.click(); // Simulate click to expand
-          }
         }, true); // Use capture phase
 
         // Add listener for when the calendar component finishes rendering
@@ -158,7 +152,6 @@ document.addEventListener('DOMContentLoaded', () => {
         this.namePrefixInput?.addEventListener('input', () => this.updatePreview());
         this.hourSelect?.addEventListener('change', () => this.updatePreview());
         this.minuteSelect?.addEventListener('change', () => this.updatePreview());
-        this.graceInput?.addEventListener('input', () => this.updatePreview());
 
         return true;
       },
@@ -195,28 +188,13 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
         
-        // Update UI based on selection state
-        const mainContainer = document.querySelector('.mbz-creator-view');
-        if (this.selectedDates.length === 0) {
-          // Add class to indicate no dates are selected
-          mainContainer?.classList.add('no-dates-selected');
-          
-          // If using Bootstrap collapse, ensure it's collapsed
-          if (window.bootstrap && this.previewCollapseSection) {
-            const bsCollapse = new bootstrap.Collapse(this.previewCollapseSection, {
-              toggle: false
-            });
-            bsCollapse.hide();
-          } else if (this.previewCollapseSection) {
-            // Fallback method
-            this.previewCollapseSection.style.display = 'none';
-            if (this.previewToggleBtn) {
-              this.previewToggleBtn.classList.add('collapsed');
-            }
-          }
+        // Show/hide the section based on whether dates are selected
+        if (this.selectedDates.length > 0) {
+          this.previewSection.style.display = 'block';
+          this.previewSection.classList.remove('hidden');
         } else {
-          // Remove class since dates are selected
-          mainContainer?.classList.remove('no-dates-selected');
+          this.previewSection.style.display = 'none'; // Hide if no dates
+          this.previewSection.classList.add('hidden');
         }
         
         // Clear the table
@@ -228,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         // Get input values
-        const namePrefix = this.namePrefixInput?.value || 'Page';
+        const namePrefix = this.namePrefixInput?.value || 'Assignment';
         const hour = parseInt(this.hourSelect?.value || '17', 10);
         const minute = parseInt(this.minuteSelect?.value || '0', 10);
         
@@ -294,11 +272,11 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // Check if we're already in MBZ view at initialization
-  if (document.getElementById('mbz-creator-view')) {
+  if (document.getElementById('mbz-creator-view').style.display !== 'none') {
     // Wait for the calendar to be ready
     setTimeout(() => {
       // Attempt to get instance if initialized early
-      const instance = document.querySelector('.mbz-creator-view')?._mbzCreator;
+      const instance = document.getElementById('mbz-creator-view')?._mbzCreator;
       initializeController(instance);
     }, 1000); 
   }
@@ -309,7 +287,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Wait for the calendar to be ready
       setTimeout(() => {
         // Pass the instance when initializing on view change
-        const instance = document.querySelector('.mbz-creator-view')?._mbzCreator;
+        const instance = document.getElementById('mbz-creator-view')?._mbzCreator;
         initializeController(instance);
       }, 1000); 
     }

@@ -314,6 +314,7 @@
 
             // Initialize the MBZ batch creator when needed
             let mbzCreatorInstance = null;
+            let calendarControllerInstance = null;
 
             // Listen for view changes
             window.addEventListener('viewChanged', (event) => {
@@ -322,21 +323,32 @@
                     if (mbzContainer) {
                         // Initialize the MBZ batch creator
                         mbzCreatorInstance = MbzBatchCreator.initialize(mbzContainer);
+                        
+                        // After calendar has been created, initialize the controller
+                        // Wait for calendar to be fully initialized and calendar-fix.js to hook in
+                        setTimeout(() => {
+                            const calendarContainer = document.getElementById('vertical-calendar-container');
+                            if (calendarContainer && mbzCreatorInstance.calendar) {
+                                // Wait a bit longer to ensure calendar-fix.js is initialized
+                                setTimeout(() => {
+                                    // Initialize our controller and link with the existing calendarController
+                                    calendarControllerInstance = VerticalCalendarController.initialize(mbzCreatorInstance.calendar);
+                                    // Link the controller with the batch creator
+                                    mbzCreatorInstance.setController(calendarControllerInstance);
+                                    
+                                    // Connect to existing calendar controller if needed
+                                    if (window.calendarController) {
+                                        // Initialize with existing selections
+                                        mbzCreatorInstance.calendar.selectedDates = [...window.calendarController.selectedDates];
+                                        // Reapply highlights based on the current selection
+                                        calendarControllerInstance.refresh();
+                                    }
+                                }, 300);
+                            }
+                        }, 500);
                     }
                 }
             });
-
-            // Initialize vertical calendar controller for any calendars
-            document.addEventListener('calendarRendered', (event) => {
-                // Get the calendar instance from the event target element
-                const calendarElement = event.target;
-                const calendarInstance = calendarElement._calendarInstance;
-                
-                if (calendarInstance && calendarInstance instanceof VerticalCalendar) {
-                    // Initialize multi-selection controller
-                    VerticalCalendarController.initialize(calendarInstance);
-                }
-            }, true); // Use capturing to ensure we get the event
 
             // Handle initial view if needed
             if (window.location.hash === '#mbz') {
