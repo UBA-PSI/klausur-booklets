@@ -468,3 +468,195 @@ h1 {
     border-radius: 4px;
     overflow-x: auto; /* Allow horizontal scroll for long lines */
 }
+
+/* App Mode Switcher */
+.app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.app-title-container {
+    display: flex;
+    align-items: center;
+}
+
+.app-title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+.app-mode {
+    margin-left: 15px;
+    font-size: 1rem;
+    color: #6c757d;
+}
+
+.app-switcher {
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.app-switcher:hover {
+    background-color: #5a6268;
+}
+
+/* Main view/MBZ view container */
+.view-container {
+    display: none;
+}
+
+.view-container.active {
+    display: block;
+}
+
+/* MBZ Creator View Layout */
+.mbz-creator-view {
+    display: flex;
+    height: calc(100vh - 60px); /* Full height minus header */
+}
+
+.mbz-creator-left {
+    width: 60%; /* Adjusted width - making left column wider */
+    padding: 20px;
+    overflow-y: auto;
+    border-right: 1px solid #dee2e6;
+}
+
+.mbz-creator-right {
+    width: 40%; /* Adjusted width - making right column narrower */
+    height: 100%;
+    overflow-y: auto;
+}
+
+/* Hide sections with the hidden class */
+.hidden {
+    display: none !important;
+}
+
+/* Vertical Calendar Styling */
+.vertical-calendar {
+    width: 100%;
+    height: 100%;
+    padding: 0;
+}
+
+.month-label {
+    writing-mode: vertical-lr;
+    transform: rotate(180deg);
+    text-transform: uppercase;
+    color: #6c757d;
+    font-weight: bold;
+    padding: 10px 0;
+    letter-spacing: 1px;
+    width: 30px;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+.calendar-week {
+    display: flex;
+    border-bottom: 1px solid #efefef;
+    height: 40px; /* Fixed height for consistent rows */
+}
+
+.calendar-day {
+    flex: 1;
+    min-height: 40px;
+    height: 40px; /* Fixed height to align properly */
+    text-align: center;
+    padding: 10px 0;
+    cursor: pointer;
+    position: relative;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.calendar-day:hover {
+    background-color: #e9ecef;
+}
+
+.calendar-day.selected {
+    background-color: #cfe2ff;
+    color: #0d6efd;
+    font-weight: bold;
+}
+
+.calendar-day.today {
+    border: 2px solid #0d6efd;
+}
+
+.calendar-day.month-start {
+    font-weight: bold;
+}
+
+.calendar-day.past {
+    color: #aaa;
+    cursor: not-allowed;
+}
+
+.calendar-day.even-month {
+    background-color: #f2f2f2;
+}
+
+.calendar-day.odd-month {
+    background-color: #ffffff;
+}
+
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.calendar-nav {
+    display: flex;
+    gap: 10px;
+}
+
+.weekday-header {
+    display: flex;
+    border-bottom: 2px solid #dee2e6;
+    height: 40px; /* Match the week row height */
+}
+
+.weekday-label {
+    flex: 1;
+    text-align: center;
+    padding: 10px 0;
+    font-weight: bold;
+}
+
+/* Month label column styling */
+.month-label-col {
+    width: 30px;
+    min-width: 30px;
+    border-right: 1px solid #efefef;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Adjust the app header behavior for MBZ mode */
+body.mbz-mode .app-header {
+    position: static;
+    width: auto;
+}
+
+/* Hide the main header when in MBZ mode (since it's included in the left column) */
+body.mbz-mode #main-header {
+    display: none;
+}

@@ -20,6 +20,16 @@ Dieses Booklet ist zugelassenes Hilfsmittel im Wintersemester 2024 und im Sommer
 **Nicht eingereichte Seiten:**
 {{MISSING_PAGES_LIST}}`;
 
+// Define the openModal function directly here instead of relying on modal.js
+function openModal() {
+    const modal = document.getElementById("settingsModal");
+    if (modal) {
+        modal.style.display = "block";
+    } else {
+        console.error("Settings modal element not found");
+    }
+}
+
 // Check if the API is exposed
 if (!window.electronAPI) {
   console.error("FATAL: Preload script did not expose electronAPI!");
@@ -656,8 +666,6 @@ document.getElementById('createBookletsBtn').addEventListener('click', async () 
     }
 });
 
-document.getElementById('settingsButton').addEventListener('click', openModal);
-
 // When the modal is closed, save the DPI value
 document.querySelector('.close-button').addEventListener('click', () => {
     saveConfig();
@@ -707,6 +715,8 @@ document.getElementById('importConfigBtn').addEventListener('click', async () =>
             updateStatus('info', `Config imported successfully from ${result.filePath}`);
         } else if (!result.cancelled) {
             updateStatus('error', `Failed to import config: ${result.error}`);
+        } else {
+            updateStatus('info', 'Config import cancelled.'); // Handle cancellation message
         }
     } catch (error) {
         updateStatus('error', `Error during config import: ${error.message}`);
@@ -816,78 +826,105 @@ if (clearOutputBtn) {
 }
 // --- End Clear Output --- 
 
-// --- MBZ Batch Creator Initialization ---
-let mbzCreatorInstance = null; // Keep track of the UI instance
-
-// Make sure to get elements after the DOM is loaded
+// --- Wrap remaining listeners in DOMContentLoaded ---
 document.addEventListener('DOMContentLoaded', () => {
-    const batchCreateMbzBtn = document.getElementById('batchCreateMbzBtn');
-    const mbzCreatorModal = document.getElementById('mbzCreatorModal');
-    const mbzCreatorContainer = document.getElementById('mbz-creator-container');
-    const mbzCreatorCloseBtn = mbzCreatorModal?.querySelector('.mbz-creator-close');
+    console.log("DOM fully loaded and parsed");
 
-    if (batchCreateMbzBtn) {
-        batchCreateMbzBtn.addEventListener('click', () => {
-            console.log('Batch Create MBZ button clicked'); // Debug log
-            if (mbzCreatorModal && mbzCreatorContainer) {
-                mbzCreatorModal.style.display = 'block';
-                // Initialize the UI only if it hasn't been initialized yet
-                if (!mbzCreatorInstance) {
-                    try {
-                        console.log('Initializing MBZ Batch Creator UI...'); // Debug log
-                        mbzCreatorInstance = MbzBatchCreatorUI.initialize(mbzCreatorContainer);
-                        console.log('MBZ Batch Creator UI Initialized:', mbzCreatorInstance); // Debug log
-                    } catch (error) {
-                        console.error('Failed to initialize MBZ Batch Creator UI:', error);
-                        mbzCreatorContainer.innerHTML = `<h2>Error Loading UI</h2><p>${error.message}</p>`;
-                        updateStatus('error', 'Failed to load Batch Creator UI.');
+    // Button Listeners (that might depend on modal.js or DOM elements)
+    const settingsButton = document.getElementById('settingsButton');
+    if (settingsButton) {
+        settingsButton.addEventListener('click', openModal); // This caused the error
+    } else {
+        console.warn('Settings button not found');
+    }
+
+    // Close button for the settings modal
+    const settingsCloseButton = document.querySelector('#settingsModal .close-button');
+    if (settingsCloseButton) {
+        settingsCloseButton.addEventListener('click', () => {
+            const settingsModal = document.getElementById('settingsModal');
+            settingsModal.style.display = "none";
+            saveConfig();
+        });
+    } else {
+        console.warn('Settings modal close button not found');
+    }
+
+    // Pattern preset radio buttons
+    document.querySelectorAll('input[name="pattern-preset"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            const patternInput = document.getElementById('foldername-pattern');
+            if (e.target.value !== 'custom') {
+                patternInput.value = e.target.value;
+                config.foldernamePattern = e.target.value;
+            }
+        });
+    });
+
+    // Cover template edit button
+    const editCoverBtn = document.getElementById('editCoverTemplateBtn');
+    if (editCoverBtn) {
+        editCoverBtn.addEventListener('click', () => {
+            const modal = document.getElementById('coverTemplateModal');
+            const textarea = document.getElementById('coverTemplateContentInput');
+            textarea.value = config.coverTemplateContent || DEFAULT_COVER_TEMPLATE;
+            modal.style.display = 'block';
+        });
+    } else {
+        console.warn('Edit cover template button not found');
+    }
+
+    // Cover template close button
+    const coverCloseBtn = document.querySelector('#coverTemplateModal .cover-template-close');
+    if (coverCloseBtn) {
+        coverCloseBtn.addEventListener('click', () => {
+            const modal = document.getElementById('coverTemplateModal');
+            modal.style.display = 'none';
+            saveConfig();
+        });
+    } else {
+        console.warn('Cover template modal close button not found');
+    }
+    
+    // Clear Output Button Listener
+    const clearOutputBtn = document.getElementById('clearOutputBtn');
+    if (clearOutputBtn) {
+        clearOutputBtn.addEventListener('click', async () => {
+            const outputDirectory = document.getElementById('outputDirectoryPath').value;
+            if (!outputDirectory) {
+                updateStatus('error', 'Please select an output directory first.');
+                return;
+            }
+
+            const confirmation = confirm(
+                `Are you sure you want to permanently delete the contents of the following subfolders within '${outputDirectory}'?\n\n- pages\n- pdfs\n- booklets\n\nThis action cannot be undone.`
+            );
+
+            if (confirmation) {
+                updateStatus('processing', 'Clearing output folders...');
+                try {
+                    const result = await window.electronAPI.clearOutputFolder(outputDirectory);
+                    if (result.success) {
+                        updateStatus('success', result.message);
+                    } else {
+                        updateStatus('error', result.message);
                     }
+                } catch (error) {
+                    updateStatus('error', `Failed to clear output: ${error.message}`);
                 }
             } else {
-                console.error('MBZ Creator modal or container not found.');
-                updateStatus('error', 'Could not open Batch Creator UI.');
+                updateStatus('info', 'Clear output cancelled.');
             }
         });
     } else {
-        console.warn('Batch Create MBZ button (batchCreateMbzBtn) not found.');
+        console.warn('Clear Output button (clearOutputBtn) not found in index.html.');
     }
 
-    if (mbzCreatorCloseBtn) {
-        mbzCreatorCloseBtn.addEventListener('click', () => {
-            if (mbzCreatorModal) {
-                mbzCreatorModal.style.display = 'none';
-            }
-        });
-    }
-
-    // Handle closing modal by clicking outside
-    window.addEventListener('click', (event) => {
-        if (event.target == mbzCreatorModal) {
-            mbzCreatorModal.style.display = 'none';
-        }
-        // Add similar checks for other modals if not already present
-        const settingsModal = document.getElementById('settingsModal');
-        if (event.target == settingsModal) {
-            settingsModal.style.display = "none";
-            saveConfig(); // Assuming settings modal also saves on close
-        }
-        const coverModal = document.getElementById('coverTemplateModal');
-        if (event.target == coverModal) {
-            coverModal.style.display = 'none';
-            saveConfig(); // Save on close
-        }
-        const ambiguityModal = document.getElementById('ambiguityModal');
-        if (event.target == ambiguityModal) {
-            // ambiguityModal.style.display = 'none'; // Decide if this should close it
-        }
-        const moodleCollisionModal = document.getElementById('moodleCollisionModal');
-        if (event.target == moodleCollisionModal) {
-             closeMoodleCollisionModal();
-        }
-
-    });
+    // Initialize components or listeners that depend on the full DOM
+    // For example, if ambiguity modal buttons needed setup here:
+    // ambiguityPrevBtn.onclick = ... etc.
+    // Make sure any functions called here (like openModal, saveConfig) are defined globally or passed correctly.
 });
-// --- End MBZ Batch Creator Initialization ---
 
 
 

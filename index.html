@@ -7,6 +7,8 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';">
     <title>PDF Merger</title>
     <link rel="stylesheet" type="text/css" href="src/assets/styles.css">
+    <!-- Add Bootstrap CSS for styling -->
+    <link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.min.css">
     <!-- Add Flatpickr CSS -->
     <link rel="stylesheet" type="text/css" href="node_modules/flatpickr/dist/flatpickr.min.css">
     <!-- Add MBZ Creator CSS -->
@@ -14,247 +16,262 @@
 </head>
 
 <body>
-    <div class="container">
-        <h1>Exam Booklet Builder</h1>
-
-		<h2>Select Directories</h2>
-        <div class="input-group">
-            <label>Input Directory:</label>
-            <input type="text" id="mainDirectoryPath" >
-            <button id="select-main-dir-button">Browse</button>
+    <!-- App Header - spans full width in main view -->
+    <div class="app-header" id="main-header">
+        <div class="app-title-container">
+            <h1 class="app-title">Booklet Page Tool</h1>
+            <span id="app-mode" class="app-mode">Booklet Generation Mode</span>
         </div>
-
-        <div class="input-group">
-            <label>Output Directory:</label>
-            <input type="text" id="outputDirectoryPath" >
-            <button id="select-output-dir-button">Browse</button>
-        </div>
-
-        <hr>
-
-		<div class="actions">
-        <div class="button-group">
-            <button id="clearOutputBtn" class="btn btn-danger">0. Clear Output Folder</button>
-            <button id="startTransformationBtn">1. Convert Inputs to PDFs</button>
-            <button id="startMergingBtn">2. Merge PDFs</button>
-            <button id="createBookletsBtn">3. Create Booklets</button>
-			<button id="settingsButton">Settings</button>
-            <button id="editCoverTemplateBtn">Edit Cover Template</button>            
-            <button id="batchCreateMbzBtn" class="btn btn-secondary">Batch Create Assignments</button>
-		</div>
-        </div>
-
-        <div id="status"></div>
-		<div id="status-bar">
-            <span id="progress-count" class="status-part"></span>
-            <span id="progress-percent" class="status-part"></span>
-            <span id="status-message" class="status-part status-message-main">Ready</span>
-		</div>
-
-        <!-- Error Log Area -->
-        <div id="errorLogContainer" style="margin-top: 15px; display: none;"> <!-- Hidden initially -->
-            <h3>Processing Errors & Warnings:</h3>
-            <textarea id="errorLogOutput" readonly style="width: 100%; height: 305px; border: 1px solid #ccc; background-color: #f8f8f8; padding: 5px; font-family: monospace; font-size: 0.85em; resize: vertical;"></textarea>
-        </div>
-		
+        <button id="app-mode-switch" class="app-switcher">Switch Mode</button>
     </div>
-	
 
-<div id="settingsModal" class="modal settings-modal-wide">
-    <div class="modal-content">
-        <span class="close-button">&times;</span>
-        <h2>Settings</h2>
-        
-        <!-- DPI Setting -->
-        <div class="form-group settings-group">
-            <label for="dpi" class="block-label">DPI:</label>
-            <input type="number" id="dpi" value="300" class="form-control full-width">
-            <small>Resolution for converting images. Higher values = better quality but larger files. 300 is standard for printing.</small>
-        </div>
+    <!-- Main View (Booklet Generator) -->
+    <div id="main-view" class="view-container active">
+        <div class="container">
+            <h2>Select Directories</h2>
+            <div class="input-group">
+                <label>Input Directory:</label>
+                <input type="text" id="mainDirectoryPath">
+                <button id="select-main-dir-button">Browse</button>
+            </div>
 
-        <!-- Folder Pattern Setting -->
-        <div class="form-group settings-group">
-            <label for="foldername-pattern" class="block-label">Folder Name Pattern:</label>
-            
-            <!-- Pattern Presets -->
-            <div class="pattern-presets">
-                <div class="preset-option">
-                    <input type="radio" id="pattern-ilias" name="pattern-preset" value="FIRSTNAME_LASTNAME_USERNAME_STUDENTNUMBER">
-                    <label for="pattern-ilias">Ilias Format</label>
-                </div>
-                <div class="preset-option">
-                    <input type="radio" id="pattern-moodle" name="pattern-preset" value="FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file_">
-                    <label for="pattern-moodle">Moodle Format (Enables CSV Collision Handling)</label>
-                </div>
-                <div class="preset-option">
-                    <input type="radio" id="pattern-custom" name="pattern-preset" value="custom" checked>
-                    <label for="pattern-custom">Custom Format</label>
+            <div class="input-group">
+                <label>Output Directory:</label>
+                <input type="text" id="outputDirectoryPath">
+                <button id="select-output-dir-button">Browse</button>
+            </div>
+
+            <hr>
+
+            <div class="actions">
+                <div class="button-group">
+                    <button id="clearOutputBtn" class="btn btn-danger">0. Clear Output Folder</button>
+                    <button id="startTransformationBtn">1. Convert Inputs to PDFs</button>
+                    <button id="startMergingBtn">2. Merge PDFs</button>
+                    <button id="createBookletsBtn">3. Create Booklets</button>
+                    <button id="settingsButton">Settings</button>
+                    <button id="editCoverTemplateBtn">Edit Cover Template</button>
                 </div>
             </div>
+
+            <div id="status"></div>
+            <div id="status-bar">
+                <span id="progress-count" class="status-part"></span>
+                <span id="progress-percent" class="status-part"></span>
+                <span id="status-message" class="status-part status-message-main">Ready</span>
+            </div>
+
+            <!-- Error Log Area -->
+            <div id="errorLogContainer" style="margin-top: 15px; display: none;">
+                <!-- Hidden initially -->
+                <h3>Processing Errors & Warnings:</h3>
+                <textarea id="errorLogOutput" readonly
+                    style="width: 100%; height: 305px; border: 1px solid #ccc; background-color: #f8f8f8; padding: 5px; font-family: monospace; font-size: 0.85em; resize: vertical;"></textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- MBZ Creator View -->
+    <div id="mbz-creator-view" class="view-container">
+        <!-- Content will be generated by MbzBatchCreator component -->
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal settings-modal-wide">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h2>Settings</h2>
             
-            <!-- Pattern Input -->
-            <input type="text" id="foldername-pattern" class="form-control full-width" placeholder="e.g., FIRSTNAME-LASTNAME or FULLNAMEWITHSPACES_NUMBER_assignsubmission_file_">
-            
-            <!-- Compact Pattern Help -->
-            <div class="pattern-help">
-                <details>
-                    <summary><strong>Pattern Help</strong> (click to expand)</summary>
-                    <div class="pattern-explanation compact">
-                        <p>Define how student folders are named. Use separator character from your folders (<code>_</code> or <code>-</code>).</p>
-                        <p><small><strong>Note:</strong> Selecting 'Moodle Format' also enables automatic name collision handling if you place the corresponding Moodle Grading Worksheet CSV file inside each page's input subfolder (e.g., `Seite 1/worksheet.csv`). You will be prompted if collisions are detected.</small></p>
-                        <div class="two-columns">
-                            <div>
-                                <strong>Available Placeholders:</strong>
-                                <ul class="compact-list">
-                                    <li><code>FIRSTNAME</code></li>
-                                    <li><code>LASTNAME</code></li>
-                                    <li><code>FULLNAMEWITHSPACES</code></li>
-                                    <li><code>USERNAME</code></li>
-                                    <li><code>STUDENTNUMBER</code> (preferred identifier)</li>
-                                </ul>
-                            </div>
-                            <div>
-                                <strong>Examples:</strong>
-                                <ul class="compact-list">
-                                    <li>Ilias: <code>FIRSTNAME_LASTNAME_USERNAME_STUDENTNUMBER</code></li>
-                                    <li>Moodle: <code>FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file_</code></li>
-                                    <li>Simple: <code>LASTNAME-FIRSTNAME</code></li>
-                                </ul>
-                            </div>
-                        </div>
-                        <p><small><strong>Identifier Priority:</strong> Student Number > Username > Full Name > Original Folder Name</small></p>
+            <!-- DPI Setting -->
+            <div class="form-group settings-group">
+                <label for="dpi" class="block-label">DPI:</label>
+                <input type="number" id="dpi" value="300" class="form-control full-width">
+                <small>Resolution for converting images. Higher values = better quality but larger files. 300 is standard for printing.</small>
+            </div>
+
+            <!-- Folder Pattern Setting -->
+            <div class="form-group settings-group">
+                <label for="foldername-pattern" class="block-label">Folder Name Pattern:</label>
+                
+                <!-- Pattern Presets -->
+                <div class="pattern-presets">
+                    <div class="preset-option">
+                        <input type="radio" id="pattern-ilias" name="pattern-preset" value="FIRSTNAME_LASTNAME_USERNAME_STUDENTNUMBER">
+                        <label for="pattern-ilias">Ilias Format</label>
                     </div>
-                </details>
+                    <div class="preset-option">
+                        <input type="radio" id="pattern-moodle" name="pattern-preset" value="FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file_">
+                        <label for="pattern-moodle">Moodle Format (Enables CSV Collision Handling)</label>
+                    </div>
+                    <div class="preset-option">
+                        <input type="radio" id="pattern-custom" name="pattern-preset" value="custom" checked>
+                        <label for="pattern-custom">Custom Format</label>
+                    </div>
+                </div>
+                
+                <!-- Pattern Input -->
+                <input type="text" id="foldername-pattern" class="form-control full-width" placeholder="e.g., FIRSTNAME-LASTNAME or FULLNAMEWITHSPACES_NUMBER_assignsubmission_file_">
+                
+                <!-- Compact Pattern Help -->
+                <div class="pattern-help">
+                    <details>
+                        <summary><strong>Pattern Help</strong> (click to expand)</summary>
+                        <div class="pattern-explanation compact">
+                            <p>Define how student folders are named. Use separator character from your folders (<code>_</code> or <code>-</code>).</p>
+                            <p><small><strong>Note:</strong> Selecting 'Moodle Format' also enables automatic name collision handling if you place the corresponding Moodle Grading Worksheet CSV file inside each page's input subfolder (e.g., `Seite 1/worksheet.csv`). You will be prompted if collisions are detected.</small></p>
+                            <div class="two-columns">
+                                <div>
+                                    <strong>Available Placeholders:</strong>
+                                    <ul class="compact-list">
+                                        <li><code>FIRSTNAME</code></li>
+                                        <li><code>LASTNAME</code></li>
+                                        <li><code>FULLNAMEWITHSPACES</code></li>
+                                        <li><code>USERNAME</code></li>
+                                        <li><code>STUDENTNUMBER</code> (preferred identifier)</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <strong>Examples:</strong>
+                                    <ul class="compact-list">
+                                        <li>Ilias: <code>FIRSTNAME_LASTNAME_USERNAME_STUDENTNUMBER</code></li>
+                                        <li>Moodle: <code>FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file_</code></li>
+                                        <li>Simple: <code>LASTNAME-FIRSTNAME</code></li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <p><small><strong>Identifier Priority:</strong> Student Number > Username > Full Name > Original Folder Name</small></p>
+                        </div>
+                    </details>
+                </div>
+            </div>
+
+            <!-- Filesize Limits -->
+            <div class="form-group settings-group">
+                <label class="block-label">Input File Size Limits:</label>
+                <div class="inline-inputs">
+                    <div>
+                        <label for="minFileSizeKB">Min (KB):</label>
+                        <input type="number" id="minFileSizeKB" value="1" min="0" class="form-control short-input">
+                    </div>
+                    <div>
+                        <label for="maxFileSizeMB">Max (MB):</label>
+                        <input type="number" id="maxFileSizeMB" value="20" min="1" class="form-control short-input">
+                    </div>
+                </div>
+                <small>Minimum and maximum allowed size for each input file (images/PDFs). Files outside this range will be skipped.</small>
+            </div>
+
+            <hr>
+
+            <!-- Config Actions -->
+            <div class="button-group settings-actions">
+                 <button id="exportConfigBtn" class="btn btn-secondary">Export Config</button>
+                 <button id="importConfigBtn" class="btn btn-secondary">Import Config</button>
             </div>
         </div>
+    </div>
 
-        <!-- Filesize Limits -->
-        <div class="form-group settings-group">
-            <label class="block-label">Input File Size Limits:</label>
-            <div class="inline-inputs">
-                <div>
-                    <label for="minFileSizeKB">Min (KB):</label>
-                    <input type="number" id="minFileSizeKB" value="1" min="0" class="form-control short-input">
-                </div>
-                <div>
-                    <label for="maxFileSizeMB">Max (MB):</label>
-                    <input type="number" id="maxFileSizeMB" value="20" min="1" class="form-control short-input">
-                </div>
+    <!-- Collision Modal -->
+    <div id="moodleCollisionModal" class="modal collision-modal-wide">
+        <div class="modal-content">
+            <span class="close-button moodle-collision-close">&times;</span>
+            <h2>Potential Issues Detected (Moodle Pattern)</h2>
+            <!-- CSV Status Section -->
+            <div id="csvStatusInfo" class="csv-status-info">
+                <!-- Status message populated by JS -->
             </div>
-            <small>Minimum and maximum allowed size for each input file (images/PDFs). Files outside this range will be skipped.</small>
-        </div>
 
-        <hr>
-
-        <!-- Config Actions -->
-        <div class="button-group settings-actions">
-             <button id="exportConfigBtn" class="btn btn-secondary">Export Config</button>
-             <button id="importConfigBtn" class="btn btn-secondary">Import Config</button>
-        </div>
-    </div>
-</div>
-
-<!-- Collision Modal -->
-<div id="moodleCollisionModal" class="modal collision-modal-wide">
-    <div class="modal-content">
-        <span class="close-button moodle-collision-close">&times;</span>
-        <h2>Potential Issues Detected (Moodle Pattern)</h2>
-        <!-- CSV Status Section -->
-        <div id="csvStatusInfo" class="csv-status-info">
-            <!-- Status message populated by JS -->
-        </div>
-
-        <!-- Missing CSV Mappings Section (NEW) -->
-        <div id="mappingErrorSection" class="collision-section" style="display: none;"> <!-- Hidden by default -->
-            <h3><span class="warning-icon">⚠️</span> Missing CSV Mappings</h3>
-            <p><small>The following students (identified by the number in their folder name) could not be found in the CSV file located in their respective page folder. This often means the wrong CSV file was placed in that folder.</small></p>
-            <ul id="mappingErrorList">
-                <!-- List of mapping errors will be populated here -->
-            </ul>
-            <p><strong>Action required:</strong> Please ensure the correct CSV file (containing these students) is placed in each listed page folder.</p>
-        </div>
-
-        <!-- Existing Same-Name Collisions Section -->
-        <div id="collisionNameSection" class="collision-section" style="display: none;"> <!-- Hidden by default -->
-            <h3><span class="warning-icon">⚠️</span> Same-Name Collisions</h3>
-            <p><small>These student identifiers (name or email) have multiple different submission folders associated with them within the same page folder, AND this could not be resolved automatically using emails from CSV files.</small></p>
-            <ul id="collisionList">
-                <!-- List of colliding names will be populated here -->
-            </ul>
-        </div>
-
-        <!-- Resolution Options -->
-        <p><strong>Please resolve the issues listed above using one of the following methods before continuing:</strong></p>
-        <ol style="font-size: 0.95em;">
-            <li>
-                <strong>Using CSV Files (Recommended):</strong> Place the Moodle Grading Worksheet CSV file inside <em>each</em> page subfolder within your input directory (e.g., put the 'Seite 1.csv' inside the 'Seite 1' folder). 
-                <ul>
-                    <li>CSV files must be present in <em>all</em> page folders where students with identical names appear</li>
-                    <li>Each CSV must contain both an 'ID' column (corresponding to the number in the place of SOMENUMBER in the folder name template) and an 'E-Mail-Adresse' column (rename columns if necessary)</li>
-                    <li>The tool uses the email addresses from the CSV files and the IDs to uniquely identify students even when names are identical</li>
+            <!-- Missing CSV Mappings Section (NEW) -->
+            <div id="mappingErrorSection" class="collision-section" style="display: none;"> <!-- Hidden by default -->
+                <h3><span class="warning-icon">⚠️</span> Missing CSV Mappings</h3>
+                <p><small>The following students (identified by the number in their folder name) could not be found in the CSV file located in their respective page folder. This often means the wrong CSV file was placed in that folder.</small></p>
+                <ul id="mappingErrorList">
+                    <!-- List of mapping errors will be populated here -->
                 </ul>
-            </li>
-            <li>
-                <strong>Manual Folder Renaming:</strong> If CSV files are unavailable, you must manually rename the student submission folders as follows:
-                <ul>
-                    <li>Folders for the <em>same student</em> must have <em>exactly the same name</em> across all page directories</li>
-                    <li>Folders for <em>different students</em> must have different names</li>
-                    <li>You must rename <em>all</em> folders for students with same names in <em>all</em> page directories in a consistent manner, even where only one of the students submitted a particular page</li>
-                    <li>Example: If there are two 'Anna Schmidt' in 'Seite 1' and 'Seite 2', change the name (e.g. Anna1) in one of these same-named subfolders in each of these directories identically</li>
+                <p><strong>Action required:</strong> Please ensure the correct CSV file (containing these students) is placed in each listed page folder.</p>
+            </div>
+
+            <!-- Existing Same-Name Collisions Section -->
+            <div id="collisionNameSection" class="collision-section" style="display: none;"> <!-- Hidden by default -->
+                <h3><span class="warning-icon">⚠️</span> Same-Name Collisions</h3>
+                <p><small>These student identifiers (name or email) have multiple different submission folders associated with them within the same page folder, AND this could not be resolved automatically using emails from CSV files.</small></p>
+                <ul id="collisionList">
+                    <!-- List of colliding names will be populated here -->
                 </ul>
-            </li>
-        </ol>
-        <div style="text-align: right; margin-top: 20px;">
-            <button id="moodleCollisionRetryWithCSVBtn" class="btn btn-primary">Check Again After Changes</button>
-            <button id="moodleCollisionOkBtn">Close</button>
-        </div>
-    </div>
-</div>
+            </div>
 
-<!-- Ambiguity Resolution Modal -->
-<div id="ambiguityModal" class="modal">
-    <div class="modal-content ambiguity-modal-content">
-        <span class="close-button ambiguity-close">&times;</span>
-        <h2>Resolve File Conflicts</h2>
-        <p>Multiple suitable files found. Please select one file for each folder:</p>
-        <div id="ambiguityProgress" style="margin-bottom: 15px; font-style: italic;"></div>
-        <div id="ambiguityList"></div> 
-        <div class="ambiguity-navigation" style="margin-top: 20px; display: flex; justify-content: space-between;">
-            <button id="ambiguityPrevBtn" disabled>&laquo; Previous</button>
-            <button id="ambiguityNextBtn">Next &raquo;</button>
-            <button id="confirmAmbiguityBtn" style="display: none;">Confirm Selections</button> <!-- Initially hidden -->
-        </div>
-        <div id="ambiguityError" class="error-message"></div>
-    </div>
-</div>
-
-<!-- Cover Template Modal -->
-<div id="coverTemplateModal" class="modal cover-template-modal">
-    <div class="modal-content">
-        <span class="close-button cover-template-close">&times;</span>
-        <h2>Edit Cover Template</h2>
-        
-        <div class="form-group">
-            <label for="coverTemplateContentInput" class="block-label">Template Content (Markdown):</label>
-            <textarea id="coverTemplateContentInput" class="form-control full-width" rows="15"></textarea>
-        </div>
-        
-        <!-- Template Help -->
-        <div class="pattern-help" style="margin-top: 15px;">
-            <details>
-                <summary><strong>Template Help</strong> (click to expand)</summary>
-                <div class="pattern-explanation compact" style="font-size: 0.9em;">
-                    <p>Use Markdown to format the cover page. The following placeholders will be replaced:</p>
-                    <ul class="compact-list">
-                        <li><code>{{FULL_NAME}}</code>: Student's full name (derived from folder name based on pattern).</li>
-                        <li><code>{{LAST_NAME}}</code>: Student's last name.</li>
-                        <li><code>{{FIRST_NAME}}</code>: Student's first name.</li>
-                        <li><code>{{STUDENTNUMBER}}</code>: Student's number (if available in folder name and pattern).</li>
-                        <li><code>{{SUBMITTED_PAGES_LIST}}</code>: A list of submitted pages and original filenames.</li>
-                        <li><code>{{MISSING_PAGES_LIST}}</code>: A list of expected page directories not found for the student.</li>
+            <!-- Resolution Options -->
+            <p><strong>Please resolve the issues listed above using one of the following methods before continuing:</strong></p>
+            <ol style="font-size: 0.95em;">
+                <li>
+                    <strong>Using CSV Files (Recommended):</strong> Place the Moodle Grading Worksheet CSV file inside <em>each</em> page subfolder within your input directory (e.g., put the 'Seite 1.csv' inside the 'Seite 1' folder). 
+                    <ul>
+                        <li>CSV files must be present in <em>all</em> page folders where students with identical names appear</li>
+                        <li>Each CSV must contain both an 'ID' column (corresponding to the number in the place of SOMENUMBER in the folder name template) and an 'E-Mail-Adresse' column (rename columns if necessary)</li>
+                        <li>The tool uses the email addresses from the CSV files and the IDs to uniquely identify students even when names are identical</li>
                     </ul>
-                    <p>Example:</p>
-                    <pre><code># Exam Submission
+                </li>
+                <li>
+                    <strong>Manual Folder Renaming:</strong> If CSV files are unavailable, you must manually rename the student submission folders as follows:
+                    <ul>
+                        <li>Folders for the <em>same student</em> must have <em>exactly the same name</em> across all page directories</li>
+                        <li>Folders for <em>different students</em> must have different names</li>
+                        <li>You must rename <em>all</em> folders for students with same names in <em>all</em> page directories in a consistent manner, even where only one of the students submitted a particular page</li>
+                        <li>Example: If there are two 'Anna Schmidt' in 'Seite 1' and 'Seite 2', change the name (e.g. Anna1) in one of these same-named subfolders in each of these directories identically</li>
+                    </ul>
+                </li>
+            </ol>
+            <div style="text-align: right; margin-top: 20px;">
+                <button id="moodleCollisionRetryWithCSVBtn" class="btn btn-primary">Check Again After Changes</button>
+                <button id="moodleCollisionOkBtn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ambiguity Resolution Modal -->
+    <div id="ambiguityModal" class="modal">
+        <div class="modal-content ambiguity-modal-content">
+            <span class="close-button ambiguity-close">&times;</span>
+            <h2>Resolve File Conflicts</h2>
+            <p>Multiple suitable files found. Please select one file for each folder:</p>
+            <div id="ambiguityProgress" style="margin-bottom: 15px; font-style: italic;"></div>
+            <div id="ambiguityList"></div> 
+            <div class="ambiguity-navigation" style="margin-top: 20px; display: flex; justify-content: space-between;">
+                <button id="ambiguityPrevBtn" disabled>&laquo; Previous</button>
+                <button id="ambiguityNextBtn">Next &raquo;</button>
+                <button id="confirmAmbiguityBtn" style="display: none;">Confirm Selections</button> <!-- Initially hidden -->
+            </div>
+            <div id="ambiguityError" class="error-message"></div>
+        </div>
+    </div>
+
+    <!-- Cover Template Modal -->
+    <div id="coverTemplateModal" class="modal cover-template-modal">
+        <div class="modal-content">
+            <span class="close-button cover-template-close">&times;</span>
+            <h2>Edit Cover Template</h2>
+            
+            <div class="form-group">
+                <label for="coverTemplateContentInput" class="block-label">Template Content (Markdown):</label>
+                <textarea id="coverTemplateContentInput" class="form-control full-width" rows="15"></textarea>
+            </div>
+            
+            <!-- Template Help -->
+            <div class="pattern-help" style="margin-top: 15px;">
+                <details>
+                    <summary><strong>Template Help</strong> (click to expand)</summary>
+                    <div class="pattern-explanation compact" style="font-size: 0.9em;">
+                        <p>Use Markdown to format the cover page. The following placeholders will be replaced:</p>
+                        <ul class="compact-list">
+                            <li><code>{{FULL_NAME}}</code>: Student's full name (derived from folder name based on pattern).</li>
+                            <li><code>{{LAST_NAME}}</code>: Student's last name.</li>
+                            <li><code>{{FIRST_NAME}}</code>: Student's first name.</li>
+                            <li><code>{{STUDENTNUMBER}}</code>: Student's number (if available in folder name and pattern).</li>
+                            <li><code>{{SUBMITTED_PAGES_LIST}}</code>: A list of submitted pages and original filenames.</li>
+                            <li><code>{{MISSING_PAGES_LIST}}</code>: A list of expected page directories not found for the student.</li>
+                        </ul>
+                        <p>Example:</p>
+                        <pre><code># Exam Submission
 
 **Student:** {{LAST_NAME}}, {{FIRST_NAME}}
 **Number:** {{STUDENTNUMBER}}
@@ -264,32 +281,55 @@
 
 ## Missing Pages:
 {{MISSING_PAGES_LIST}}</code></pre>
-                </div>
-            </details>
+                    </div>
+                </details>
+            </div>
         </div>
     </div>
-</div>
 
-<!-- New MBZ Batch Creator Modal -->
-<div id="mbzCreatorModal" class="modal settings-modal-wide"> <!-- Reusing wide style -->
-    <div class="modal-content">
-        <span class="close-button mbz-creator-close">&times;</span>
-        <!-- Container for the UI generated by calendar-ui.js -->
-        <div id="mbz-creator-container">
-            <!-- UI will be injected here -->
-            <h2>Loading Batch Creator...</h2>
-        </div>
-    </div>
-</div>
-<!-- End MBZ Batch Creator Modal -->
-
-    <script src="src/js/modal.js"></script>
+    <!-- Existing JS include files -->
     <script src="src/js/renderer.js"></script>
-    <!-- Flatpickr Library for Calendar UI -->
-    <script src="node_modules/flatpickr/dist/flatpickr.min.js"></script>
-    <!-- MBZ Batch Creator UI (browser compatible version) -->
-    <script src="src/assets/calendar-ui-browser.js"></script>
+    <script src="src/js/modal.js"></script>
+    <!-- New component JS files -->
+    <script src="node_modules/flatpickr/dist/flatpickr.js"></script>
+    <script src="src/assets/vertical-calendar.js"></script>
+    <script src="src/assets/app-switcher.js"></script>
+    <script src="src/assets/batch-creator.js"></script>
 
+    <!-- Initialize SPA components -->
+    <script>
+        // Initialize app components after the DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize the app switcher
+            const appSwitcher = new AppSwitcher({
+                mainViewSelector: '#main-view',
+                mbzViewSelector: '#mbz-creator-view',
+                switchButtonSelector: '#app-mode-switch',
+                titleContainer: '#app-mode',
+                mainViewTitle: 'Booklet Generation Mode',
+                mbzViewTitle: 'Moodle Batch Assignment Creation Mode'
+            });
+
+            // Initialize the MBZ batch creator when needed
+            let mbzCreatorInstance = null;
+
+            // Listen for view changes
+            window.addEventListener('viewChanged', (event) => {
+                if (event.detail.view === 'mbz' && !mbzCreatorInstance) {
+                    const mbzContainer = document.getElementById('mbz-creator-view');
+                    if (mbzContainer) {
+                        // Initialize the MBZ batch creator
+                        mbzCreatorInstance = MbzBatchCreator.initialize(mbzContainer);
+                    }
+                }
+            });
+
+            // Handle initial view if needed
+            if (window.location.hash === '#mbz') {
+                appSwitcher.showMbzView();
+            }
+        });
+    </script>
 </body>
 
 </html>
