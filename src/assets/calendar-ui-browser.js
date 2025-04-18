@@ -39,61 +39,111 @@ class MbzBatchCreatorUI {
    * Creates the necessary HTML elements within the container.
    */
   buildUI() {
-    // Basic HTML structure - consider using template literals or a templating engine for complex UI
+    // Use template literals and Bootstrap classes for better structure
     this.container.innerHTML = `
-      <div class="mbz-creator">
+      <style>
+        /* Attempt to fix flatpickr day alignment in the last row */
+        .flatpickr-day {
+          flex-grow: 0 !important; /* Prevent days from stretching to fill space */
+        }
+        .flatpickr-days {
+           justify-content: flex-start; /* Align day container items to the start */
+        }
+        .calendar-controls {
+          margin-bottom: 1rem; /* Add space below the add weeks button */
+          text-align: right; /* Align button to the right */
+        }
+        .dates-table-container {
+            max-height: 300px; /* Limit preview height */
+            overflow-y: auto; /* Add scroll if needed */
+        }
+        .hidden {
+          display: none;
+        }
+        .status-message {
+          margin-top: 1rem;
+          padding: 0.5rem;
+          border-radius: 4px;
+          font-size: 0.9em;
+        }
+        .status-message.info { background-color: #e7f3fe; border: 1px solid #d0eaff; color: #084298; }
+        .status-message.success { background-color: #d1e7dd; border: 1px solid #badbcc; color: #0f5132; }
+        .status-message.error { background-color: #f8d7da; border: 1px solid #f5c2c7; color: #842029; }
+
+      </style>
+      <div class="mbz-creator p-3">
         <h2>Batch Assignment Creator</h2>
+        <hr/>
 
-        <div class="section file-section">
-          <h3>1. Select Template MBZ</h3>
-          <div class="file-selector">
-            <button id="select-mbz-btn" class="btn">Select MBZ File</button>
-            <span id="selected-file-label">No file selected</span>
+        <div class="row g-3 mb-4">
+          <div class="col-md-6">
+            <h5>1. Select Template MBZ</h5>
+            <div class="mb-3">
+                <button id="select-mbz-btn" class="btn btn-secondary">Select MBZ File</button>
+                <span id="selected-file-label" class="ms-2 fst-italic">No file selected</span>
+                <div class="form-text">Select the '.mbz' template file provided with the script.</div>
+            </div>
           </div>
-          <!-- Optional: Display template info after selection -->
-        </div>
-
-        <div class="section prefix-section">
-          <h3>2. Set Assignment Name Prefix</h3>
-          <input type="text" id="name-prefix-input" class="input-field" placeholder="e.g., Weekly Assignment" value="Booklet Page">
-        </div>
-
-
-<div class="mb-3">
-<label for="mbzSectionTitle" class="form-label">Section Title (Optional):</label>
-<input type="text" class="form-control" id="mbzSectionTitle" placeholder="e.g., Weekly Assignments">
-<div class="form-text">If provided, the title of the main course section will be updated in the MBZ files.</div>
-</div>
-
-<div class="mb-3">
-<label for="mbzTargetStartDate" class="form-label">Target Start Date (Optional):</label>
-<input type="date" class="form-control" id="mbzTargetStartDate">
- <div class="form-text">If provided, the course start date within the MBZ file will be updated.</div>
-</div>
-
-        <div class="section time-section">
-          <h3>3. Set Default Time for All Deadlines</h3>
-          <div class="time-picker">
-            <label for="hour-select">Time:</label>
-            <select id="hour-select" class="select-field">
-              ${Array.from({length: 24}, (_, i) => `<option value="${i}" ${i === 17 ? 'selected' : ''}>${String(i).padStart(2, '0')}</option>`).join('')}
-            </select>
-            :
-            <select id="minute-select" class="select-field">
-              ${Array.from({length: 12}, (_, i) => `<option value="${i*5}" ${i*5 === 0 ? 'selected' : ''}>${String(i*5).padStart(2, '0')}</option>`).join('')}
-            </select>
+          <div class="col-md-6">
+            <h5>2. Configure Assignment Details</h5>
+             <div class="mb-3">
+                <label for="name-prefix-input" class="form-label">Assignment Name Prefix:</label>
+                <input type="text" id="name-prefix-input" class="form-control form-control-sm" placeholder="e.g., Weekly Assignment" value="Booklet Page">
+                <div class="form-text">Prefix used for naming assignments (e.g., "Booklet Page 1", "Booklet Page 2").</div>
+             </div>
           </div>
         </div>
 
-        <div class="section calendar-section">
-          <h3>4. Select Assignment Dates (Deadlines)</h3>
-          <div id="calendar-container"></div>
+        <div class="row g-3 mb-4">
+          <div class="col-md-6">
+             <div class="mb-3">
+                <label for="mbzSectionTitle" class="form-label">Moodle Section Title:</label>
+                <input type="text" class="form-control form-control-sm" id="mbzSectionTitle" placeholder="e.g., Exam Booklet Pages">
+                <div class="form-text">Exact title of the section in your Moodle course where assignments will be added.</div>
+             </div>
+          </div>
+           <div class="col-md-6">
+             <div class="mb-3">
+                <label for="mbzTargetStartDate" class="form-label">Moodle Course Start Date:</label>
+                <input type="date" class="form-control form-control-sm" id="mbzTargetStartDate">
+                 <div class="form-text">Must match the start date of the target Moodle course (used for correct date import). Set course start time to 00:00.</div>
+             </div>
+          </div>
         </div>
 
-        <div id="selected-dates-preview-section" class="section dates-preview hidden">
-          <h3>5. Preview Selected Dates</h3>
-          <div class="dates-table-container">
-            <table id="dates-table">
+
+        <div class="row g-3 mb-4">
+          <div class="col-12">
+             <h5>3. Set Default Deadline Time</h5>
+             <div class="d-flex align-items-center">
+                <label for="hour-select" class="form-label me-2">Time:</label>
+                <select id="hour-select" class="form-select form-select-sm me-1" style="width: auto;">
+                  ${Array.from({length: 24}, (_, i) => `<option value="${i}" ${i === 17 ? 'selected' : ''}>${String(i).padStart(2, '0')}</option>`).join('')}
+                </select>
+                :
+                <select id="minute-select" class="form-select form-select-sm ms-1" style="width: auto;">
+                  ${Array.from({length: 12}, (_, i) => `<option value="${i*5}" ${i*5 === 0 ? 'selected' : ''}>${String(i*5).padStart(2, '0')}</option>`).join('')}
+                </select>
+             </div>
+             <div class="form-text">Default time for all assignment deadlines (e.g., 17:00 for 5 PM).</div>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+          <div class="col-12">
+            <h5>4. Select Assignment Dates (Deadlines)</h5>
+             <div class="calendar-controls">
+                <button id="add-weeks-btn" class="btn btn-sm btn-outline-secondary">Add Next 4 Weeks</button>
+             </div>
+            <div id="calendar-container"></div>
+             <div class="form-text">Click dates on the calendar to set assignment deadlines. Use 'Add Next 4 Weeks' to quickly add weekly dates based on the last selected date.</div>
+          </div>
+        </div>
+
+        <div id="selected-dates-preview-section" class="mb-4 hidden">
+          <h5>5. Preview Selected Dates</h5>
+          <div class="dates-table-container border rounded p-2">
+            <table id="dates-table" class="table table-sm table-striped table-hover">
               <thead>
                 <tr>
                   <th>#</th>
@@ -105,10 +155,12 @@ class MbzBatchCreatorUI {
               <tbody id="dates-tbody"></tbody>
             </table>
           </div>
+           <div class="form-text">Review the generated assignment names and deadlines. 'Available From' is based on the previous assignment's due date.</div>
         </div>
 
-        <div class="section actions-section">
-          <button id="generate-btn" class="btn btn-primary" disabled>Generate Batch MBZ</button>
+        <hr/>
+        <div class="actions-section text-center">
+          <button id="generate-btn" class="btn btn-primary" disabled>Generate Batch MBZ File</button>
           <div id="status-message" class="status-message"></div>
         </div>
       </div>
@@ -128,6 +180,7 @@ class MbzBatchCreatorUI {
       hourSelect: this.container.querySelector('#hour-select'),
       minuteSelect: this.container.querySelector('#minute-select'),
       calendarContainer: this.container.querySelector('#calendar-container'),
+      addWeeksBtn: this.container.querySelector('#add-weeks-btn'), // Find the new button
       previewSection: this.container.querySelector('#selected-dates-preview-section'),
       previewTbody: this.container.querySelector('#dates-tbody'),
       generateBtn: this.container.querySelector('#generate-btn'),
@@ -136,6 +189,7 @@ class MbzBatchCreatorUI {
      console.log("Found UI elements:", this.elements);
      if (!this.elements.sectionTitleInput) console.warn("Could not find #mbzSectionTitle input");
      if (!this.elements.targetStartDateInput) console.warn("Could not find #mbzTargetStartDate input");
+     if (!this.elements.addWeeksBtn) console.warn("Could not find #add-weeks-btn button"); // Check for new button
   }
 
   /**
@@ -160,6 +214,7 @@ class MbzBatchCreatorUI {
   attachEventListeners() {
     this.elements.selectMbzBtn?.addEventListener('click', () => this.selectMbzFile());
     this.elements.generateBtn?.addEventListener('click', () => this.generateBatchAssignments());
+    this.elements.addWeeksBtn?.addEventListener('click', () => this.addNextFourWeeks()); // Add listener for new button
 
     // Update preview whenever relevant inputs change
     this.elements.namePrefixInput?.addEventListener('input', () => this.updatePreview());
@@ -232,7 +287,18 @@ class MbzBatchCreatorUI {
       dueDate.setHours(hour, minute, 0, 0);
       
       let availDate = index > 0 ? new Date(sortedDates[index-1]) : new Date(); 
-      availDate.setHours(hour, minute, 0, 0);
+      // Set availability based on the previous assignment's due date + 1 minute (or now if first assignment)
+      if (index > 0) {
+          availDate = new Date(sortedDates[index-1]);
+          availDate.setHours(hour, minute, 0, 0);
+          // Optional: Add a small buffer, e.g., 1 minute after the previous deadline
+          availDate.setMinutes(availDate.getMinutes() + 1);
+      } else {
+          // First assignment available immediately (or consider course start date?)
+          availDate = new Date(); // Or a fixed starting point if needed
+           // Set time to 00:00:00 for the very first availability? Or match deadline time? Let's stick to deadline time for consistency
+          availDate.setHours(0, 0, 0, 0); // Start of day for first assignment availability
+      }
       
       const row = document.createElement('tr');
       row.innerHTML = `
@@ -288,6 +354,22 @@ class MbzBatchCreatorUI {
       const sectionTitle = this.elements.sectionTitleInput?.value.trim() || null;
       const targetStartDate = this.elements.targetStartDateInput?.value || null; // Expects YYYY-MM-DD
 
+      // --- Validation ---
+       if (!targetStartDate) {
+           this.setStatus('Please provide the Moodle Course Start Date.', 'error');
+           this.elements.targetStartDateInput?.focus();
+           this.elements.generateBtn.disabled = false; // Re-enable button
+           return;
+       }
+       // Basic date format check (doesn't guarantee validity but catches common errors)
+       if (!/^\d{4}-\d{2}-\d{2}$/.test(targetStartDate)) {
+           this.setStatus('Moodle Course Start Date must be in YYYY-MM-DD format.', 'error');
+            this.elements.targetStartDateInput?.focus();
+            this.elements.generateBtn.disabled = false; // Re-enable button
+            return;
+       }
+      // ------------------
+
       // Prepare options for backend
       const outputDir = await window.electronAPI.pathDirname(this.mbzPath);
       
@@ -339,6 +421,47 @@ class MbzBatchCreatorUI {
       });
     } finally {
       this.elements.generateBtn.disabled = false;
+    }
+  }
+
+  /**
+   * Adds the next four weeks of dates based on the latest selected date.
+   */
+  addNextFourWeeks() {
+    if (!this.calendar) return;
+
+    const currentDates = this.calendar.selectedDates;
+    if (currentDates.length === 0) {
+        this.setStatus("Please select at least one date first.", "info");
+        return;
+    }
+
+    // Sort dates to find the latest one
+    const sortedDates = [...currentDates].sort((a, b) => b.getTime() - a.getTime());
+    const latestDate = new Date(sortedDates[0]); // Get the most recent date
+
+    const newDates = [];
+    for (let i = 1; i <= 4; i++) {
+        const nextDate = new Date(latestDate);
+        nextDate.setDate(latestDate.getDate() + (7 * i)); // Add 7 days * i weeks
+        // Check if the date is valid and not in the past (though minDate should handle this)
+        if (!isNaN(nextDate.getTime())) {
+             // Check if the new date is already selected to avoid duplicates
+             const dateStr = this.calendar.formatDate(nextDate, "Y-m-d");
+             const isAlreadySelected = currentDates.some(d => this.calendar.formatDate(d, "Y-m-d") === dateStr);
+             if (!isAlreadySelected) {
+                 newDates.push(nextDate);
+             }
+        }
+    }
+
+    if (newDates.length > 0) {
+        const allDates = [...currentDates, ...newDates];
+        // Set the new selection in the calendar
+        this.calendar.setDate(allDates, true); // true triggers onChange
+        this.setStatus(`Added ${newDates.length} weekly dates.`, "info");
+    } else {
+        this.setStatus("No new future weekly dates could be added.", "info");
     }
   }
 
