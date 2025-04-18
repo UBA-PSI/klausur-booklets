@@ -179,9 +179,7 @@ class MbzBatchCreator {
       startDate: new Date(), // Start with the current month
       weekStartsOn: 1, // Monday
       enablePastDates: false,
-      allowRangeSelect: true, // Allow drag selection in columns
       scrollable: true,
-      onDateSelect: (selectedDates) => this.handleDateSelection(selectedDates)
     });
   }
   
@@ -224,17 +222,6 @@ class MbzBatchCreator {
       this.setStatus(`Error selecting file: ${error.message}`, 'error');
       this.mbzPath = null;
     }
-  }
-  
-  /**
-   * Handle date selection from the calendar
-   */
-  handleDateSelection(selectedDates) {
-    // This function might still be called by the base VerticalCalendar, 
-    // but calendar-fix.js is the primary handler now.
-    // We can keep this minimal or potentially remove it if VerticalCalendar's onDateSelect is nullified.
-    this.selectedDates = selectedDates;
-    this.updateGenerateButtonState();
   }
   
   /**
@@ -299,7 +286,10 @@ class MbzBatchCreator {
         mbzFilePath: this.mbzPath,
         selectedDates: this.selectedDates.map(date => {
           // Format date as YYYY-MM-DD
-          return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+          const year = date.getUTCFullYear();
+          const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+          const day = date.getUTCDate().toString().padStart(2, '0');
+          return `${year}-${month}-${day}`;
         }).sort(),
         timeHour: timeHour,
         timeMinute: timeMinute,

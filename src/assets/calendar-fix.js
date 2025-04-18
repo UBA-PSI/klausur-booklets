@@ -6,11 +6,8 @@
 // Wait for DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', () => {
   // Only initialize when in MBZ view or when the view changes to MBZ
-  const initializeController = () => {
-    // Improved direct controller with event delegation
-    console.log("Setting up improved calendar controller...");
-
-    // One-time styles application
+  const initializeController = (mbzCreatorInstance) => {
+    // Apply CSS once
     const styles = document.createElement('style');
     styles.textContent = `
       /* Column widths */
@@ -56,15 +53,25 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
     document.head.appendChild(styles);
 
-    // The simplified controller with delegation
+    // The calendar controller with multi-selection support
     const ImprovedCalendarController = {
       selectedDates: [],
       calendarContainer: null, // Store reference to the container
       
+      /**
+       * Helper method to format a date as YYYY-MM-DD using UTC components
+       * @param {Date} date - The date to format
+       * @returns {string} Date string in YYYY-MM-DD format
+       */
+      formatDateString: function(date) {
+        const year = date.getUTCFullYear();
+        const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+        const day = date.getUTCDate().toString().padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      },
+      
       // Initialize once
       init: function() {
-        console.log("Initializing improved controller...");
-        
         // Find elements needed for preview updates
         this.namePrefixInput = document.getElementById('name-prefix-input');
         this.hourSelect = document.getElementById('hour-select');
@@ -107,18 +114,15 @@ document.addEventListener('DOMContentLoaded', () => {
           // Parse YYYY-MM-DD string as UTC date
           const [year, month, day] = dateStr.split('-').map(Number);
           const date = new Date(Date.UTC(year, month - 1, day)); // month is 0-indexed
-          console.log("Direct click on ISO date:", dateStr);
           
           // Toggle selection using our custom class
           if (dayEl.classList.contains('direct-selected')) {
             // Remove from selection
             dayEl.classList.remove('direct-selected');
             // Compare time values for robust filtering
-            const clickedDateKey = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
-            this.selectedDates = this.selectedDates.filter(d => {
-              const dateKey = `${d.getUTCFullYear()}-${(d.getUTCMonth()+1).toString().padStart(2, '0')}-${d.getUTCDate().toString().padStart(2, '0')}`;
-              return dateKey !== clickedDateKey;
-            });
+            this.selectedDates = this.selectedDates.filter(d => 
+              this.formatDateString(d) !== dateStr
+            );
           } else {
             // Add to selection
             dayEl.classList.add('direct-selected');
@@ -130,14 +134,10 @@ document.addEventListener('DOMContentLoaded', () => {
           
           // Update the preview
           this.updatePreview();
-          
-          // Find and update all other instances of this date (in case of scrolling)
-          // No need to find other instances with delegation - the class is applied directly
         }, true); // Use capture phase
 
         // Add listener for when the calendar component finishes rendering
         this.calendarContainer.addEventListener('calendarRendered', () => {
-          console.log('Calendar rendered, reapplying highlights...');
           this.reapplyHighlights();
         });
                
@@ -163,11 +163,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Apply highlights based on the stored selectedDates
         this.selectedDates.forEach(date => {
-          // Reconstruct YYYY-MM-DD from UTC components
-          const year = date.getUTCFullYear();
-          const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
-          const day = date.getUTCDate().toString().padStart(2, '0');
-          const dateStr = `${year}-${month}-${day}`;
+          // Use helper method for consistent formatting
+          const dateStr = this.formatDateString(date);
           const dayEl = this.calendarContainer.querySelector(`.calendar-day[data-date="${dateStr}"]`);
           if (dayEl) {
             dayEl.classList.add('direct-selected');
@@ -187,18 +184,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
           }
         }
-
-        console.log(
-          "Updating preview with", 
-          this.selectedDates.length, 
-          "dates:", 
-          this.selectedDates.map(d => {
-            const year = d.getUTCFullYear();
-            const month = (d.getUTCMonth() + 1).toString().padStart(2, '0');
-            const day = d.getUTCDate().toString().padStart(2, '0');
-            return `${year}-${month}-${day}`;
-          })
-        );
         
         // Show/hide the section based on whether dates are selected
         if (this.selectedDates.length > 0) {
@@ -227,10 +212,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Build the table
         sortedDates.forEach((date, index) => {
-          // Format Due Date using UTC date parts and selected time
-          const dueYear = date.getUTCFullYear();
-          const dueMonth = (date.getUTCMonth() + 1).toString().padStart(2, '0');
-          const dueDay = date.getUTCDate().toString().padStart(2, '0');
+          // Get date parts using the helper method
+          const [dueYear, dueMonth, dueDay] = this.formatDateString(date).split('-');
           const dueHour = hour.toString().padStart(2, '0');
           const dueMinute = minute.toString().padStart(2, '0');
           const dueSeconds = '00';
@@ -247,9 +230,8 @@ document.addEventListener('DOMContentLoaded', () => {
             availDate = new Date(availTime);
 
             // Format Available Date using its UTC parts
-            const availYear = availDate.getUTCFullYear();
-            const availMonth = (availDate.getUTCMonth() + 1).toString().padStart(2, '0');
-            const availDay = availDate.getUTCDate().toString().padStart(2, '0');
+            // Get date parts using the helper method
+            const [availYear, availMonth, availDay] = this.formatDateString(availDate).split('-');
             const availHour = availDate.getUTCHours().toString().padStart(2, '0');
             const availMinute = availDate.getUTCMinutes().toString().padStart(2, '0');
             const availSeconds = availDate.getUTCSeconds().toString().padStart(2, '0');
@@ -270,17 +252,13 @@ document.addEventListener('DOMContentLoaded', () => {
           this.previewTbody.appendChild(row);
         });
         
-        // Update generate button state if possible
-        const generateBtn = document.getElementById('generate-btn');
-        if (generateBtn) {
-          const mbzCreator = document.getElementById('mbz-creator-view')?._mbzCreator;
-          const mbzPath = mbzCreator?.mbzPath;
-          generateBtn.disabled = !mbzPath || this.selectedDates.length === 0;
-          
-          // If we have access to the mbzCreator, also update its state
-          if (mbzCreator) {
-            mbzCreator.selectedDates = [...this.selectedDates];
-          }
+        // Update the MbzBatchCreator instance directly
+        if (mbzCreatorInstance) {
+          mbzCreatorInstance.selectedDates = [...this.selectedDates];
+          // Also update the generate button state via the instance method
+          mbzCreatorInstance.updateGenerateButtonState(); 
+        } else {
+          console.warn('MbzBatchCreator instance not available to update selected dates.');
         }
       }
     };
@@ -288,21 +266,27 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize and expose globally for debugging
     ImprovedCalendarController.init();
     window.calendarController = ImprovedCalendarController;
-
-    console.log("Improved calendar controller ready!");
   };
 
   // Check if we're already in MBZ view at initialization
   if (document.getElementById('mbz-creator-view').style.display !== 'none') {
     // Wait for the calendar to be ready
-    setTimeout(initializeController, 1000);
+    setTimeout(() => {
+      // Attempt to get instance if initialized early
+      const instance = document.getElementById('mbz-creator-view')?._mbzCreator;
+      initializeController(instance);
+    }, 1000); 
   }
 
   // Listen for view changes
   window.addEventListener('viewChanged', (event) => {
     if (event.detail.view === 'mbz') {
       // Wait for the calendar to be ready
-      setTimeout(initializeController, 1000);
+      setTimeout(() => {
+        // Pass the instance when initializing on view change
+        const instance = document.getElementById('mbz-creator-view')?._mbzCreator;
+        initializeController(instance);
+      }, 1000); 
     }
   });
 }); 

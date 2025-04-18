@@ -26,15 +26,25 @@ class VerticalCalendar {
     // Store internal state
     this.visibleStartDate = new Date(this.options.startDate);
     this.visibleStartDate.setDate(1); // Set to first of the month
-    this.selectedDates = [...this.options.selectedDates];
-    this.isSelecting = false;    // For drag selection
-    this.selectionStart = null;  // For drag selection
+    this.selectedDates = [...this.options.selectedDates]; // Keep for initial render check
 
     // Normalize start date to first day of the month
     this.visibleStartDate.setHours(0, 0, 0, 0);
     
     // Initialize the calendar
     this.init();
+  }
+
+  /**
+   * Format a date as YYYY-MM-DD string using local date components
+   * @param {Date} date - The date to format
+   * @returns {string} A date string in YYYY-MM-DD format
+   */
+  formatDateString(date) {
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   /**
@@ -170,8 +180,7 @@ class VerticalCalendar {
         background-color: #fffacd; /* Light yellow */
       }
       .vertical-calendar .calendar-day.selected {
-        /* Basic selection style, overridden by calendar-fix.js */
-        background-color: #e0e0e0; 
+        /* Selection styling is now handled by calendar-fix.js */
       }
        .vertical-calendar .calendar-day.first-day-of-month {
         /* Styles for the 1st day of the month */
@@ -280,14 +289,8 @@ class VerticalCalendar {
       } else {
           // Create ISO date string (YYYY-MM-DD) from local date components
           // This ensures the date-attribute matches the visually displayed date
-          const year = date.getFullYear();
-          const month = (date.getMonth() + 1).toString().padStart(2, '0');
-          const day = date.getDate().toString().padStart(2, '0');
-          const dateStr = `${year}-${month}-${day}`;
+          const dateStr = this.formatDateString(date);
           dayEl.setAttribute('data-date', dateStr);
-          
-          // Debug output to verify the date matches the visual display
-          console.debug(`Rendering ${date.getDate()} ${date.toLocaleString('default', { month: 'short' })} as data-date="${dateStr}"`);
 
           // Add even/odd month styling
           dayEl.classList.add(currentMonth % 2 === 0 ? 'even-month' : 'odd-month');
@@ -315,7 +318,8 @@ class VerticalCalendar {
           // Check if selected (initial render - calendar-fix will handle dynamic selection)
           const isSelected = this.selectedDates.some(d => d.toDateString() === date.toDateString());
           if (isSelected) {
-              dayEl.classList.add('selected'); // Basic highlight, calendar-fix overrides
+              // Add a base class, actual styling by calendar-fix.js
+              dayEl.classList.add('selected-base'); 
           }
       }
       return dayEl;
@@ -336,211 +340,6 @@ class VerticalCalendar {
     if (nextBtn) {
       nextBtn.addEventListener('click', () => this.nextMonth());
     }
-    
-    // Date click and drag handlers
-    const calendarBody = this.container.querySelector('.calendar-body');
-    if (!calendarBody) return;
-    
-    // Click to select date
-    calendarBody.addEventListener('click', (e) => {
-      const dayEl = e.target.closest('.calendar-day');
-      if (!dayEl) return;
-      
-      // Skip past dates if not enabled
-      if (dayEl.classList.contains('past') && !this.options.enablePastDates) {
-        return;
-      }
-      
-      const dateStr = dayEl.getAttribute('data-date');
-      if (dateStr) {
-        const clickedDate = new Date(dateStr);
-        this.toggleDateSelection(clickedDate, dayEl);
-        
-        // Ensure the callback is called after toggling
-        if (this.options.onDateSelect) {
-          this.options.onDateSelect([...this.selectedDates]);
-        }
-      }
-    });
-    
-    // For drag selection - mousedown to start
-    if (this.options.allowRangeSelect) {
-      calendarBody.addEventListener('mousedown', (e) => {
-        const dayEl = e.target.closest('.calendar-day');
-        if (!dayEl) return;
-        
-        // Skip past dates if not enabled
-        if (dayEl.classList.contains('past') && !this.options.enablePastDates) {
-          return;
-        }
-        
-        // Start drag selection
-        this.isSelecting = true;
-        const dateStr = dayEl.getAttribute('data-date');
-        if (dateStr) {
-          this.selectionStart = new Date(dateStr);
-          
-          // Clear previous selection if not holding shift
-          if (!e.shiftKey) {
-            this.selectedDates = [];
-            // Update the UI to clear previous selections
-            this.container.querySelectorAll('.calendar-day.selected').forEach(el => {
-              el.classList.remove('selected');
-            });
-          }
-          
-          // Add this date to selection
-          this.toggleDateSelection(this.selectionStart, dayEl);
-        }
-        
-        // Prevent text selection during drag
-        e.preventDefault();
-      });
-      
-      // Drag over days
-      calendarBody.addEventListener('mouseover', (e) => {
-        if (!this.isSelecting) return;
-        
-        const dayEl = e.target.closest('.calendar-day');
-        if (!dayEl) return;
-        
-        // Skip past dates if not enabled
-        if (dayEl.classList.contains('past') && !this.options.enablePastDates) {
-          return;
-        }
-        
-        const dateStr = dayEl.getAttribute('data-date');
-        if (dateStr) {
-          const hoverDate = new Date(dateStr);
-          
-          // Select all dates between start and hover
-          this.selectDateRange(this.selectionStart, hoverDate);
-        }
-      });
-      
-      // End drag selection
-      document.addEventListener('mouseup', (e) => {
-        if (this.isSelecting) {
-          // Ensure we call the callback with the final selection
-          if (this.options.onDateSelect) {
-            this.options.onDateSelect([...this.selectedDates]);
-          }
-          this.isSelecting = false;
-        }
-      });
-    }
-  }
-
-  /**
-   * Toggle the selection state of a date
-   */
-  toggleDateSelection(date, element) {
-    // Find if this date is already selected
-    const index = this.selectedDates.findIndex(d => 
-      d.toDateString() === date.toDateString());
-    
-    if (index >= 0) {
-      // Date is already selected, remove it
-      this.selectedDates.splice(index, 1);
-      element?.classList.remove('selected');
-    } else {
-      // Date is not selected, add it
-      this.selectedDates.push(new Date(date));
-      element?.classList.add('selected');
-    }
-    
-    // Sort selected dates chronologically
-    this.selectedDates.sort((a, b) => a - b);
-  }
-
-  /**
-   * Select a range of dates (inclusive)
-   */
-  selectDateRange(start, end) {
-    // Ensure start is before end
-    if (start > end) {
-      [start, end] = [end, start];
-    }
-    
-    // Clear current selection
-    this.selectedDates = [];
-    this.container.querySelectorAll('.calendar-day.selected').forEach(el => {
-      el.classList.remove('selected');
-    });
-    
-    // Add all dates in the range
-    const current = new Date(start);
-    const endTime = end.getTime();
-    
-    while (current.getTime() <= endTime) {
-      // Format the date consistently with _renderDay
-      const year = current.getFullYear();
-      const month = (current.getMonth() + 1).toString().padStart(2, '0');
-      const day = current.getDate().toString().padStart(2, '0');
-      const dateStr = `${year}-${month}-${day}`;
-      
-      const dayEl = this.container.querySelector(
-        `.calendar-day[data-date="${dateStr}"]`
-      );
-      
-      // Skip past dates if not enabled
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const isPast = current < today;
-      
-      if ((!isPast || this.options.enablePastDates) && dayEl) {
-        this.selectedDates.push(new Date(current));
-        dayEl.classList.add('selected');
-      }
-      
-      // Move to next day
-      current.setDate(current.getDate() + 1);
-    }
-    
-    // Call the selection callback if provided
-    if (this.options.onDateSelect) {
-      this.options.onDateSelect([...this.selectedDates]);
-    }
-  }
-
-  /**
-   * Get all currently selected dates
-   */
-  getSelectedDates() {
-    return [...this.selectedDates];
-  }
-
-  /**
-   * Set selected dates programmatically
-   */
-  setSelectedDates(dates) {
-    // Clear current selection
-    this.selectedDates = [];
-    this.container.querySelectorAll('.calendar-day.selected').forEach(el => {
-      el.classList.remove('selected');
-    });
-    
-    // Add each date to selection
-    dates.forEach(date => {
-      const newDate = new Date(date);
-      this.selectedDates.push(newDate);
-      
-      // Format date consistently
-      const year = newDate.getFullYear();
-      const month = (newDate.getMonth() + 1).toString().padStart(2, '0');
-      const day = newDate.getDate().toString().padStart(2, '0');
-      const dateStr = `${year}-${month}-${day}`;
-      
-      const dayEl = this.container.querySelector(
-        `.calendar-day[data-date="${dateStr}"]`
-      );
-      if (dayEl) {
-        dayEl.classList.add('selected');
-      }
-    });
-    
-    // Sort selected dates chronologically
-    this.selectedDates.sort((a, b) => a - b);
   }
 
   /**
@@ -552,9 +351,6 @@ class VerticalCalendar {
     this.visibleStartDate = new Date(this.visibleStartDate);
     this.render();
     this.attachEventListeners(); // Important: reattach listeners after re-rendering
-    
-    // Update the UI to show the selected dates
-    this.updateSelectedDatesUI();
   }
 
   /**
@@ -566,28 +362,6 @@ class VerticalCalendar {
     this.visibleStartDate = new Date(this.visibleStartDate);
     this.render();
     this.attachEventListeners(); // Important: reattach listeners after re-rendering
-    
-    // Update the UI to show the selected dates
-    this.updateSelectedDatesUI();
-  }
-  
-  /**
-   * Update the UI to show the selected dates
-   */
-  updateSelectedDatesUI() {
-    // Find all day elements corresponding to selected dates and mark them
-    this.selectedDates.forEach(date => {
-      // Format date consistently
-      const year = date.getFullYear();
-      const month = (date.getMonth() + 1).toString().padStart(2, '0');
-      const day = date.getDate().toString().padStart(2, '0');
-      const dateStr = `${year}-${month}-${day}`;
-      
-      const dayEl = this.container.querySelector(`.calendar-day[data-date="${dateStr}"]`);
-      if (dayEl) {
-        dayEl.classList.add('selected');
-      }
-    });
   }
 }
 
