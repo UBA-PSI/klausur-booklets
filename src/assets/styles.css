@@ -727,7 +727,7 @@ body.mbz-mode .app-header {
        but ensure it doesn't conflict with the persistent main header. 
        For now, let's keep it but comment out potentially problematic parts if needed.
        If the main header looks okay, this whole rule might be removable too. */
-    position: static; 
+    /*position: static; */
     width: auto;
 }
 

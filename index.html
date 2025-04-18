@@ -32,38 +32,48 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.05);
             border-radius: 8px;
             border: 1px solid rgba(0,0,0,0.125);
+            margin-bottom: 1rem;
         }
         .card-header {
             background-color: rgba(0,0,0,0.03);
             border-bottom: 1px solid rgba(0,0,0,0.125);
+            padding: 0.5rem 1rem;
+        }
+        .card-body {
+            padding: 0.75rem 1rem;
         }
         
         /* Button improvements */
         .btn {
             border-radius: 4px;
-            padding: 0.5rem 1rem;
+            padding: 0.4rem 0.75rem;
             transition: all 0.2s;
         }
         
-        /* App header styling */
+        /* App header styling - fixed at top */
         .app-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 0.75rem 1.5rem;
+            padding: 0.5rem 1.25rem;
             background-color: #ffffff;
             border-bottom: 1px solid #e9ecef;
-            margin-bottom: 1.5rem;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1030;
+            height: 60px;
         }
         
         .app-header .app-title {
-            font-size: 1.5rem;
+            font-size: 1.25rem;
             font-weight: 500;
             margin: 0;
             color: #212529;
         }
         
-        /* Status bar adjustments */
+        /* Status bar adjustments - fixed at bottom */
         #status-bar {
             position: fixed;
             bottom: 0;
@@ -71,15 +81,75 @@
             right: 0;
             border-top: 1px solid #e9ecef;
             background-color: #f8f9fa;
-            padding: 8px 15px;
+            padding: 5px 15px;
             z-index: 1000;
             display: flex;
             justify-content: space-between;
+            height: 35px;
         }
         
-        /* Add padding to the body to account for the fixed status bar */
+        /* Add padding to account for fixed header and status bar */
         body {
-            padding-bottom: 40px;
+            padding-top: 70px; /* For fixed header */
+            padding-bottom: 40px; /* For fixed status bar */
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        /* More compact form controls */
+        .form-control, .input-group, .btn {
+            min-height: unset;
+            height: 38px;
+        }
+        
+        /* Directory input form adjustments */
+        .directory-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        .directory-row:last-child {
+            margin-bottom: 0;
+        }
+        .directory-label {
+            width: 120px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+        }
+        .directory-input {
+            flex-grow: 1;
+            margin-right: 0.5rem;
+        }
+        
+        /* Action buttons grid */
+        .action-buttons {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+        .action-buttons .btn {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: unset;
+            padding: 0.5rem;
+        }
+        
+        /* Utility buttons alignment */
+        .utility-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+        }
+        
+        /* Compact layout for smaller screens */
+        @media (max-width: 992px) {
+            .action-buttons {
+                grid-template-columns: repeat(2, 1fr);
+            }
         }
         
         /* Bootstrap tooltip custom styling */
@@ -91,6 +161,11 @@
             padding: 8px 12px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
+        
+        /* Make errors section more compact */
+        #errorLogOutput {
+            height: 120px;
+        }
     </style>
 </head>
 
@@ -98,40 +173,41 @@
     <!-- Single App Header - Content updated by AppSwitcher -->
     <div class="app-header shadow-sm" id="main-header">
         <div class="app-title-container d-flex align-items-center">
-            <i class="bi bi-journal-richtext text-primary me-2" style="font-size: 1.5rem;"></i>
+            <i class="bi bi-journal-richtext text-primary me-2" style="font-size: 1.25rem;"></i>
             <h1 class="app-title mb-0">Booklet Generation Mode</h1>
         </div>
         <button id="app-mode-switch" class="btn btn-outline-primary app-switcher">
             <i class="bi bi-arrow-repeat me-1"></i>
-            Switch Mode
+            Go to Moodle Assignment Creation
         </button>
     </div>
 
     <!-- Main View (Booklet Generator) -->
     <div id="main-view" class="view-container active">
-        <div class="container">
+        <div class="container-fluid px-4">
             <!-- Directory Selection Card -->
-            <div class="card mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">
-                        <i class="bi bi-folder2-open text-primary me-2"></i>Directory Configuration
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center py-2">
+                    <h5 class="mb-0 fs-6">
+                        <i class="bi bi-folder2-open text-primary me-1"></i>Directory Configuration
                     </h5>
                     <span class="info-icon" data-bs-toggle="tooltip" title="Select the input directory containing student submissions organized by page, and an output directory where booklets will be saved.">
                         <i class="bi bi-info-circle-fill text-info"></i>
                     </span>
                 </div>
                 <div class="card-body">
-                    <div class="row mb-3">
-                        <div class="col-md-3">
-                            <label for="mainDirectoryPath" class="form-label d-flex align-items-center">
+                    <!-- Input Directory Row -->
+                    <div class="directory-row">
+                        <div class="directory-label">
+                            <label for="mainDirectoryPath" class="form-label mb-0">
                                 Input Directory
-                                <span class="info-icon ms-2" data-bs-toggle="tooltip" 
+                                <span class="info-icon ms-1" data-bs-toggle="tooltip" 
                                     title="Select the folder containing page-based student submissions (e.g., 'Seite 1', 'Seite 2' folders)">
-                                    <i class="bi bi-info-circle-fill text-info"></i>
+                                    <i class="bi bi-info-circle-fill text-info small"></i>
                                 </span>
                             </label>
                         </div>
-                        <div class="col-md-9">
+                        <div class="directory-input">
                             <div class="input-group">
                                 <input type="text" class="form-control" id="mainDirectoryPath" required>
                                 <button class="btn btn-outline-secondary" type="button" id="select-main-dir-button">
@@ -142,17 +218,18 @@
                         </div>
                     </div>
                     
-                    <div class="row">
-                        <div class="col-md-3">
-                            <label for="outputDirectoryPath" class="form-label d-flex align-items-center">
+                    <!-- Output Directory Row -->
+                    <div class="directory-row">
+                        <div class="directory-label">
+                            <label for="outputDirectoryPath" class="form-label mb-0">
                                 Output Directory
-                                <span class="info-icon ms-2" data-bs-toggle="tooltip" 
+                                <span class="info-icon ms-1" data-bs-toggle="tooltip" 
                                     title="Select where generated booklets will be saved">
-                                    <i class="bi bi-info-circle-fill text-info"></i>
+                                    <i class="bi bi-info-circle-fill text-info small"></i>
                                 </span>
                             </label>
                         </div>
-                        <div class="col-md-9">
+                        <div class="directory-input">
                             <div class="input-group">
                                 <input type="text" class="form-control" id="outputDirectoryPath" required>
                                 <button class="btn btn-outline-secondary" type="button" id="select-output-dir-button">
@@ -167,51 +244,53 @@
 
             <!-- Processing Actions Card -->
             <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">
-                        <i class="bi bi-gear-fill text-primary me-2"></i>Processing Actions
+                <div class="card-header d-flex justify-content-between align-items-center py-2">
+                    <h5 class="mb-0 fs-6">
+                        <i class="bi bi-gear-fill text-primary me-1"></i>Processing Actions
                     </h5>
                     <span class="info-icon" data-bs-toggle="tooltip" title="Follow these steps in order to create booklets from student submissions.">
                         <i class="bi bi-info-circle-fill text-info"></i>
                     </span>
                 </div>
                 <div class="card-body">
-                    <div class="d-flex flex-wrap justify-content-between gap-2 mb-3">
+                    <!-- Main Action Buttons in Grid -->
+                    <div class="action-buttons">
                         <button id="clearOutputBtn" class="btn btn-outline-danger">
-                            <i class="bi bi-trash"></i> 0. Clear Output Folder
+                            <i class="bi bi-trash me-1"></i> 0. Clear Output
                         </button>
                         <button id="startTransformationBtn" class="btn btn-primary">
-                            <i class="bi bi-image"></i> 1. Convert Inputs to PDFs
+                            <i class="bi bi-image me-1"></i> 1. Convert to PDFs
                         </button>
                         <button id="startMergingBtn" class="btn btn-primary">
-                            <i class="bi bi-file-earmark-pdf"></i> 2. Merge PDFs
+                            <i class="bi bi-file-earmark-pdf me-1"></i> 2. Merge PDFs
                         </button>
                         <button id="createBookletsBtn" class="btn btn-primary">
-                            <i class="bi bi-journal-check"></i> 3. Create Booklets
+                            <i class="bi bi-journal-check me-1"></i> 3. Create Booklets
                         </button>
                     </div>
                     
-                    <div class="d-flex justify-content-end">
-                        <button id="settingsButton" class="btn btn-outline-secondary me-2">
-                            <i class="bi bi-gear"></i> Settings
+                    <!-- Utility Buttons -->
+                    <div class="utility-buttons">
+                        <button id="settingsButton" class="btn btn-outline-secondary">
+                            <i class="bi bi-gear me-1"></i> Settings
                         </button>
                         <button id="editCoverTemplateBtn" class="btn btn-outline-secondary">
-                            <i class="bi bi-file-earmark-text"></i> Edit Cover Template
+                            <i class="bi bi-file-earmark-text me-1"></i> Edit Cover Template
                         </button>
                     </div>
                     
-                    <!-- Step Descriptions -->
-                    <div class="mt-4">
+                    <!-- Step Descriptions - Accordion -->
+                    <div class="mt-2">
                         <div class="accordion" id="actionAccordion">
                             <div class="accordion-item">
                                 <h2 class="accordion-header">
-                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                    <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" 
                                             data-bs-target="#collapseSteps" aria-expanded="false" aria-controls="collapseSteps">
                                         <i class="bi bi-question-circle me-2"></i> What do these steps do?
                                     </button>
                                 </h2>
                                 <div id="collapseSteps" class="accordion-collapse collapse" data-bs-parent="#actionAccordion">
-                                    <div class="accordion-body">
+                                    <div class="accordion-body py-2">
                                         <ol class="mb-0 ps-3">
                                             <li><strong>Clear Output Folder:</strong> Removes all files from the output directory. Use with caution!</li>
                                             <li><strong>Convert Inputs to PDFs:</strong> Converts all image files (PNG, JPG, etc.) to PDF format.</li>
@@ -225,17 +304,17 @@
                     </div>
                 </div>
             </div>
-        </div>
-        <div class="container mt-3">
+        
+            <!-- Error Log Card -->
             <div id="errorLogContainer" style="display: none;">
                 <div class="card border-warning">
-                    <div class="card-header bg-warning text-dark">
-                        <h5 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Processing Errors & Warnings</h5>
+                    <div class="card-header bg-warning text-dark py-2">
+                        <h5 class="mb-0 fs-6"><i class="bi bi-exclamation-triangle me-2"></i>Processing Errors & Warnings</h5>
                     </div>
                     <div class="card-body p-0">
                         <textarea id="errorLogOutput" readonly 
                             class="form-control border-0 bg-light font-monospace" 
-                            style="height: 150px; resize: vertical; font-size: 0.85rem;"></textarea>
+                            style="resize: vertical; font-size: 0.85rem;"></textarea>
                     </div>
                 </div>
             </div>
