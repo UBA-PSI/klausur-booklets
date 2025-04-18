@@ -39,111 +39,121 @@ class MbzBatchCreatorUI {
    * Creates the necessary HTML elements within the container.
    */
   buildUI() {
-    // Use template literals and Bootstrap classes for better structure
+    // Use simpler CSS and a more conservative approach to avoid breaking the calendar
     this.container.innerHTML = `
       <style>
-        /* Attempt to fix flatpickr day alignment in the last row */
+        /* Modal container - use full width */
+        .mbz-creator {
+          width: 100%;
+          padding: 20px;
+        }
+        
+        /* Simple section styling */
+        .section {
+          margin-bottom: 25px;
+          background-color: #f8f9fa;
+          border-radius: 5px;
+          padding: 15px;
+        }
+        
+        /* Force calendar to use proper width */
+        .flatpickr-calendar {
+          width: auto !important;
+        }
+        
+        /* Last row fix - minimal approach */
         .flatpickr-day {
-          flex-grow: 0 !important; /* Prevent days from stretching to fill space */
+          margin: 1px;
         }
-        .flatpickr-days {
-           justify-content: flex-start; /* Align day container items to the start */
-        }
-        .calendar-controls {
-          margin-bottom: 1rem; /* Add space below the add weeks button */
-          text-align: right; /* Align button to the right */
-        }
-        .dates-table-container {
-            max-height: 300px; /* Limit preview height */
-            overflow-y: auto; /* Add scroll if needed */
-        }
+        
         .hidden {
           display: none;
         }
+        
+        /* Status message styling */
         .status-message {
-          margin-top: 1rem;
-          padding: 0.5rem;
+          margin-top: 15px;
+          padding: 10px;
           border-radius: 4px;
-          font-size: 0.9em;
         }
         .status-message.info { background-color: #e7f3fe; border: 1px solid #d0eaff; color: #084298; }
         .status-message.success { background-color: #d1e7dd; border: 1px solid #badbcc; color: #0f5132; }
         .status-message.error { background-color: #f8d7da; border: 1px solid #f5c2c7; color: #842029; }
-
       </style>
-      <div class="mbz-creator p-3">
-        <h2>Batch Assignment Creator</h2>
-        <hr/>
-
-        <div class="row g-3 mb-4">
-          <div class="col-md-6">
-            <h5>1. Select Template MBZ</h5>
-            <div class="mb-3">
-                <button id="select-mbz-btn" class="btn btn-secondary">Select MBZ File</button>
-                <span id="selected-file-label" class="ms-2 fst-italic">No file selected</span>
-                <div class="form-text">Select the '.mbz' template file provided with the script.</div>
+      
+      <div class="mbz-creator">
+        <h2 class="text-center mb-4">Batch Assignment Creator</h2>
+        
+        <!-- Section 1: Template Selection -->
+        <div class="section">
+          <h5 class="mb-3">1. Select Template MBZ</h5>
+          <div class="d-flex align-items-center">
+            <button id="select-mbz-btn" class="btn btn-secondary">Select MBZ File</button>
+            <span id="selected-file-label" class="ms-3 fst-italic">No file selected</span>
+          </div>
+          <div class="form-text mt-2">Select the '.mbz' template file provided with the script.</div>
+        </div>
+        
+        <!-- Section 2: Configuration -->
+        <div class="section">
+          <h5 class="mb-3">2. Configure Assignment Details</h5>
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label for="name-prefix-input" class="form-label">Assignment Name Prefix:</label>
+              <input type="text" id="name-prefix-input" class="form-control" 
+                 placeholder="e.g., Weekly Assignment" value="Booklet Page">
+              <div class="form-text">Prefix used for naming assignments (e.g., "Booklet Page 1", "Booklet Page 2").</div>
+            </div>
+            
+            <div class="col-md-4">
+              <label for="mbzSectionTitle" class="form-label">Moodle Section Title:</label>
+              <input type="text" class="form-control" id="mbzSectionTitle" 
+                 placeholder="e.g., Exam Booklet Pages">
+              <div class="form-text">Exact title of the section in your Moodle course where assignments will be added.</div>
+            </div>
+            
+            <div class="col-md-4">
+              <label for="mbzTargetStartDate" class="form-label">Moodle Course Start Date:</label>
+              <input type="date" class="form-control" id="mbzTargetStartDate">
+              <div class="form-text">Must match the start date of the target Moodle course. Set course start time to 00:00.</div>
             </div>
           </div>
-          <div class="col-md-6">
-            <h5>2. Configure Assignment Details</h5>
-             <div class="mb-3">
-                <label for="name-prefix-input" class="form-label">Assignment Name Prefix:</label>
-                <input type="text" id="name-prefix-input" class="form-control form-control-sm" placeholder="e.g., Weekly Assignment" value="Booklet Page">
-                <div class="form-text">Prefix used for naming assignments (e.g., "Booklet Page 1", "Booklet Page 2").</div>
-             </div>
+        </div>
+        
+        <!-- Section 3: Time Configuration -->
+        <div class="section">
+          <h5 class="mb-3">3. Set Default Deadline Time</h5>
+          <div class="d-flex align-items-center">
+            <label for="hour-select" class="form-label me-2">Time:</label>
+            <select id="hour-select" class="form-select me-1" style="width: auto;">
+              ${Array.from({length: 24}, (_, i) => `<option value="${i}" ${i === 17 ? 'selected' : ''}>${String(i).padStart(2, '0')}</option>`).join('')}
+            </select>
+            <span class="mx-1">:</span>
+            <select id="minute-select" class="form-select ms-1" style="width: auto;">
+              ${Array.from({length: 12}, (_, i) => `<option value="${i*5}" ${i*5 === 0 ? 'selected' : ''}>${String(i*5).padStart(2, '0')}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-text">Default time for all assignment deadlines (e.g., 17:00 for 5 PM).</div>
+        </div>
+        
+        <!-- Section 4: Calendar -->
+        <div class="section">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">4. Select Assignment Dates (Deadlines)</h5>
+            <button id="add-weeks-btn" class="btn btn-outline-primary">Add Next 4 Weeks</button>
+          </div>
+          <div id="calendar-container" class="w-100"></div>
+          <div class="form-text mt-2">
+            Click dates on the calendar to set assignment deadlines. Use 'Add Next 4 Weeks' to quickly add weekly dates 
+            based on the last selected date.
           </div>
         </div>
-
-        <div class="row g-3 mb-4">
-          <div class="col-md-6">
-             <div class="mb-3">
-                <label for="mbzSectionTitle" class="form-label">Moodle Section Title:</label>
-                <input type="text" class="form-control form-control-sm" id="mbzSectionTitle" placeholder="e.g., Exam Booklet Pages">
-                <div class="form-text">Exact title of the section in your Moodle course where assignments will be added.</div>
-             </div>
-          </div>
-           <div class="col-md-6">
-             <div class="mb-3">
-                <label for="mbzTargetStartDate" class="form-label">Moodle Course Start Date:</label>
-                <input type="date" class="form-control form-control-sm" id="mbzTargetStartDate">
-                 <div class="form-text">Must match the start date of the target Moodle course (used for correct date import). Set course start time to 00:00.</div>
-             </div>
-          </div>
-        </div>
-
-
-        <div class="row g-3 mb-4">
-          <div class="col-12">
-             <h5>3. Set Default Deadline Time</h5>
-             <div class="d-flex align-items-center">
-                <label for="hour-select" class="form-label me-2">Time:</label>
-                <select id="hour-select" class="form-select form-select-sm me-1" style="width: auto;">
-                  ${Array.from({length: 24}, (_, i) => `<option value="${i}" ${i === 17 ? 'selected' : ''}>${String(i).padStart(2, '0')}</option>`).join('')}
-                </select>
-                :
-                <select id="minute-select" class="form-select form-select-sm ms-1" style="width: auto;">
-                  ${Array.from({length: 12}, (_, i) => `<option value="${i*5}" ${i*5 === 0 ? 'selected' : ''}>${String(i*5).padStart(2, '0')}</option>`).join('')}
-                </select>
-             </div>
-             <div class="form-text">Default time for all assignment deadlines (e.g., 17:00 for 5 PM).</div>
-          </div>
-        </div>
-
-        <div class="row g-3 mb-4">
-          <div class="col-12">
-            <h5>4. Select Assignment Dates (Deadlines)</h5>
-             <div class="calendar-controls">
-                <button id="add-weeks-btn" class="btn btn-sm btn-outline-secondary">Add Next 4 Weeks</button>
-             </div>
-            <div id="calendar-container"></div>
-             <div class="form-text">Click dates on the calendar to set assignment deadlines. Use 'Add Next 4 Weeks' to quickly add weekly dates based on the last selected date.</div>
-          </div>
-        </div>
-
-        <div id="selected-dates-preview-section" class="mb-4 hidden">
-          <h5>5. Preview Selected Dates</h5>
-          <div class="dates-table-container border rounded p-2">
-            <table id="dates-table" class="table table-sm table-striped table-hover">
+        
+        <!-- Section 5: Preview -->
+        <div id="selected-dates-preview-section" class="section hidden">
+          <h5 class="mb-3">5. Preview Selected Dates</h5>
+          <div class="table-responsive">
+            <table id="dates-table" class="table table-striped table-hover">
               <thead>
                 <tr>
                   <th>#</th>
@@ -155,13 +165,13 @@ class MbzBatchCreatorUI {
               <tbody id="dates-tbody"></tbody>
             </table>
           </div>
-           <div class="form-text">Review the generated assignment names and deadlines. 'Available From' is based on the previous assignment's due date.</div>
+          <div class="form-text mt-2">Review the generated assignment names and deadlines. 'Available From' is based on the previous assignment's due date.</div>
         </div>
-
-        <hr/>
-        <div class="actions-section text-center">
-          <button id="generate-btn" class="btn btn-primary" disabled>Generate Batch MBZ File</button>
-          <div id="status-message" class="status-message"></div>
+        
+        <!-- Section 6: Actions -->
+        <div class="mt-4 text-center">
+          <button id="generate-btn" class="btn btn-primary btn-lg px-4" disabled>Generate Batch MBZ File</button>
+          <div id="status-message" class="status-message mx-auto" style="max-width: 600px;"></div>
         </div>
       </div>
     `;
@@ -197,15 +207,30 @@ class MbzBatchCreatorUI {
    */
   initFlatpickr() {
     if (!this.elements.calendarContainer) return;
+    
+    // Create flatpickr with simpler configuration
     this.calendar = flatpickr(this.elements.calendarContainer, {
       inline: true,         // Show calendar inline
       mode: "multiple",     // Allow selecting multiple dates
-      dateFormat: "Y-m-d",   // Store dates in this format internally
+      dateFormat: "Y-m-d",  // Store dates in this format internally
       minDate: "today",     // Don't allow past dates
-      showMonths: 2,        // Show two months for better context
+      showMonths: 3,        // Show THREE months side by side
       onChange: (selectedDates) => this.handleDateSelection(selectedDates),
-      // Add more config as needed (localization, etc.)
     });
+    
+    // Apply minimal CSS fix for the calendar 
+    // We'll add this class to override the default styles with simpler rules
+    const styleElement = document.createElement('style');
+    styleElement.textContent = `
+      /* Fix for the last row alignment issue */
+      .flatpickr-day.prevMonthDay, .flatpickr-day.nextMonthDay {
+        visibility: hidden !important;
+        width: 0;
+        margin: 0;
+        padding: 0;
+      }
+    `;
+    document.head.appendChild(styleElement);
   }
 
   /**
