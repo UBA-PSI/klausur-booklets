@@ -63,11 +63,19 @@ h1 {
     margin-bottom: 1em;
 }
 
+/* Input group styling */
 .input-group {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1em;
+    position: relative;
+    margin-bottom: 1.5em; /* Increased to leave room for validation message */
+}
+
+.input-group .invalid-feedback {
+    position: absolute;
+    bottom: -1.25em;
+    left: 0;
 }
 
 .input-group label {
@@ -659,4 +667,83 @@ body.mbz-mode .app-header {
 /* Hide the main header when in MBZ mode (since it's included in the left column) */
 body.mbz-mode #main-header {
     display: none;
+}
+
+/* Info toggle button styling */
+.info-toggle {
+    box-shadow: none !important;
+    outline: none !important;
+    line-height: 1;
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--accent-color);
+}
+
+.info-toggle:hover {
+    background: none;
+    color: #3700B3;
+}
+
+.info-toggle:focus,
+.info-toggle:active {
+    box-shadow: none !important;
+    background: none;
+}
+
+.info-toggle i {
+    font-size: 0.9rem;
+}
+
+/* Info icon styling */
+.bi-info-circle {
+    vertical-align: middle;
+}
+
+/* Form validation styling */
+.invalid-feedback {
+    display: none;
+    width: 100%;
+    margin-top: 0.25rem;
+    font-size: 0.875em;
+    color: #dc3545;
+}
+
+input.is-invalid {
+    border-color: #dc3545;
+    padding-right: calc(1.5em + 0.75rem);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right calc(0.375em + 0.1875rem) center;
+    background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+}
+
+input.is-invalid ~ .invalid-feedback {
+    display: block;
+}
+
+/* Status message styling */
+.status-message {
+  padding: 8px;
+  margin-top: 10px;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  max-width: 100%;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
+.status-message.error {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.status-message.success {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.status-message.info {
+  background-color: #d1ecf1;
+  color: #0c5460;
 }

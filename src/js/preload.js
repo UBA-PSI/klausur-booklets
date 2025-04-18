@@ -19,10 +19,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   clearOutputFolder: (outputDir) => ipcRenderer.invoke('clear-output-folder', outputDir),
   // --- New APIs for MBZ Batch Creator --- 
   showOpenDialog: (options) => ipcRenderer.invoke('dialog:showOpenDialog', options),
+  showSaveDialog: (options) => ipcRenderer.invoke('dialog:showSaveDialog', options),
   showMessageBox: (options) => ipcRenderer.invoke('dialog:showMessageBox', options),
   pathBasename: (filePath) => ipcRenderer.invoke('path:basename', filePath),
   pathDirname: (filePath) => ipcRenderer.invoke('path:dirname', filePath),
   createBatchAssignments: (options) => ipcRenderer.invoke('mbz:createBatchAssignments', options),
+  getUserDataPath: () => ipcRenderer.invoke('app:getUserDataPath'),
   // --- End New APIs ---
 
   // Main -> Renderer (receive)

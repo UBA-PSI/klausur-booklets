@@ -44,8 +44,11 @@ class AppSwitcher {
     // Attach event listeners
     if (this.switchButton) {
       this.switchButton.addEventListener('click', () => {
+        console.log('Switch button clicked! Current view:', this.currentView);
         this.toggleView();
       });
+    } else {
+      console.error('Switch button not found!');
     }
   }
   

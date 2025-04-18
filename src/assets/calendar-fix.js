@@ -10,10 +10,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Apply CSS once
     const styles = document.createElement('style');
     styles.textContent = `
-      /* Column widths */
-      .mbz-creator-left { width: 60% !important; }
-      .mbz-creator-right { width: 40% !important; }
-      
       /* Custom selection styles */
       .calendar-day.direct-selected {
         background-color: #cfe2ff !important;
@@ -74,8 +70,8 @@ document.addEventListener('DOMContentLoaded', () => {
       init: function() {
         // Find elements needed for preview updates
         this.namePrefixInput = document.getElementById('name-prefix-input');
-        this.hourSelect = document.getElementById('hour-select');
-        this.minuteSelect = document.getElementById('minute-select');
+        this.deadlineTimeInput = document.getElementById('deadlineTime');
+        this.gracePeriodInput = document.getElementById('gracePeriod');
         this.previewTbody = document.getElementById('dates-tbody');
         this.previewSection = document.getElementById('selected-dates-preview-section');
 
@@ -150,8 +146,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Add listeners to update preview when inputs change
         this.namePrefixInput?.addEventListener('input', () => this.updatePreview());
-        this.hourSelect?.addEventListener('change', () => this.updatePreview());
-        this.minuteSelect?.addEventListener('change', () => this.updatePreview());
+        this.deadlineTimeInput?.addEventListener('input', () => this.updatePreview());
+        this.gracePeriodInput?.addEventListener('change', () => this.updatePreview());
 
         return true;
       },
@@ -206,9 +202,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         // Get input values
-        const namePrefix = this.namePrefixInput?.value || 'Assignment';
-        const hour = parseInt(this.hourSelect?.value || '17', 10);
-        const minute = parseInt(this.minuteSelect?.value || '0', 10);
+        const namePrefix = document.getElementById('name-prefix-input')?.value || 'Assignment';
+        
+        // Parse the time from the new deadline time input
+        const deadlineTimeInput = document.getElementById('deadlineTime');
+        let hour = 17, minute = 0;
+        
+        if (deadlineTimeInput && deadlineTimeInput.value) {
+          const timeParts = deadlineTimeInput.value.split(':');
+          if (timeParts.length >= 2) {
+            hour = parseInt(timeParts[0], 10);
+            minute = parseInt(timeParts[1], 10);
+          }
+        }
         
         // Sort dates
         const sortedDates = [...this.selectedDates].sort((a, b) => a.getTime() - b.getTime());
@@ -266,30 +272,59 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     };
 
-    // Initialize and expose globally for debugging
-    ImprovedCalendarController.init();
-    window.calendarController = ImprovedCalendarController;
+    // Try to initialize, if it fails, retry after a delay
+    const tryInitialize = (retryCount = 0) => {
+      const initialized = ImprovedCalendarController.init();
+      
+      if (!initialized && retryCount < 5) {
+        console.log(`Calendar initialization attempt ${retryCount + 1} failed, retrying in 500ms...`);
+        setTimeout(() => tryInitialize(retryCount + 1), 500);
+      } else if (initialized) {
+        console.log('Calendar initialization successful');
+        window.calendarController = ImprovedCalendarController;
+      } else {
+        console.error('Failed to initialize calendar controller after multiple attempts');
+      }
+    };
+    
+    // Start initialization attempts
+    tryInitialize();
+  };
+
+  // Helper function to check if an element is visible
+  const isElementVisible = (el) => {
+    if (!el) return false;
+    const style = window.getComputedStyle(el);
+    return style.display !== 'none' && style.visibility !== 'hidden';
   };
 
   // Check if we're already in MBZ view at initialization
-  if (document.getElementById('mbz-creator-view').style.display !== 'none') {
-    // Wait for the calendar to be ready
-    setTimeout(() => {
-      // Attempt to get instance if initialized early
-      const instance = document.getElementById('mbz-creator-view')?._mbzCreator;
-      initializeController(instance);
-    }, 1000); 
-  }
+  const checkInitialView = () => {
+    const mbzView = document.getElementById('mbz-creator-view');
+    if (mbzView && isElementVisible(mbzView)) {
+      console.log('MBZ view is visible, initializing controller');
+      // Wait for the calendar to be ready - longer timeout for initial load
+      setTimeout(() => {
+        // Attempt to get instance if initialized early
+        const instance = document.getElementById('mbz-creator-view')?._mbzCreator;
+        initializeController(instance);
+      }, 1500); 
+    }
+  };
+
+  // Initial check with a delay to ensure DOM is fully ready
+  setTimeout(checkInitialView, 500);
 
   // Listen for view changes
   window.addEventListener('viewChanged', (event) => {
     if (event.detail.view === 'mbz') {
+      console.log('View changed to MBZ, initializing controller');
       // Wait for the calendar to be ready
       setTimeout(() => {
         // Pass the instance when initializing on view change
         const instance = document.getElementById('mbz-creator-view')?._mbzCreator;
         initializeController(instance);
-      }, 1000); 
+      }, 1500); 
     }
   });
 }); 

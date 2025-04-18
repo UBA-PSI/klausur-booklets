@@ -532,136 +532,162 @@ window.electronAPI.onLogError((message) => {
 
 // --- End Ambiguity Resolution Logic ---
 
-document.getElementById('startTransformationBtn').addEventListener('click', async () => {
-    clearErrorLogUI(); // Clear errors from previous runs
-    const mainDirectory = document.getElementById('mainDirectoryPath').value;
-    const outputDirectory = document.getElementById('outputDirectoryPath').value;
-    // templatePath is no longer needed here
-
-    if (!mainDirectory || !outputDirectory) {
-        document.getElementById('status').textContent = 'Please select input and output directories before proceeding.';
-        updateStatus('error', 'Please select input and output directories.');
-        return;
-    }
-
-    document.getElementById('status').textContent = 'Starting transformation process...';
-    updateStatus('processing', 'Starting transformation...');
-	
-    const currentPattern = config.foldernamePattern; // Get pattern from current config
-    const moodlePresetPattern = document.getElementById('pattern-moodle')?.value; // Get Moodle pattern value
-
-    // --- Moodle Pre-check --- 
-    if (currentPattern && moodlePresetPattern && currentPattern === moodlePresetPattern) {
-        console.log("Moodle pattern selected, performing pre-check for collisions...");
-        try {
-            // Store for potential retry
-            lastInputDirectory = mainDirectory;
-            lastFolderPattern = currentPattern;
-            
-            // Initial check can assume useCSVs = false, user can retry with them
-            const collisionResult = await window.electronAPI.precheckCollisions(mainDirectory, currentPattern, false); 
-            console.log("Initial Pre-check result:", collisionResult);
-            // Check both collisionDetected and mappingErrorDetected flags
-            if (collisionResult && (collisionResult.collisionDetected || collisionResult.mappingErrorDetected)) { 
-                 updateStatus('warning', 'Potential issues detected. Please resolve in the modal.');
-                 openMoodleCollisionModal(
-                    collisionResult.collidingNames, 
-                    collisionResult.usedCSVs, 
-                    collisionResult.csvMappingsCount,
-                    collisionResult.partialCsvCoverage,
-                    collisionResult.missingCsvPages,
-                    collisionResult.studentsAffected,
-                    collisionResult.mappingErrors // Pass mapping errors
-                 );
-                 return; // Stop the process, user needs to resolve
-            }
-            console.log("Pre-check passed, no issues detected.");
-        } catch (precheckError) {
-            console.error("Error during pre-check:", precheckError);
-            updateStatus('error', `Error during pre-check: ${precheckError.message}`);
-            // Optionally show a more generic error modal or just update status
-            return; // Stop if pre-check fails
-        }
+// Validate directory inputs before starting operations
+function validateDirectoryInputs() {
+    let isValid = true;
+    const mainDirInput = document.getElementById('mainDirectoryPath');
+    const outputDirInput = document.getElementById('outputDirectoryPath');
+    
+    // Check main directory
+    if (!mainDirInput.value.trim()) {
+        mainDirInput.classList.add('is-invalid');
+        isValid = false;
     } else {
-         console.log("Non-Moodle pattern or no pattern selected, skipping pre-check.");
+        mainDirInput.classList.remove('is-invalid');
     }
-    // --- End Moodle Pre-check --- 
+    
+    // Check output directory
+    if (!outputDirInput.value.trim()) {
+        outputDirInput.classList.add('is-invalid');
+        isValid = false;
+    } else {
+        outputDirInput.classList.remove('is-invalid');
+    }
+    
+    return isValid;
+}
 
-    // Proceed with actual transformation if pre-check passed or wasn't needed
-    document.getElementById('status').textContent = 'Transforming pages... Please wait.';
-    updateStatus('processing', 'Transforming pages... Please wait.');
-	
+// Add event listeners to input fields to clear validation errors on change
+document.addEventListener('DOMContentLoaded', () => {
+    const mainDirInput = document.getElementById('mainDirectoryPath');
+    const outputDirInput = document.getElementById('outputDirectoryPath');
+    
+    if (mainDirInput) {
+        mainDirInput.addEventListener('input', () => {
+            mainDirInput.classList.remove('is-invalid');
+        });
+    }
+    
+    if (outputDirInput) {
+        outputDirInput.addEventListener('input', () => {
+            outputDirInput.classList.remove('is-invalid');
+        });
+    }
+});
+
+// Update the existing transformation and merging button handlers
+document.getElementById('startTransformationBtn').addEventListener('click', async function() {
+    if (!validateDirectoryInputs()) return;
+    
+    clearErrorLogUI(); // Clear errors from previous runs
+    updateStatus('processing', 'Preparing to convert files to PDF...');
+    
     try {
-        let dpiValue = parseInt(document.getElementById('dpi').value, 10);
-        const result = await window.electronAPI.startTransformation(mainDirectory, outputDirectory, dpiValue); // Removed templatePath
+        const mainDirectory = document.getElementById('mainDirectoryPath').value;
+        const outputDirectory = document.getElementById('outputDirectoryPath').value;
+        const dpi = parseInt(document.getElementById('dpi').value, 10);
+        
+        const currentPattern = config.foldernamePattern; // Get pattern from current config
+        const moodlePresetPattern = document.getElementById('pattern-moodle')?.value; // Get Moodle pattern value
+
+        // --- Moodle Pre-check --- 
+        if (currentPattern && moodlePresetPattern && currentPattern === moodlePresetPattern) {
+            console.log("Moodle pattern selected, performing pre-check for collisions...");
+            try {
+                // Store for potential retry
+                lastInputDirectory = mainDirectory;
+                lastFolderPattern = currentPattern;
+                
+                // Initial check can assume useCSVs = false, user can retry with them
+                const collisionResult = await window.electronAPI.precheckCollisions(mainDirectory, currentPattern, false); 
+                console.log("Initial Pre-check result:", collisionResult);
+                // Check both collisionDetected and mappingErrorDetected flags
+                if (collisionResult && (collisionResult.collisionDetected || collisionResult.mappingErrorDetected)) { 
+                    updateStatus('warning', 'Potential issues detected. Please resolve in the modal.');
+                    openMoodleCollisionModal(
+                        collisionResult.collidingNames, 
+                        collisionResult.usedCSVs, 
+                        collisionResult.csvMappingsCount,
+                        collisionResult.partialCsvCoverage,
+                        collisionResult.missingCsvPages,
+                        collisionResult.studentsAffected,
+                        collisionResult.mappingErrors // Pass mapping errors
+                    );
+                    return; // Stop the process, user needs to resolve
+                }
+                console.log("Pre-check passed, no issues detected.");
+            } catch (precheckError) {
+                console.error("Error during pre-check:", precheckError);
+                updateStatus('error', `Error during pre-check: ${precheckError.message}`);
+                // Optionally show a more generic error modal or just update status
+                return; // Stop if pre-check fails
+            }
+        } else {
+            console.log("Non-Moodle pattern or no pattern selected, skipping pre-check.");
+        }
+        // --- End Moodle Pre-check --- 
+
+        // Proceed with actual transformation if pre-check passed or wasn't needed
+        updateStatus('processing', 'Transforming pages... Please wait.');
+        
+        // Use the exposed function to start transformation
+        const result = await window.electronAPI.startTransformation(mainDirectory, outputDirectory, dpi);
 
         if (result && result.status === 'ambiguity_detected') {
-             document.getElementById('status').textContent = result.message;
-             updateStatus('info', result.message);
+            updateStatus('info', result.message);
         } else {
             const successMessage = typeof result === 'string' ? result : 'Pages transformed successfully! Check the output directory.';
-            document.getElementById('status').textContent = successMessage;
             updateStatus('success', successMessage);
         }
     } catch (error) {
         console.error("Error during transformation:", error);
         // Specific handling for final collision error after automatic attempt fails
-        if (error.message.startsWith('FinalCollisionError:')) { 
-             document.getElementById('status').textContent = error.message; // Show detailed error
-             updateStatus('error', 'Unresolvable name collisions found. Please rename input folders manually.');
-             // TODO: Optionally show a specific modal here too, maybe reusing parts of moodleCollisionModal structure
+        if (error.message?.startsWith('FinalCollisionError:')) { 
+            updateStatus('error', 'Unresolvable name collisions found. Please rename input folders manually.');
         } else {
             // General error handling
-        document.getElementById('status').textContent = 'Error transforming pages: ' + error.message;
-		updateStatus('error', 'Error transforming pages: ' + error.message);
+            updateStatus('error', 'Error transforming pages: ' + error.message);
         }
     }
 });
 
-document.getElementById('startMergingBtn').addEventListener('click', async () => {
-    const mainDirectory = document.getElementById('mainDirectoryPath').value;
-    const outputDirectory = document.getElementById('outputDirectoryPath').value;
-
-    if (!mainDirectory || !outputDirectory) {
-        document.getElementById('status').textContent = 'Please select input and output directories before proceeding.';
-        updateStatus('error', 'Please select input and output directories.'); // Update status bar
-        return;
-    }
-
-    document.getElementById('status').textContent = 'Merging PDFs... Please wait.';
-    updateStatus('processing', 'Merging PDFs... Please wait.'); // Update status bar
+document.getElementById('startMergingBtn').addEventListener('click', async function() {
+    if (!validateDirectoryInputs()) return;
+    
+    clearErrorLogUI(); // Clear errors from previous runs
+    updateStatus('processing', 'Preparing to merge PDFs...');
     
     try {
-        // Use the exposed function - REMOVED templatePath argument
+        const mainDirectory = document.getElementById('mainDirectoryPath').value;
+        const outputDirectory = document.getElementById('outputDirectoryPath').value;
+        
+        updateStatus('processing', 'Merging PDFs... Please wait.');
+        
+        // Use the exposed function to start merging
         await window.electronAPI.startMerging(mainDirectory, outputDirectory);
-        document.getElementById('status').textContent = 'PDFs merged successfully! Check the output directory.';
+        
         updateStatus('success', 'PDFs merged successfully! Check the output directory.');
     } catch (error) {
-        document.getElementById('status').textContent = 'Error merging PDFs: ' + error.message;
+        console.error("Error during merging:", error);
         updateStatus('error', 'Error merging PDFs: ' + error.message);
     }
 });
 
-// Re-enable the booklet creation listener and use the bridged API
-document.getElementById('createBookletsBtn').addEventListener('click', async () => {
-    const outputDirectory = document.getElementById('outputDirectoryPath').value;
-
-    if (!outputDirectory) {
-        document.getElementById('status').textContent = 'Please select the output directory before proceeding.';
-        updateStatus('error', 'Please select the output directory before proceeding.');
-        return;
-    }
-
-    document.getElementById('status').textContent = 'Creating booklets... Please wait.';
-    updateStatus('processing', 'Creating booklets... Please wait.');
+document.getElementById('createBookletsBtn').addEventListener('click', async function() {
+    if (!validateDirectoryInputs()) return;
+    
+    clearErrorLogUI(); // Clear errors from previous runs
+    updateStatus('processing', 'Creating booklets...');
     
     try {
-        // Use the exposed function from preload script
+        const outputDirectory = document.getElementById('outputDirectoryPath').value;
+        
+        // Use the exposed function to create booklets
         const resultMessage = await window.electronAPI.createBooklets(outputDirectory);
-        document.getElementById('status').textContent = resultMessage; // Display message from main process
-        updateStatus('success', resultMessage);
+        
+        updateStatus('success', resultMessage || 'Booklets created successfully!');
     } catch (error) {
-        document.getElementById('status').textContent = 'Error creating booklets: ' + error.message;
+        console.error("Error during booklet creation:", error);
         updateStatus('error', 'Error creating booklets: ' + error.message);
     }
 });
@@ -795,11 +821,9 @@ function clearErrorLogUI() {
 const clearOutputBtn = document.getElementById('clearOutputBtn');
 if (clearOutputBtn) {
     clearOutputBtn.addEventListener('click', async () => {
+        if (!validateDirectoryInputs()) return;
+        
         const outputDirectory = document.getElementById('outputDirectoryPath').value;
-        if (!outputDirectory) {
-            updateStatus('error', 'Please select an output directory first.');
-            return;
-        }
 
         const confirmation = confirm(
             `Are you sure you want to permanently delete the contents of the following subfolders within '${outputDirectory}'?\n\n- pages\n- pdfs\n- booklets\n\nThis action cannot be undone.`
@@ -886,39 +910,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.warn('Cover template modal close button not found');
     }
     
-    // Clear Output Button Listener
-    const clearOutputBtn = document.getElementById('clearOutputBtn');
-    if (clearOutputBtn) {
-        clearOutputBtn.addEventListener('click', async () => {
-            const outputDirectory = document.getElementById('outputDirectoryPath').value;
-            if (!outputDirectory) {
-                updateStatus('error', 'Please select an output directory first.');
-                return;
-            }
-
-            const confirmation = confirm(
-                `Are you sure you want to permanently delete the contents of the following subfolders within '${outputDirectory}'?\n\n- pages\n- pdfs\n- booklets\n\nThis action cannot be undone.`
-            );
-
-            if (confirmation) {
-                updateStatus('processing', 'Clearing output folders...');
-                try {
-                    const result = await window.electronAPI.clearOutputFolder(outputDirectory);
-                    if (result.success) {
-                        updateStatus('success', result.message);
-                    } else {
-                        updateStatus('error', result.message);
-                    }
-                } catch (error) {
-                    updateStatus('error', `Failed to clear output: ${error.message}`);
-                }
-            } else {
-                updateStatus('info', 'Clear output cancelled.');
-            }
-        });
-    } else {
-        console.warn('Clear Output button (clearOutputBtn) not found in index.html.');
-    }
+    // Note: The clearOutputBtn event handler is already defined outside this DOMContentLoaded section
 
     // Initialize components or listeners that depend on the full DOM
     // For example, if ambiguity modal buttons needed setup here:

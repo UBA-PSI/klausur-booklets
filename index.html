@@ -3,12 +3,14 @@
 
 <head>
     <meta charset="UTF-8">
-    <!-- Update Content Security Policy to allow inline scripts if needed -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';">
+    <!-- Update Content Security Policy to allow necessary resources -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:">
     <title>PDF Merger</title>
     <link rel="stylesheet" type="text/css" href="src/assets/styles.css">
     <!-- Add Bootstrap CSS for styling -->
     <link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.min.css">
+    <!-- Add Bootstrap Icons CSS -->
+    <link rel="stylesheet" href="node_modules/bootstrap-icons/font/bootstrap-icons.css">
     <!-- Add Flatpickr CSS -->
     <link rel="stylesheet" type="text/css" href="node_modules/flatpickr/dist/flatpickr.min.css">
     <!-- Add MBZ Creator CSS -->
@@ -31,26 +33,28 @@
             <h2>Select Directories</h2>
             <div class="input-group">
                 <label>Input Directory:</label>
-                <input type="text" id="mainDirectoryPath">
+                <input type="text" id="mainDirectoryPath" required>
                 <button id="select-main-dir-button">Browse</button>
+                <div class="invalid-feedback">Please select an input directory.</div>
             </div>
 
             <div class="input-group">
                 <label>Output Directory:</label>
-                <input type="text" id="outputDirectoryPath">
+                <input type="text" id="outputDirectoryPath" required>
                 <button id="select-output-dir-button">Browse</button>
+                <div class="invalid-feedback">Please select an output directory.</div>
             </div>
 
             <hr>
 
             <div class="actions">
                 <div class="button-group">
-                    <button id="clearOutputBtn" class="btn btn-danger">0. Clear Output Folder</button>
-                    <button id="startTransformationBtn">1. Convert Inputs to PDFs</button>
-                    <button id="startMergingBtn">2. Merge PDFs</button>
-                    <button id="createBookletsBtn">3. Create Booklets</button>
-                    <button id="settingsButton">Settings</button>
-                    <button id="editCoverTemplateBtn">Edit Cover Template</button>
+                    <button id="clearOutputBtn" class="btn btn-danger"><i class="bi bi-trash"></i> 0. Clear Output Folder</button>
+                    <button id="startTransformationBtn"><i class="bi bi-image"></i> 1. Convert Inputs to PDFs</button>
+                    <button id="startMergingBtn"><i class="bi bi-file-earmark-pdf"></i> 2. Merge PDFs</button>
+                    <button id="createBookletsBtn"><i class="bi bi-journal-check"></i> 3. Create Booklets</button>
+                    <button id="settingsButton"><i class="bi bi-gear"></i> Settings</button>
+                    <button id="editCoverTemplateBtn"><i class="bi bi-file-earmark-text"></i> Edit Cover Template</button>
                 </div>
             </div>
 
@@ -324,28 +328,21 @@
                         // Initialize the MBZ batch creator
                         mbzCreatorInstance = MbzBatchCreator.initialize(mbzContainer);
                         
+                        // Store the instance on the container element for access by other components
+                        mbzContainer._mbzCreator = mbzCreatorInstance;
+                        
+                        console.log('MBZ Batch Creator initialized and stored on container');
+                        
                         // After calendar has been created, initialize the controller
-                        // Wait for calendar to be fully initialized and calendar-fix.js to hook in
+                        // Wait for calendar to be fully initialized
                         setTimeout(() => {
                             const calendarContainer = document.getElementById('vertical-calendar-container');
                             if (calendarContainer && mbzCreatorInstance.calendar) {
-                                // Wait a bit longer to ensure calendar-fix.js is initialized
-                                setTimeout(() => {
-                                    // Initialize our controller and link with the existing calendarController
-                                    calendarControllerInstance = VerticalCalendarController.initialize(mbzCreatorInstance.calendar);
-                                    // Link the controller with the batch creator
-                                    mbzCreatorInstance.setController(calendarControllerInstance);
-                                    
-                                    // Connect to existing calendar controller if needed
-                                    if (window.calendarController) {
-                                        // Initialize with existing selections
-                                        mbzCreatorInstance.calendar.selectedDates = [...window.calendarController.selectedDates];
-                                        // Reapply highlights based on the current selection
-                                        calendarControllerInstance.refresh();
-                                    }
-                                }, 300);
+                                calendarControllerInstance = VerticalCalendarController.initialize(mbzCreatorInstance.calendar);
+                                // Link the controller with the batch creator
+                                mbzCreatorInstance.setController(calendarControllerInstance);
                             }
-                        }, 500);
+                        }, 800);
                     }
                 }
             });

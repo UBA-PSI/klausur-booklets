@@ -1450,19 +1450,28 @@ ipcMain.handle('clear-output-folder', async (event, outputDirectory) => {
 
 // --- IPC Handlers for MBZ Batch Creator Dependencies --- 
 ipcMain.handle('dialog:showOpenDialog', async (event, options) => {
-    return await dialog.showOpenDialog(mainWindow, options); // Pass mainWindow for modal dialogs
+    return dialog.showOpenDialog(mainWindow, options);
+});
+
+ipcMain.handle('dialog:showSaveDialog', async (event, options) => {
+    return dialog.showSaveDialog(mainWindow, options);
 });
 
 ipcMain.handle('dialog:showMessageBox', async (event, options) => {
-    return await dialog.showMessageBox(mainWindow, options); // Pass mainWindow
+    return dialog.showMessageBox(mainWindow, options);
 });
 
-ipcMain.handle('path:basename', (event, filePath) => {
+ipcMain.handle('path:basename', async (event, filePath) => {
     return path.basename(filePath);
 });
 
 ipcMain.handle('path:dirname', (event, filePath) => {
     return path.dirname(filePath);
+});
+
+// Add handler for getUserDataPath
+ipcMain.handle('app:getUserDataPath', (event) => {
+    return app.getPath('userData');
 });
 // --- End IPC Handlers for Dependencies --- 
 
@@ -1477,6 +1486,7 @@ ipcMain.handle('mbz:createBatchAssignments', async (event, incomingOptions) => {
   // - incomingOptions.timeHour, incomingOptions.timeMinute: Deadline time components.
   // - incomingOptions.namePrefix: Assignment name prefix.
   // - incomingOptions.outputDir: Optional output directory.
+  // - incomingOptions.outputFilename: Optional output filename.
   // - Potentially missing: sectionTitle, targetStartDate - need defaults or UI additions?
 
   try {
@@ -1497,7 +1507,15 @@ ipcMain.handle('mbz:createBatchAssignments', async (event, incomingOptions) => {
 
     // 2. Prepare options for modifyMoodleBackup
     const outputDir = incomingOptions.outputDir || path.dirname(incomingOptions.mbzFilePath);
-    const outputFilename = `${path.basename(incomingOptions.mbzFilePath, '.mbz')}-modified-${Date.now()}.mbz`;
+    
+    // Use the provided filename from the save dialog if available, otherwise generate one
+    let outputFilename;
+    if (incomingOptions.outputFilename) {
+      outputFilename = incomingOptions.outputFilename;
+    } else {
+      outputFilename = `${path.basename(incomingOptions.mbzFilePath, '.mbz')}-modified-${Date.now()}.mbz`;
+    }
+    
     const finalOutputPath = path.join(outputDir, outputFilename);
 
     const modifyOptions = {
@@ -1520,7 +1538,7 @@ ipcMain.handle('mbz:createBatchAssignments', async (event, incomingOptions) => {
 
     // 4. Return success result
     console.log(`modifyMoodleBackup completed successfully. Output: ${finalOutputPath}`);
-    return { success: true, outputPath: finalOutputPath };
+    return { success: true, outputPath: finalOutputPath, message: "MBZ file created successfully." };
 
   } catch (error) {
     console.error('Error during mbz:createBatchAssignments handling:', error);
