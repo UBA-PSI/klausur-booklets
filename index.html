@@ -306,8 +306,8 @@
     <script>
         // Initialize app components after the DOM is loaded
         document.addEventListener('DOMContentLoaded', () => {
-            // Initialize the app switcher
-            const appSwitcher = new AppSwitcher({
+            // Initialize the app switcher and make it global
+            window.appSwitcher = new AppSwitcher({
                 mainViewSelector: '#main-view',
                 mbzViewSelector: '#mbz-creator-view',
                 switchButtonSelector: '#app-mode-switch',
@@ -349,7 +349,7 @@
 
             // Handle initial view if needed
             if (window.location.hash === '#mbz') {
-                appSwitcher.showMbzView();
+                window.appSwitcher.showMbzView();
             }
         });
     </script>

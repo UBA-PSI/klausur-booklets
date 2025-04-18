@@ -54,7 +54,7 @@ class MbzBatchCreator {
               <h1 class="app-title">Booklet Page Tool</h1>
               <span id="app-mode" class="app-mode">Moodle Batch Assignment Creation Mode</span>
             </div>
-            <button id="app-mode-switch" class="app-switcher" onclick="window.appSwitcher?.toggleView()">Switch Mode</button>
+            <button class="app-switcher mbz-view-switch-button">Switch Mode</button>
           </div>
           
           <!-- 1. Template Selection -->
@@ -452,6 +452,7 @@ class MbzBatchCreator {
       previewTbody: this.container.querySelector('#dates-tbody'),
       generateBtn: this.container.querySelector('#generate-btn'),
       statusMessage: this.container.querySelector('#status-message'),
+      mbzViewSwitchButton: this.container.querySelector('.mbz-view-switch-button'),
       
       // Info sections
       templateInfo: this.container.querySelector('#templateInfo'),
@@ -560,6 +561,12 @@ class MbzBatchCreator {
     
     // Generate button
     this.elements.generateBtn?.addEventListener('click', () => this.generateBatchAssignments());
+    
+    // Listener for the switch button within this view
+    this.elements.mbzViewSwitchButton?.addEventListener('click', () => {
+      // Use the global appSwitcher instance to go back to the main view
+      window.appSwitcher?.showMainView();
+    });
     
     // Template toggle button
     this.elements.templateToggleBtn?.addEventListener('click', () => {
