@@ -70,12 +70,7 @@ class AppSwitcher {
       if (this.titleContainer) {
         this.titleContainer.textContent = this.options.mainViewTitle;
       }
-      
-      // Update switch button text
-      if (this.switchButton) {
-        this.switchButton.textContent = 'Switch Mode';
-        this.switchButton.setAttribute('title', 'Switch to Moodle Batch Assignment Creation');
-      }
+       
     } else {
       this.mainView.classList.remove('active');
       this.mbzView.classList.add('active');
@@ -86,11 +81,6 @@ class AppSwitcher {
         this.titleContainer.textContent = this.options.mbzViewTitle;
       }
       
-      // Update switch button text
-      if (this.switchButton) {
-        this.switchButton.textContent = 'Switch Mode';
-        this.switchButton.setAttribute('title', 'Switch to Booklet Generation');
-      }
     }
     
     // Trigger a custom event for other components to react

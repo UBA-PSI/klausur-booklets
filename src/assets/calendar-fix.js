@@ -15,7 +15,6 @@ document.addEventListener('DOMContentLoaded', () => {
         background-color: #cfe2ff !important;
         color: #0d6efd !important;
         font-weight: bold !important;
-        border: 2px solid #0d6efd !important;
         position: relative;
       }
       

@@ -558,18 +558,6 @@ h1 {
     padding: 0;
 }
 
-.month-label {
-    writing-mode: vertical-lr;
-    transform: rotate(180deg);
-    text-transform: uppercase;
-    color: #6c757d;
-    font-weight: bold;
-    padding: 10px 0;
-    letter-spacing: 1px;
-    width: 30px;
-    text-align: center;
-    box-sizing: border-box;
-}
 
 .calendar-week {
     display: flex;
@@ -591,36 +579,14 @@ h1 {
     justify-content: center;
 }
 
-.calendar-day:hover {
-    background-color: #e9ecef;
-}
 
 .calendar-day.selected {
     background-color: #cfe2ff;
     color: #0d6efd;
     font-weight: bold;
+    border: none;
 }
 
-.calendar-day.today {
-    border: 2px solid #0d6efd;
-}
-
-.calendar-day.month-start {
-    font-weight: bold;
-}
-
-.calendar-day.past {
-    color: #aaa;
-    cursor: not-allowed;
-}
-
-.calendar-day.even-month {
-    background-color: #f2f2f2;
-}
-
-.calendar-day.odd-month {
-    background-color: #ffffff;
-}
 
 .calendar-header {
     display: flex;
@@ -634,6 +600,103 @@ h1 {
     display: flex;
     gap: 10px;
 }
+
+
+.vertical-calendar .calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 10px;
+    border-bottom: 1px solid #eee;
+  }
+  .vertical-calendar .calendar-title {
+    font-weight: bold;
+  }
+  .vertical-calendar .weekday-header {
+    display: flex;
+    justify-content: space-around;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #eee;
+    padding: 5px 0;
+  }
+  .vertical-calendar .weekday-label {
+    flex: 1;
+    text-align: center;
+    font-size: 0.8em;
+    font-weight: bold;
+    color: #6c757d;
+  }
+  .vertical-calendar .calendar-week {
+    display: flex;
+    justify-content: space-around;
+    border-bottom: 1px solid #f1f1f1;
+  }
+  .vertical-calendar .calendar-day {
+    flex: 1;
+    text-align: center;
+    padding: 8px 0;
+    cursor: pointer;
+    position: relative;
+    border-right: 1px solid #f1f1f1;
+    min-height: 38px; /* Ensure consistent height */
+    display: flex; /* Use flex for centering */
+    justify-content: center; /* Center horizontally */
+    align-items: center; /* Center vertically */
+    font-size: 0.9em;
+  }
+  .vertical-calendar .calendar-day:last-child {
+    border-right: none;
+  }
+  .vertical-calendar .calendar-day.other-month {
+    color: #ddd;
+    cursor: default;
+  }
+  .vertical-calendar .calendar-day.past {
+    color: #aaa;
+    cursor: not-allowed;
+    background-color: #f9f9f9;
+  }
+  .vertical-calendar .calendar-day.today {
+    font-weight: bold;
+    background-color: #014288af !important;
+    color: #e7f3ff; /* Bright blue text */
+  }
+
+  .vertical-calendar .calendar-day.first-day-of-month {
+    /* Styles for the 1st day of the month */
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* Vertical center */
+    align-items: center;     /* Horizontal center */
+    line-height: 1;       /* Adjust line height */
+    padding-top: 4px;      
+    padding-bottom: 4px;
+    font-weight: bold; /* Make the day number bold */
+  }
+  .vertical-calendar .calendar-day.first-day-of-month .month-abbr {
+    font-size: 0.6em;      /* Smaller font for month */
+    font-weight: normal; /* Normal weight for abbr */
+    display: block;         /* Ensure it takes its own line */
+    margin-top: 1px;       
+    color: #555; /* Slightly muted color */
+  }
+  .vertical-calendar .calendar-day.even-month { background-color: #ffffff; }
+  .vertical-calendar .calendar-day.odd-month { background-color: #ededed; }
+  .vertical-calendar .calendar-day.even-month.past { background-color: #f9f9f9; }
+  .vertical-calendar .calendar-day.odd-month.past { background-color: #e7e7e7; }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 .weekday-header {
     display: flex;

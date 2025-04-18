@@ -45,17 +45,17 @@ class MbzBatchCreator {
   buildUI() {
     // Create the two-column layout with polished design
     this.container.innerHTML = `
+      <div class="app-header">
+            <div class="app-title-container">
+              <h1 class="app-title">Moodle Page Submissions Creator</h1>
+            </div>
+            <button class="app-switcher mbz-view-switch-button">Go to Booklet Generation Mode</button>
+          </div>  
       <div class="mbz-creator-view">
         <!-- Left Column: Configuration -->
         <div class="mbz-creator-left">
           <!-- App Header - Only spans the left column -->
-          <div class="app-header">
-            <div class="app-title-container">
-              <h1 class="app-title">Booklet Page Tool</h1>
-              <span id="app-mode" class="app-mode">Moodle Batch Assignment Creation Mode</span>
-            </div>
-            <button class="app-switcher mbz-view-switch-button">Switch Mode</button>
-          </div>
+          
           
           <!-- 1. Template Selection -->
           <div class="card shadow-sm mb-3">

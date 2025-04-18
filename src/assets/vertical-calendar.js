@@ -206,7 +206,7 @@ class VerticalCalendar {
       .vertical-calendar .calendar-day.odd-month.past { background-color: #f7f7f7; }
 
     `;
-    document.head.appendChild(styles);
+    //document.head.appendChild(styles);
   }
 
   /**
