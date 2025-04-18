@@ -15,53 +15,229 @@
     <link rel="stylesheet" type="text/css" href="node_modules/flatpickr/dist/flatpickr.min.css">
     <!-- Add MBZ Creator specific CSS -->
     <link rel="stylesheet" type="text/css" href="src/assets/mbz_creator.css">
+    <!-- Additional custom styles for main view -->
+    <style>
+        /* Info icon styling */
+        .info-icon {
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s ease;
+        }
+        .info-icon:hover {
+            opacity: 1;
+        }
+        
+        /* Card styling */
+        .card {
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            border-radius: 8px;
+            border: 1px solid rgba(0,0,0,0.125);
+        }
+        .card-header {
+            background-color: rgba(0,0,0,0.03);
+            border-bottom: 1px solid rgba(0,0,0,0.125);
+        }
+        
+        /* Button improvements */
+        .btn {
+            border-radius: 4px;
+            padding: 0.5rem 1rem;
+            transition: all 0.2s;
+        }
+        
+        /* App header styling */
+        .app-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1.5rem;
+            background-color: #ffffff;
+            border-bottom: 1px solid #e9ecef;
+            margin-bottom: 1.5rem;
+        }
+        
+        .app-header .app-title {
+            font-size: 1.5rem;
+            font-weight: 500;
+            margin: 0;
+            color: #212529;
+        }
+        
+        /* Status bar adjustments */
+        #status-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            border-top: 1px solid #e9ecef;
+            background-color: #f8f9fa;
+            padding: 8px 15px;
+            z-index: 1000;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        /* Add padding to the body to account for the fixed status bar */
+        body {
+            padding-bottom: 40px;
+        }
+        
+        /* Bootstrap tooltip custom styling */
+        .tooltip {
+            font-size: 0.85rem;
+        }
+        .tooltip-inner {
+            max-width: 300px;
+            padding: 8px 12px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+    </style>
 </head>
 
 <body>
     <!-- Single App Header - Content updated by AppSwitcher -->
-    <div class="app-header" id="main-header">
-        <div class="app-title-container">
-            <h1 class="app-title">Booklet Generation Mode</h1>
+    <div class="app-header shadow-sm" id="main-header">
+        <div class="app-title-container d-flex align-items-center">
+            <i class="bi bi-journal-richtext text-primary me-2" style="font-size: 1.5rem;"></i>
+            <h1 class="app-title mb-0">Booklet Generation Mode</h1>
         </div>
-        <button id="app-mode-switch" class="app-switcher">Switch Mode</button>
+        <button id="app-mode-switch" class="btn btn-outline-primary app-switcher">
+            <i class="bi bi-arrow-repeat me-1"></i>
+            Switch Mode
+        </button>
     </div>
 
     <!-- Main View (Booklet Generator) -->
     <div id="main-view" class="view-container active">
         <div class="container">
-            <h2>Select Directories</h2>
-            <div class="input-group">
-                <label>Input Directory:</label>
-                <input type="text" id="mainDirectoryPath" required>
-                <button id="select-main-dir-button">Browse</button>
-                <div class="invalid-feedback">Please select an input directory.</div>
+            <!-- Directory Selection Card -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-folder2-open text-primary me-2"></i>Directory Configuration
+                    </h5>
+                    <span class="info-icon" data-bs-toggle="tooltip" title="Select the input directory containing student submissions organized by page, and an output directory where booklets will be saved.">
+                        <i class="bi bi-info-circle-fill text-info"></i>
+                    </span>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <label for="mainDirectoryPath" class="form-label d-flex align-items-center">
+                                Input Directory
+                                <span class="info-icon ms-2" data-bs-toggle="tooltip" 
+                                    title="Select the folder containing page-based student submissions (e.g., 'Seite 1', 'Seite 2' folders)">
+                                    <i class="bi bi-info-circle-fill text-info"></i>
+                                </span>
+                            </label>
+                        </div>
+                        <div class="col-md-9">
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="mainDirectoryPath" required>
+                                <button class="btn btn-outline-secondary" type="button" id="select-main-dir-button">
+                                    <i class="bi bi-folder2"></i> Browse
+                                </button>
+                            </div>
+                            <div class="invalid-feedback">Please select an input directory.</div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-3">
+                            <label for="outputDirectoryPath" class="form-label d-flex align-items-center">
+                                Output Directory
+                                <span class="info-icon ms-2" data-bs-toggle="tooltip" 
+                                    title="Select where generated booklets will be saved">
+                                    <i class="bi bi-info-circle-fill text-info"></i>
+                                </span>
+                            </label>
+                        </div>
+                        <div class="col-md-9">
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="outputDirectoryPath" required>
+                                <button class="btn btn-outline-secondary" type="button" id="select-output-dir-button">
+                                    <i class="bi bi-folder2"></i> Browse
+                                </button>
+                            </div>
+                            <div class="invalid-feedback">Please select an output directory.</div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <div class="input-group">
-                <label>Output Directory:</label>
-                <input type="text" id="outputDirectoryPath" required>
-                <button id="select-output-dir-button">Browse</button>
-                <div class="invalid-feedback">Please select an output directory.</div>
-            </div>
-
-            <hr>
-
-            <div class="actions">
-                <div class="button-group">
-                    <button id="clearOutputBtn" class="btn btn-danger"><i class="bi bi-trash"></i> 0. Clear Output Folder</button>
-                    <button id="startTransformationBtn"><i class="bi bi-image"></i> 1. Convert Inputs to PDFs</button>
-                    <button id="startMergingBtn"><i class="bi bi-file-earmark-pdf"></i> 2. Merge PDFs</button>
-                    <button id="createBookletsBtn"><i class="bi bi-journal-check"></i> 3. Create Booklets</button>
-                    <button id="settingsButton"><i class="bi bi-gear"></i> Settings</button>
-                    <button id="editCoverTemplateBtn"><i class="bi bi-file-earmark-text"></i> Edit Cover Template</button>
+            <!-- Processing Actions Card -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-gear-fill text-primary me-2"></i>Processing Actions
+                    </h5>
+                    <span class="info-icon" data-bs-toggle="tooltip" title="Follow these steps in order to create booklets from student submissions.">
+                        <i class="bi bi-info-circle-fill text-info"></i>
+                    </span>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex flex-wrap justify-content-between gap-2 mb-3">
+                        <button id="clearOutputBtn" class="btn btn-outline-danger">
+                            <i class="bi bi-trash"></i> 0. Clear Output Folder
+                        </button>
+                        <button id="startTransformationBtn" class="btn btn-primary">
+                            <i class="bi bi-image"></i> 1. Convert Inputs to PDFs
+                        </button>
+                        <button id="startMergingBtn" class="btn btn-primary">
+                            <i class="bi bi-file-earmark-pdf"></i> 2. Merge PDFs
+                        </button>
+                        <button id="createBookletsBtn" class="btn btn-primary">
+                            <i class="bi bi-journal-check"></i> 3. Create Booklets
+                        </button>
+                    </div>
+                    
+                    <div class="d-flex justify-content-end">
+                        <button id="settingsButton" class="btn btn-outline-secondary me-2">
+                            <i class="bi bi-gear"></i> Settings
+                        </button>
+                        <button id="editCoverTemplateBtn" class="btn btn-outline-secondary">
+                            <i class="bi bi-file-earmark-text"></i> Edit Cover Template
+                        </button>
+                    </div>
+                    
+                    <!-- Step Descriptions -->
+                    <div class="mt-4">
+                        <div class="accordion" id="actionAccordion">
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                            data-bs-target="#collapseSteps" aria-expanded="false" aria-controls="collapseSteps">
+                                        <i class="bi bi-question-circle me-2"></i> What do these steps do?
+                                    </button>
+                                </h2>
+                                <div id="collapseSteps" class="accordion-collapse collapse" data-bs-parent="#actionAccordion">
+                                    <div class="accordion-body">
+                                        <ol class="mb-0 ps-3">
+                                            <li><strong>Clear Output Folder:</strong> Removes all files from the output directory. Use with caution!</li>
+                                            <li><strong>Convert Inputs to PDFs:</strong> Converts all image files (PNG, JPG, etc.) to PDF format.</li>
+                                            <li><strong>Merge PDFs:</strong> Combines all PDFs for each student based on the page structure.</li>
+                                            <li><strong>Create Booklets:</strong> Creates final booklets with cover pages and appropriate metadata.</li>
+                                        </ol>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="container" style="margin-top: 15px;">
+        <div class="container mt-3">
             <div id="errorLogContainer" style="display: none;">
-                <h3>Processing Errors & Warnings:</h3>
-                <textarea id="errorLogOutput" readonly
-                    style="width: 100%; height: 150px; border: 1px solid #ccc; background-color: #f8f8f8; padding: 5px; font-family: Roboto, sans-serif; font-size: 0.85em; resize: vertical;"></textarea>
+                <div class="card border-warning">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Processing Errors & Warnings</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <textarea id="errorLogOutput" readonly 
+                            class="form-control border-0 bg-light font-monospace" 
+                            style="height: 150px; resize: vertical; font-size: 0.85rem;"></textarea>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -289,6 +465,7 @@
     <!-- Script Includes -->
     <script src="src/js/renderer.js"></script>
     <script src="node_modules/flatpickr/dist/flatpickr.js"></script>
+    <script src="node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="src/assets/vertical-calendar.js"></script>
     <script src="src/assets/vertical-calendar-controller.js"></script>
     <script src="src/assets/calendar-fix.js"></script>
@@ -298,6 +475,12 @@
     <!-- Initialization Script -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            // Initialize tooltips and popovers
+            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+            
             // Initialize AppSwitcher
             window.appSwitcher = new AppSwitcher({
                 mainViewSelector: '#main-view',
