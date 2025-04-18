@@ -21,16 +21,22 @@
     <!-- App Header - spans full width in main view -->
     <div class="app-header" id="main-header">
         <div class="app-title-container">
-            <h1 class="app-title">Booklet Page Tool</h1>
-            <span id="app-mode" class="app-mode">Booklet Generation Mode</span>
+            <h1 class="app-title">Booklet Generation Mode</h1>
         </div>
-        <button id="app-mode-switch" class="app-switcher">Switch Mode</button>
+        <button id="app-mode-switch" class="app-switcher">Go to Moodle Assignment Creation</button>
     </div>
 
     <!-- Main View (Booklet Generator) -->
     <div id="main-view" class="view-container active">
         <div class="container">
-            <h2>Select Directories</h2>
+            <h3>Usage</h3>
+            <p>1. Select the input directory containing your student submissions.</p>
+            <p>2. Select the output directory where the generated booklets will be saved.</p>
+            <p>3. Click the "Convert Inputs to PDFs" button to process your submissions.</p>
+            <p>4. Click the "Merge PDFs" button to combine the PDFs into a single booklet.</p>
+            <p>5. Click the "Create Booklets" button to generate the final booklet.</p>
+            
+
             <div class="input-group">
                 <label>Input Directory:</label>
                 <input type="text" id="mainDirectoryPath" required>
@@ -46,15 +52,18 @@
             </div>
 
             <hr>
-
             <div class="actions">
                 <div class="button-group">
-                    <button id="clearOutputBtn" class="btn btn-danger"><i class="bi bi-trash"></i> 0. Clear Output Folder</button>
+                    <button id="settingsButton"><i class="bi bi-gear"></i> Settings</button>
+                    <button id="editCoverTemplateBtn"><i class="bi bi-file-earmark-text"></i> Edit Cover Template</button>
+                </div>
+            </div>
+            <div class="actions"></div>
+                <div class="button-group"></div>
+                    <button id="clearOutputBtn"><i class="bi bi-trash"></i> 0. Clear Output Folder</button>
                     <button id="startTransformationBtn"><i class="bi bi-image"></i> 1. Convert Inputs to PDFs</button>
                     <button id="startMergingBtn"><i class="bi bi-file-earmark-pdf"></i> 2. Merge PDFs</button>
                     <button id="createBookletsBtn"><i class="bi bi-journal-check"></i> 3. Create Booklets</button>
-                    <button id="settingsButton"><i class="bi bi-gear"></i> Settings</button>
-                    <button id="editCoverTemplateBtn"><i class="bi bi-file-earmark-text"></i> Edit Cover Template</button>
                 </div>
             </div>
 
@@ -70,7 +79,7 @@
                 <!-- Hidden initially -->
                 <h3>Processing Errors & Warnings:</h3>
                 <textarea id="errorLogOutput" readonly
-                    style="width: 100%; height: 305px; border: 1px solid #ccc; background-color: #f8f8f8; padding: 5px; font-family: monospace; font-size: 0.85em; resize: vertical;"></textarea>
+                    style="width: 100%; height: 305px; border: 1px solid #ccc; background-color: #f8f8f8; padding: 5px; font-family: 'Roboto'; font-size: 0.85em; resize: vertical;"></textarea>
             </div>
         </div>
     </div>
@@ -275,10 +284,10 @@
                             <li><code>{{MISSING_PAGES_LIST}}</code>: A list of expected page directories not found for the student.</li>
                         </ul>
                         <p>Example:</p>
-                        <pre><code># Exam Submission
+                        <pre><code># Booklet
 
 **Student:** {{LAST_NAME}}, {{FIRST_NAME}}
-**Number:** {{STUDENTNUMBER}}
+**Student Number:** {{STUDENTNUMBER}}
 
 ## Submitted Pages:
 {{SUBMITTED_PAGES_LIST}}
@@ -354,5 +363,4 @@
         });
     </script>
 </body>
-
 </html>
