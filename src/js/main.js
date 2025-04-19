@@ -758,7 +758,8 @@ function performFinalCollisionCheck(tasks, isMoodleMode) {
             acc[finalId] = {
                 originKeys: new Set(),
                 taskExamples: [],
-                pageFolders: new Set()
+                pageFolders: new Set(),
+                tasksByPageFolder: {}
             };
         }
         
@@ -766,6 +767,15 @@ function performFinalCollisionCheck(tasks, isMoodleMode) {
         const folderName = path.basename(path.dirname(task.inputPath));
         const pageFolder = path.basename(path.dirname(path.dirname(task.inputPath)));
         acc[finalId].pageFolders.add(pageFolder);
+        
+        // Track tasks by page folder to detect duplicates within the same page folder
+        if (!acc[finalId].tasksByPageFolder[pageFolder]) {
+            acc[finalId].tasksByPageFolder[pageFolder] = [];
+        }
+        acc[finalId].tasksByPageFolder[pageFolder].push({
+            filename: path.basename(task.inputPath),
+            folderName: folderName
+        });
         
         if (isMoodleMode) {
             const moodleSuffix = '_assignsubmission_file_';
@@ -789,7 +799,23 @@ function performFinalCollisionCheck(tasks, isMoodleMode) {
     const finalCollisionsData = [];
     for (const identifier in finalIdentifierGroups) {
         const group = finalIdentifierGroups[identifier];
-        if (group.originKeys.size > 1) {
+        
+        // Check for multiple entries within the same page folder (new collision detection)
+        let hasDuplicatesInSamePageFolder = false;
+        let duplicateDetails = [];
+        
+        for (const pageFolder in group.tasksByPageFolder) {
+            if (group.tasksByPageFolder[pageFolder].length > 1) {
+                hasDuplicatesInSamePageFolder = true;
+                duplicateDetails.push(`${pageFolder} (${group.tasksByPageFolder[pageFolder].length} submissions)`);
+            }
+        }
+        
+        if (hasDuplicatesInSamePageFolder) {
+            sendLogToRenderer(`Collision Error: Identifier '${identifier}' has multiple submissions in the same page folder(s): ${duplicateDetails.join(', ')}`);
+            finalCollisionsData.push(`${identifier} (multiple submissions in: ${duplicateDetails.join(', ')})`);
+        }
+        else if (group.originKeys.size > 1) {
              sendLogToRenderer(`Final Collision Error V7: Identifier '${identifier}' associated with multiple distinct origins: ${Array.from(group.originKeys).join(', ')}. Example files involved: ${group.taskExamples.join(', ')}`);
              finalCollisionsData.push(`${identifier} (from origins: ${Array.from(group.originKeys).join(', ')})`);
         } else if (group.pageFolders.size > 1) {

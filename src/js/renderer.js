@@ -695,8 +695,39 @@ document.addEventListener('DOMContentLoaded', () => {
             const mainDir = document.getElementById('mainDirectoryPath').value;
             const outputDir = document.getElementById('outputDirectoryPath').value;
             const dpi = parseInt(document.getElementById('dpi').value, 10) || 300; // Use config or default
-            updateStatus('processing', 'Starting file conversion...');
+            const folderPattern = document.getElementById('foldername-pattern').value; // Get folder pattern
+            const isMoodleMode = folderPattern?.startsWith('FULLNAMEWITHSPACES');
+
+            // --- Pre-check for Collisions --- 
+            updateStatus('processing', 'Checking for potential name collisions...');
             try {
+                // Determine if CSVs should be checked (only relevant in Moodle mode)
+                const checkCSVs = isMoodleMode;
+                console.log(`Pre-checking collisions for ${mainDir} with pattern "${folderPattern}", checking CSVs: ${checkCSVs}`);
+                const collisionResult = await window.electronAPI.precheckCollisions(mainDir, folderPattern, checkCSVs);
+                console.log("Pre-check result:", collisionResult);
+
+                // Check for collisions OR mapping errors if CSVs were used
+                if (collisionResult && (collisionResult.collisionDetected || (checkCSVs && collisionResult.mappingErrorDetected) || (checkCSVs && collisionResult.partialCsvCoverage && collisionResult.studentsAffected?.length > 0))) {
+                    updateStatus('warning', 'Name collisions or mapping issues detected. Please resolve.');
+                    // Store info for potential retry
+                    lastInputDirectory = mainDir;
+                    lastFolderPattern = folderPattern;
+                    openMoodleCollisionModal(
+                        collisionResult.collidingNames, 
+                        collisionResult.usedCSVs, 
+                        collisionResult.csvMappingsCount,
+                        collisionResult.partialCsvCoverage,
+                        collisionResult.missingCsvPages,
+                        collisionResult.studentsAffected,
+                        collisionResult.mappingErrors
+                    );
+                    return; // Stop before starting the main transformation
+                }
+                // --- End Pre-check --- 
+
+                // If pre-check passes, proceed with transformation
+                updateStatus('processing', 'Starting file conversion...');
                 const result = await window.electronAPI.startTransformation(mainDir, outputDir, dpi);
                 if (result && result.status === 'ambiguity_detected') {
                     updateStatus('info', result.message); 
@@ -705,7 +736,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     updateStatus('success', successMessage);
                 }
             } catch (error) {
-                updateStatus('error', `Error during conversion: ${error.message}`);
+                // Catch errors from pre-check OR transformation
+                console.error("Error during pre-check or transformation:", error);
+                // Handle FinalCollisionError specifically if it still occurs (should be caught by pre-check now)
+                if (error.message?.includes('FinalCollisionError')) {
+                     updateStatus('error', `Collision Error: ${error.message.replace('FinalCollisionError: ', '')}`);
+                     // Potentially open the modal here too as a fallback, though pre-check should catch it
+                     // For now, just show error status.
+                } else {
+                    updateStatus('error', `Error during conversion: ${error.message}`);
+                }
             }
         });
     }
