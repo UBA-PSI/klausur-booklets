@@ -67,13 +67,47 @@ function createWindow() {
     mainWindow = win;
 
     // Check if config exists and send its content to renderer
+    let configToSend = {}; // Initialize empty config object
+    const defaultMoodlePattern = 'FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file_';
+
     if (fs.existsSync(CONFIG_PATH)) {
-        const config = JSON.parse(fs.readFileSync(CONFIG_PATH));
-        win.webContents.on('did-finish-load', () => {
-            // Use mainWindow here safely as it's set by now
-             if(mainWindow) mainWindow.webContents.send('load-config', config);
-        });
+        try {
+            const loadedConfig = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
+            configToSend = loadedConfig; // Start with loaded config
+            // Ensure the default pattern is set if missing or empty
+            if (!configToSend.foldernamePattern) {
+                sendLogToRenderer(`Config loaded, but foldernamePattern missing. Setting default: ${defaultMoodlePattern}`);
+                configToSend.foldernamePattern = defaultMoodlePattern;
+            }
+        } catch (err) {
+            sendLogToRenderer(`Error loading config from ${CONFIG_PATH}: ${err.message}. Using default.`);
+            // Fallback to default if loading fails
+            configToSend = { 
+                foldernamePattern: defaultMoodlePattern,
+                // Include other potential default settings here if necessary
+                dpi: 300, 
+                minFileSizeKB: 1, 
+                maxFileSizeMB: 20 
+            };
+        }
+    } else {
+        // Config file doesn't exist, create default object
+        sendLogToRenderer(`Config file not found at ${CONFIG_PATH}. Using default.`);
+        configToSend = { 
+            foldernamePattern: defaultMoodlePattern, 
+            // Include other default settings here
+            dpi: 300, 
+            minFileSizeKB: 1, 
+            maxFileSizeMB: 20 
+        };
+        // Optionally save this default config immediately? Let's not for now.
+        // try { fs.writeFileSync(CONFIG_PATH, JSON.stringify(configToSend, null, 2)); } catch {} 
     }
+
+    // Send the potentially modified config object once the window is ready
+    win.webContents.on('did-finish-load', () => {
+        if(mainWindow) mainWindow.webContents.send('load-config', configToSend);
+    });
 
     win.on('closed', () => {
         mainWindow = null; // Clear reference on close
@@ -121,7 +155,7 @@ const createMenu = (win) => {
                 { role: 'togglefullscreen' }
             ]
         }
-        // You can add more menus like Window, Help etc.
+        
     ];
 
     const menu = Menu.buildFromTemplate(template);
@@ -939,7 +973,8 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
     } catch (err) {
         sendLogToRenderer("WARN: Could not load config for transformation, using defaults.");
     }
-    const folderPattern = config.foldernamePattern;
+    // Apply default Moodle pattern if not found in config
+    const folderPattern = config.foldernamePattern || 'FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file_'; 
     const isMoodleMode = folderPattern?.startsWith('FULLNAMEWITHSPACES');
     sendLogToRenderer(`Using folder pattern: ${folderPattern}, Moodle Mode: ${isMoodleMode}`);
 
@@ -1017,7 +1052,8 @@ ipcMain.handle('resolve-ambiguity', async (event, selectedIdentifiers) => {
         sendLogToRenderer("WARN: Could not load config to get folder pattern during ambiguity resolution.");
         // Potentially throw an error here if pattern is crucial?
     }
-    const folderPattern = config.foldernamePattern;
+    // Apply default Moodle pattern if not found in config
+    const folderPattern = config.foldernamePattern || 'FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file_';
 
     // Start with the tasks that were already unambiguous
     const tasksToProcess = [...pendingTransformationData.unambiguousTasks];

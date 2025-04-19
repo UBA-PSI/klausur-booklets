@@ -26,41 +26,6 @@ function openModal() {
     if (modal) {
         const bsModal = new bootstrap.Modal(modal);
         bsModal.show();
-        setTimeout(logBackdrop, 100); // Give Bootstrap time to add backdrop
-        // Debug: Print computed styles and class lists for settingsModal
-        const dialog = modal.querySelector('.modal-dialog');
-        const content = modal.querySelector('.modal-content');
-        console.log('[DEBUG] settingsModal classList:', modal.classList.value);
-        const modalStyle = window.getComputedStyle(modal);
-        console.log('[DEBUG] settingsModal computed style:', modalStyle);
-        if (dialog) {
-            const dialogStyle = window.getComputedStyle(dialog);
-            console.log('[DEBUG] .modal-dialog (settings) classList:', dialog.classList.value);
-            console.log('[DEBUG] .modal-dialog (settings) computed style:', dialogStyle);
-        }
-        if (content) {
-            const contentStyle = window.getComputedStyle(content);
-            console.log('[DEBUG] .modal-content (settings) classList:', content.classList.value);
-            console.log('[DEBUG] .modal-content (settings) computed style:', contentStyle);
-        }
-        // Print key visibility properties
-        function logVisibility(name, el) {
-            if (!el) return;
-            const cs = window.getComputedStyle(el);
-            console.log(`[DEBUG] ${name} visibility:`, {
-                display: cs.display,
-                opacity: cs.opacity,
-                visibility: cs.visibility,
-                transform: cs.transform,
-                position: cs.position,
-                top: cs.top,
-                left: cs.left,
-                zIndex: cs.zIndex
-            });
-        }
-        logVisibility('settingsModal', modal);
-        logVisibility('.modal-dialog (settings)', dialog);
-        logVisibility('.modal-content (settings)', content);
     } else {
         console.error("Settings modal element not found");
     }
@@ -105,12 +70,6 @@ function updateStatus(type, message) {
         }
     }
 }
-
-// Example usage:
-// updateStatus('success', 'Operation completed successfully.');
-// updateStatus('error', 'An error occurred while processing.');
-// updateStatus('processing', 'Processing your request...');
-
 
 
 
