@@ -176,11 +176,13 @@ console.log(`Effective CONFIG_PATH: ${CONFIG_PATH}`); // Log the path being used
 // --- End Configuration Path --- 
 
 ipcMain.on('save-config', (event, config) => {
+    const timestamp = Date.now(); // Add timestamp
+    console.log(`[Main Process DEBUG ${timestamp}] Received 'save-config' event.`); // Log reception
     try {
         fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2)); // Added pretty-printing
-        console.log(`Config saved to ${CONFIG_PATH}`);
+        console.log(`[Main Process DEBUG ${timestamp}] Config successfully saved to ${CONFIG_PATH}`); // Log success
     } catch (error) {
-        console.error(`Failed to save config to ${CONFIG_PATH}:`, error);
+        console.error(`[Main Process DEBUG ${timestamp}] Failed to save config to ${CONFIG_PATH}:`, error);
         // Optionally notify the renderer of the failure
     }
 });
