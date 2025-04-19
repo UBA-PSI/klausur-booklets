@@ -241,29 +241,51 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent)
         const studentDirPath = path.join(pagesDirectory, studentIdentifier);
 
         // --- Read Processed File Info --- 
-        let processedFilesData = []; // Array of { pageName, originalFileName, studentInfo }
+        let processedFilesData = []; // Default to an empty array
         const infoFilePath = path.join(studentDirPath, 'processed_files.json');
         let studentInfoForCover = null; // Store student info for the cover sheet
-        try {
-            if (fs.existsSync(infoFilePath)) {
-                processedFilesData = JSON.parse(fs.readFileSync(infoFilePath, 'utf-8'));
-                console.log(`  Loaded ${processedFilesData.length} processed file entries for ${studentIdentifier}.`);
+        
+        if (fs.existsSync(infoFilePath)) {
+            try {
+                const data = JSON.parse(fs.readFileSync(infoFilePath, 'utf-8'));
+                
+                // --- FIX: Check if processedFiles key exists and is an array ---
+                if (data && Array.isArray(data.processedFiles)) { 
+                    processedFilesData = data.processedFiles; 
+                    console.log(`  Loaded ${processedFilesData.length} processed file entries for ${studentIdentifier}.`);
+                } else {
+                    console.warn(`  WARN: 'processedFiles' key missing or not an array in ${infoFilePath} for ${studentIdentifier}. Using empty list.`);
+                    processedFilesData = []; // Ensure it's an empty array
+                }
+                // --- End FIX ---
+
                 // Get studentInfo from the first entry (should be consistent)
+                // Now check the potentially empty processedFilesData array
                 if (processedFilesData.length > 0 && processedFilesData[0].studentInfo) {
                     studentInfoForCover = processedFilesData[0].studentInfo;
+                } else if (data && data.summary && data.summary.processingErrors && data.summary.processingErrors.length > 0 && data.summary.processingErrors[0].studentIdentifier === studentIdentifier) {
+                    // Try getting identifier from summary errors if no processed files exist
+                    console.warn(`  No processed files found for ${studentIdentifier}, attempting to get info from summary.`);
+                    studentInfoForCover = { primaryIdentifier: studentIdentifier, fullName: studentIdentifier }; // Basic fallback using identifier
+                } else if (data && data.summary && data.summary.skippedFiles && data.summary.skippedFiles.length > 0 && data.summary.skippedFiles[0].studentIdentifier === studentIdentifier) {
+                    // Try getting identifier from summary skips
+                     console.warn(`  No processed files or errors found for ${studentIdentifier}, attempting to get info from summary.`);
+                     studentInfoForCover = { primaryIdentifier: studentIdentifier, fullName: studentIdentifier }; // Basic fallback
                 } else {
-                    console.warn(`  Could not extract studentInfo from processed_files.json for ${studentIdentifier}`);
-                    // Create a fallback studentInfo object
+                    console.warn(`  Could not extract studentInfo from processed_files.json or summary for ${studentIdentifier}`);
+                    // Create a final fallback studentInfo object
                     studentInfoForCover = { primaryIdentifier: studentIdentifier, fullName: studentIdentifier }; 
                 }
-            } else {
-                console.warn(`  Processed file info not found for ${studentIdentifier} at ${infoFilePath}`);
-                // Create a fallback studentInfo object if file is missing
+            } catch (err) {
+                console.error(`  Error reading or parsing processed file info for ${studentIdentifier}:`, err);
+                processedFilesData = []; // Ensure empty array on error
+                // Create a fallback studentInfo object on error
                 studentInfoForCover = { primaryIdentifier: studentIdentifier, fullName: studentIdentifier }; 
             }
-        } catch (err) {
-            console.error(`  Error reading processed file info for ${studentIdentifier}:`, err);
-            // Create a fallback studentInfo object on error
+        } else {
+            console.warn(`  Processed file info not found for ${studentIdentifier} at ${infoFilePath}`);
+            processedFilesData = []; // Ensure empty array if file missing
+            // Create a fallback studentInfo object if file is missing
             studentInfoForCover = { primaryIdentifier: studentIdentifier, fullName: studentIdentifier }; 
         }
         // --- End Read --- 
