@@ -995,66 +995,80 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
 });
 
 ipcMain.handle('resolve-ambiguity', async (event, selectedIdentifiers) => {
-    sendLogToRenderer("Resolving ambiguity with selected identifiers:");
+    sendLogToRenderer("IPC: Received resolve-ambiguity with selected files:");
+    console.log("Selected choices:", selectedIdentifiers); // Log the raw choices received
     
-    // Create a mapping from email to new identifier
-    const emailToIdentifier = {};
-    
-    // Process all the selected identifiers (from the UI resolution)
-    for (const key in selectedIdentifiers) {
-        const identifier = selectedIdentifiers[key];
-        // Store original mapping to fix the issue
-        emailToIdentifier[key] = identifier;
-        
-        // This ensures we properly associate the tasks with the correct email-based identifier
-        for (const ambiguity of pendingTransformationData.ambiguities) {
-            // Find matching ambiguity based on display key (which contains the folder name)
-            if (ambiguity.displayKey === key) {
-                // Associate all tasks in this ambiguity with the selected identifier
-                for (const task of ambiguity.tasks) {
-                    // Important - use the email as the identifier if it exists
-                    if (task.studentInfo && task.studentInfo.email) {
-                        task.primaryIdentifier = task.studentInfo.email;
-                    } else {
-                        task.primaryIdentifier = identifier;
-                    }
-                }
-            }
-        }
+    if (!pendingTransformationData) {
+        throw new Error("No pending transformation data found for ambiguity resolution.");
     }
     
-    sendLogToRenderer("Email to identifier mapping:");
-    
-    // Now we need to remap the tasks in pendingTransformations
-    for (const task of pendingTransformationData.unambiguousTasks) {
-        const originalIdentifier = task.primaryIdentifier;
-        // If the task had an email, use that as the identifier for consistency
-        if (task.studentInfo && task.studentInfo.email) {
-            task.primaryIdentifier = task.studentInfo.email;
-            sendLogToRenderer(`Remapping task for ${originalIdentifier} to email ${task.primaryIdentifier}`);
-        }
-        // If the task's display key was resolved in the UI
-        else if (task.displayKey && emailToIdentifier[task.displayKey]) {
-            task.primaryIdentifier = emailToIdentifier[task.displayKey];
-            sendLogToRenderer(`Remapping task for ${originalIdentifier} to resolved identifier ${task.primaryIdentifier}`);
-        }
+    // Make sure we have access to necessary info like output dir and pattern
+    if (!pendingTransformationData.outputDirectory || !currentTransformationDpi) { 
+        throw new Error("Missing output directory or DPI setting in pending data.");
     }
     
-    // Process the remaining unambiguous tasks + newly resolved tasks
+    // Load folder pattern again, it's needed to parse student info
+    let config = {};
     try {
-        if (!pendingTransformationData) throw new Error("No pending data found for ambiguity resolution.");
+        config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
+    } catch (err) {
+        sendLogToRenderer("WARN: Could not load config to get folder pattern during ambiguity resolution.");
+        // Potentially throw an error here if pattern is crucial?
+    }
+    const folderPattern = config.foldernamePattern;
+
+    // Start with the tasks that were already unambiguous
+    const tasksToProcess = [...pendingTransformationData.unambiguousTasks];
+    let resolvedCount = 0;
+
+    // Process the user's selections to create new tasks
+    for (const folderPath in selectedIdentifiers) {
+        const selectedFileName = selectedIdentifiers[folderPath];
+        sendLogToRenderer(`  Resolving ambiguity for folder: ${path.basename(folderPath)} with file: ${selectedFileName}`);
         
-        // Combine original tasks and resolved ambiguity tasks
-        const tasksToProcess = [...pendingTransformationData.unambiguousTasks];
-        // Add resolved tasks (logic simplified, assume resolution adds to tasksToProcess)
-        // ... [Add logic here to get resolved tasks based on selectedIdentifiers] ...
-        // Example placeholder:
-        // const resolvedTasks = getResolvedTasksFromSelection(selectedIdentifiers, pendingTransformationData.ambiguities);
-        // tasksToProcess.push(...resolvedTasks);
-        
+        // Find the corresponding ambiguity object (we don't strictly need it if we have the path)
+        // const ambiguity = pendingTransformationData.ambiguities.find(a => a.folderPath === folderPath);
+        // if (!ambiguity) {
+        //     sendLogToRenderer(`WARN: Could not find ambiguity data for folder path ${folderPath}. Skipping.`);
+        //     continue;
+        // }
+
+        try {
+            // Reconstruct necessary info to create the task
+            const studentFolder = path.basename(folderPath); // e.g., Max_Mustermann_12345...
+            const pageDir = path.basename(path.dirname(folderPath)); // e.g., Seite 1
+            
+            // Parse student info from the original ambiguous folder name
+            const parsedStudentInfo = parseFolderName(studentFolder, folderPattern); 
+            const studentIdentifier = parsedStudentInfo.primaryIdentifier; // Get the identifier (name, email, etc.)
+            
+            // Determine the correct output path
+            const outputFilePath = path.join(pendingTransformationData.outputDirectory, 'pages', studentIdentifier, `${pageDir}.pdf`);
+            
+            // Create the new task object
+            const resolvedTask = {
+                inputPath: path.join(folderPath, selectedFileName),
+                outputPath: outputFilePath,
+                pageName: pageDir,
+                originalFileName: selectedFileName, // The file chosen by the user
+                studentInfo: parsedStudentInfo 
+            };
+            
+            tasksToProcess.push(resolvedTask);
+            resolvedCount++;
+            sendLogToRenderer(`    -> Created task: ${resolvedTask.inputPath} -> ${resolvedTask.outputPath}`);
+        } catch (taskCreationError) {
+             sendLogToRenderer(`ERROR creating task for resolved ambiguity in ${folderPath}: ${taskCreationError.message}. Skipping this resolution.`);
+        }
+    }
+
+    sendLogToRenderer(`Added ${resolvedCount} tasks from resolved ambiguities. Total tasks to process: ${tasksToProcess.length}`);
+    
+    // Process the combined list of unambiguous and resolved tasks
+    try {
         const resultMessage = await processTasksDirectly(tasksToProcess, pendingTransformationData.outputDirectory, currentTransformationDpi);
 
-        // Generate and send summary log AFTER ambiguity resolution
+        // Generate and send summary log AFTER ambiguity resolution and processing
         await generateAndSendSummary(pendingTransformationData.outputDirectory);
         
         // Generate HTML summary report
@@ -1063,15 +1077,20 @@ ipcMain.handle('resolve-ambiguity', async (event, selectedIdentifiers) => {
         // Clear global state
         pendingTransformationData = null; 
         currentOutputDirectory = null;
+        processedFileInfo = {}; // Clear processed info as well
+        skippedFileLog = [];    // Clear summary logs
+        errorFileLog = [];
+        
         return resultMessage;
     } catch (error) {
         sendLogToRenderer("IPC: Error processing after ambiguity resolution:");
+        // Clear potentially inconsistent state on error
         pendingTransformationData = null; 
         currentOutputDirectory = null;
         processedFileInfo = {}; 
         skippedFileLog = [];
         errorFileLog = [];
-        throw error;
+        throw error; // Re-throw to the renderer
     }
 });
 
