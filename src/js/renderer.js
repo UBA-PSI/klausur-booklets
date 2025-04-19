@@ -631,10 +631,107 @@ function validateDirectoryInputs() {
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM fully loaded and parsed");
 
-    // Button Listeners (that might depend on modal.js or DOM elements)
+    // --- Directory Selection Buttons ---
+    const selectMainDirBtn = document.getElementById('select-main-dir-button');
+    if (selectMainDirBtn) {
+        selectMainDirBtn.addEventListener('click', () => selectDirectory('mainDirectory'));
+    }
+
+    const selectOutputDirBtn = document.getElementById('select-output-dir-button');
+    if (selectOutputDirBtn) {
+        selectOutputDirBtn.addEventListener('click', () => selectDirectory('outputDirectory'));
+    }
+
+    // --- Processing Buttons ---
+    const clearOutputBtn = document.getElementById('clearOutputBtn');
+    if (clearOutputBtn) {
+        clearOutputBtn.addEventListener('click', async () => {
+            const outputDir = document.getElementById('outputDirectoryPath').value;
+            if (!outputDir) {
+                updateStatus('error', 'Output directory not set. Please select one.');
+                return;
+            }
+            // Optional: Add a confirmation dialog here
+            updateStatus('processing', 'Clearing output folder...');
+            try {
+                const result = await window.electronAPI.clearOutputFolder(outputDir);
+                if (result.success) {
+                    updateStatus('success', result.message);
+                } else {
+                    updateStatus('error', `Failed to clear: ${result.message}`);
+                }
+            } catch (error) {
+                updateStatus('error', `Error clearing output: ${error.message}`);
+            }
+        });
+    }
+
+    const startTransformationBtn = document.getElementById('startTransformationBtn');
+    if (startTransformationBtn) {
+        startTransformationBtn.addEventListener('click', async () => {
+            if (!validateDirectoryInputs()) {
+                updateStatus('error', 'Please set both input and output directories.');
+                return;
+            }
+            const mainDir = document.getElementById('mainDirectoryPath').value;
+            const outputDir = document.getElementById('outputDirectoryPath').value;
+            const dpi = parseInt(document.getElementById('dpi').value, 10) || 300; // Use config or default
+            updateStatus('processing', 'Starting file conversion...');
+            try {
+                const result = await window.electronAPI.startTransformation(mainDir, outputDir, dpi);
+                if (result && result.status === 'ambiguity_detected') {
+                    updateStatus('info', result.message); 
+                } else {
+                     const successMessage = typeof result === 'string' ? result : 'Files converted successfully!';
+                    updateStatus('success', successMessage);
+                }
+            } catch (error) {
+                updateStatus('error', `Error during conversion: ${error.message}`);
+            }
+        });
+    }
+
+    const startMergingBtn = document.getElementById('startMergingBtn');
+    if (startMergingBtn) {
+        startMergingBtn.addEventListener('click', async () => {
+            if (!validateDirectoryInputs()) {
+                 updateStatus('error', 'Please set both input and output directories.');
+                return;
+            }
+            const mainDir = document.getElementById('mainDirectoryPath').value; // Although not directly used, good for context
+            const outputDir = document.getElementById('outputDirectoryPath').value;
+            updateStatus('processing', 'Merging PDFs...');
+            try {
+                const result = await window.electronAPI.startMerging(mainDir, outputDir);
+                updateStatus('success', result);
+            } catch (error) {
+                updateStatus('error', `Error merging PDFs: ${error.message}`);
+            }
+        });
+    }
+
+    const createBookletsBtn = document.getElementById('createBookletsBtn');
+    if (createBookletsBtn) {
+        createBookletsBtn.addEventListener('click', async () => {
+            const outputDir = document.getElementById('outputDirectoryPath').value;
+            if (!outputDir) {
+                 updateStatus('error', 'Output directory not set.');
+                return;
+            }
+            updateStatus('processing', 'Creating booklets...');
+            try {
+                const result = await window.electronAPI.createBooklets(outputDir);
+                updateStatus('success', result);
+            } catch (error) {
+                updateStatus('error', `Error creating booklets: ${error.message}`);
+            }
+        });
+    }
+
+    // Settings Modal Button
     const settingsButton = document.getElementById('settingsButton');
     if (settingsButton) {
-        settingsButton.addEventListener('click', openModal); // This caused the error
+        settingsButton.addEventListener('click', openModal);
     } else {
         console.warn('Settings button not found');
     }
@@ -646,9 +743,21 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.target.value !== 'custom') {
                 patternInput.value = e.target.value;
                 config.foldernamePattern = e.target.value;
+                // Consider saving config here or on modal close
+                saveConfig(); 
             }
+            // If switching to custom, don't change input, just let user type
         });
     });
+    // Also update pattern input if custom is selected and text is entered
+    const patternInput = document.getElementById('foldername-pattern');
+    if(patternInput) {
+        patternInput.addEventListener('input', () => {
+            document.getElementById('pattern-custom').checked = true;
+            config.foldernamePattern = patternInput.value;
+            saveConfig();
+        });
+    }
 
     // Cover template edit button
     const editCoverBtn = document.getElementById('editCoverTemplateBtn');
@@ -674,8 +783,6 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         console.warn('Edit cover template button not found');
     }
-
-    // Note: The clearOutputBtn event handler is already defined outside this DOMContentLoaded section
 
     // Initialize components or listeners that depend on the full DOM
     // For example, if ambiguity modal buttons needed setup here:
@@ -708,6 +815,7 @@ window.addEventListener('click', (event) => {
         window.saveConfig();
     }
 });
+
 
 
 
