@@ -62,7 +62,7 @@ Student: {{LAST_NAME}}, {{FIRST_NAME}}
     const lineSpacing = 6;
     const paragraphSpacing = 12;
     const listIndent = 20;
-    const baseFontSize = 11;
+    const baseFontSize = 9;
     const headingFontSize = 18;
     const nameFontSize = 14;
     const labelFontSize = 12;
@@ -307,9 +307,9 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent)
 
         // --- Build Submitted List String from Processed Info --- 
         // Sort processedFilesData by pageName before creating the string
-        const sortedProcessedFiles = [...processedFilesData].sort((a, b) => {
-            // Basic lexicographical sort on pageName
-            return a.pageName.localeCompare(b.pageName);
+        const sortedProcessedFiles = processedFilesData.sort((a, b) => {
+            // Natural sort (treats numbers numerically) on pageName
+            return a.pageName.localeCompare(b.pageName, undefined, { numeric: true, sensitivity: 'base' });
         });
 
         const submittedSeitenListString = sortedProcessedFiles.length > 0 

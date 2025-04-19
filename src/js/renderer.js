@@ -8,11 +8,11 @@ let config = {};
 const DEFAULT_COVER_TEMPLATE = `# {{LAST_NAME}}
 ### {{FIRST_NAME}}
 
-({{FULL_NAME}}, {{STUDENTNUMBER}})
+{{FULL_NAME}} ({{STUDENTNUMBER}})
 
-### Booklet
+### Booklet für KURSNAME
 
-Dieses Booklet ist zugelassenes Hilfsmittel im Wintersemester 2024 und im Sommersemester 2025.
+Dieses Booklet ist bei der Prüfung im Sommersemester 2025 und bei der darauffolgenden Wiederholungsprüfung ein zugelassenes Hilfsmittel. Bitte geben Sie es mit Ihrer Prüfung ab.
 
 **Eingereichte Seiten:**
 {{SUBMITTED_PAGES_LIST}}
