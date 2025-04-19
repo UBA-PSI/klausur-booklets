@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <!-- Update Content Security Policy to allow necessary resources -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:">
-    <title>Booklet & MBZ Creator</title>
+    <title>Exam Booklet Tool</title>
     <link rel="stylesheet" type="text/css" href="src/assets/styles.css">
     <!-- Add Bootstrap CSS for styling -->
     <link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.min.css">
@@ -201,8 +201,10 @@
                 <!-- Collapsible directory help section -->
                 <div class="collapse" id="directoryHelp">
                     <div class="card-body bg-light py-2 border-bottom">
-                        <p class="mb-1 small"><strong>Input Directory:</strong> Select a folder containing student submissions organized in page-based subdirectories (like 'Seite 1', 'Seite 2'). Each subdirectory should contain student folders with their submissions.</p>
-                        <p class="mb-0 small"><strong>Output Directory:</strong> Select or create an empty directory where the processed files and final booklets will be saved. Existing files in this directory may be overwritten.</p>
+                        <p class="mb-1 small"><strong>Input Directory:</strong> Select the folder containing student submissions organized in page-based subdirectories (like 'Page 1', 'Page 2'). Each subdirectory should contain student folders with their submissions. Go to Settings to specify how the folders are named. For University of Bamberg, the Moodle naming scheme should already match the one that is shown in the settings.</p>
+                        <p class="mb-0 small"><strong>Output Directory:</strong> Create an empty directory where the processed files and final booklets will be saved. Existing files in this directory may be overwritten. Empty the directory before starting a new booklet generation to avoid confusion and errors.</p>
+                        <p class="mb-0 small"><strong>Settings:</strong> Here, you can specify the DPI for the output images, the folder name pattern, and the minimum and maximum file size for the input files.</p>
+                        <p class="mb-0 small"><strong>Edit Cover Template:</strong> Here, you can edit the cover template for the booklet. There is a default template that shows the name of the student and the list of submitted and missing pages.</p>
                     </div>
                 </div>
                 
@@ -224,7 +226,7 @@
                                             <i class="bi bi-folder2"></i> Browse
                                         </button>
                                     </div>
-                                    <div class="invalid-feedback">Please select an input directory.</div>
+                                    <div class="invalid-feedback">Please provide the input directory.</div>
                                 </div>
                             </div>
                             
@@ -242,7 +244,7 @@
                                             <i class="bi bi-folder2"></i> Browse
                                         </button>
                                     </div>
-                                    <div class="invalid-feedback">Please select an output directory.</div>
+                                    <div class="invalid-feedback">Please provide an output directory.</div>
                                 </div>
                             </div>
                         </div>
@@ -277,10 +279,10 @@
                     <div class="card-body bg-light py-2 border-bottom">
                         <p class="mb-2 small">Follow these steps in sequence to create booklets:</p>
                         <ol class="mb-0 ps-3 small">
-                            <li><strong>Clear Output Folder:</strong> Removes all files from the output directory. Use with caution!</li>
-                            <li><strong>Convert Inputs to PDFs:</strong> Converts all image files (PNG, JPG, etc.) to PDF format.</li>
-                            <li><strong>Merge PDFs:</strong> Combines all PDFs for each student based on the page structure.</li>
-                            <li><strong>Create Booklets:</strong> Creates final booklets with cover pages and appropriate metadata.</li>
+                            <li><strong>Clear Output Folder:</strong> Removes all files from the output directory to avoid confusion and errors. Use with caution!</li>
+                            <li><strong>Convert Inputs to PDFs:</strong> Converts all image files (PNG, JPG, PDF.) to PDFs with rasterized images. This first step is necessary to avoid errors when merging the PDFs and to ensure that the final booklets are of uniform quality. Images in landscape orientation are automatically rotated to portrait orientation to maximize the use of the page space. Images are also resized to fill a whole page. PDFs are rasterized at the DPI specified in the settings to avoid any issues with vector graphics and fonts. If more than one image is present in a page folder, you will be prompted to select which one to use. If a PDF is present that contains more than one page, only the first page will be used. If a page contains submissions from multiple students with the same name and this cannot be resolved automatically, you will be prompted to resolve this manually by renaming the folders or, in case of Moodle, providing Moodle Grading Worksheet CSV files.</li>
+                            <li><strong>Merge PDFs:</strong> Combines all single-page PDFs for each student based into a single PDF per student (subdirectory pdfs in the output directory), including the cover page. These PDFs are useful for previewing the final booklets.</li>
+                            <li><strong>Create Booklets:</strong> Creates final booklets where two A5 pages are placed next to each otherinto a single A4 page. The pages are ordered so that you can print the resulting A4 pages on a duplex printer (short-edge binding) and stapled in the middle.</li>
                         </ol>
                     </div>
                 </div>
@@ -289,16 +291,16 @@
                     <!-- Main Action Buttons in Grid -->
                     <div class="action-buttons">
                         <button id="clearOutputBtn" class="btn btn-outline-danger">
-                            <i class="bi bi-trash me-1"></i> 0. Clear Output
+                            <i class="bi bi-trash me-1"></i> 1. Clear Output
                         </button>
                         <button id="startTransformationBtn" class="btn btn-primary">
-                            <i class="bi bi-image me-1"></i> 1. Convert to PDFs
+                            <i class="bi bi-image me-1"></i> 2. Convert to PDFs
                         </button>
                         <button id="startMergingBtn" class="btn btn-primary">
-                            <i class="bi bi-file-earmark-pdf me-1"></i> 2. Merge PDFs
+                            <i class="bi bi-file-earmark-pdf me-1"></i> 3. Merge PDFs
                         </button>
                         <button id="createBookletsBtn" class="btn btn-primary">
-                            <i class="bi bi-journal-check me-1"></i> 3. Create Booklets
+                            <i class="bi bi-journal-check me-1"></i> 4. Create Booklets
                         </button>
                     </div>
                 </div>
@@ -341,14 +343,14 @@
             <!-- DPI Setting -->
             <div class="form-group settings-group">
                 <label for="dpi" class="block-label">DPI:</label>
-                <input type="number" id="dpi" value="300" class="form-control full-width">
-                <small>Resolution for converting images. Higher values = better quality but larger files. 300 is standard for printing.</small>
+                <input type="number" id="dpi" value="300" class="form-control short-input">
+                <small>Resolution for rasterizing submitted PDFs. Higher values results in better quality but larger files. 300 dpi is standard for printing.</small>
             </div>
 
             <!-- Folder Pattern Setting -->
             <div class="form-group settings-group">
                 <label for="foldername-pattern" class="block-label">Folder Name Pattern:</label>
-                
+                <p>This pattern is used when reading the student submission folders in the input directory. The default pattern is the Moodle format, which is the format used by the University of Bamberg. If you are using Moodle, you can select the Moodle format, which will enable automatic name collision handling. The Ilias format is the format used by the Ilias LMS and contains a Student Number field, which is also supported and will avoid name collisions. The custom format allows you to enter a custom pattern. </p>
                 <!-- Pattern Presets -->
                 <div class="pattern-presets">
                     <div class="preset-option">
@@ -357,7 +359,7 @@
                     </div>
                     <div class="preset-option">
                         <input type="radio" id="pattern-moodle" name="pattern-preset" value="FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file_">
-                        <label for="pattern-moodle">Moodle Format (Enables CSV Collision Handling)</label>
+                        <label for="pattern-moodle">Moodle Format (may require manual collision handling)</label>
                     </div>
                     <div class="preset-option">
                         <input type="radio" id="pattern-custom" name="pattern-preset" value="custom" checked>
@@ -374,16 +376,16 @@
                         <summary><strong>Pattern Help</strong> (click to expand)</summary>
                         <div class="pattern-explanation compact">
                             <p>Define how student folders are named. Use separator character from your folders (<code>_</code> or <code>-</code>).</p>
-                            <p><small><strong>Note:</strong> Selecting 'Moodle Format' also enables automatic name collision handling if you place the corresponding Moodle Grading Worksheet CSV file inside each page's input subfolder (e.g., `Seite 1/worksheet.csv`). You will be prompted if collisions are detected.</small></p>
+                            <p><small><strong>Note:</strong> Selecting 'Moodle Format' enables semi-automatic name collision handling if you place the corresponding Moodle Grading Worksheet CSV file inside each page's input subfolder (e.g., `Page 1/worksheet.csv`). You will be prompted if collisions are detected and the CSV files are required.</small></p>
                             <div class="two-columns">
                                 <div>
                                     <strong>Available Placeholders:</strong>
                                     <ul class="compact-list">
-                                        <li><code>FIRSTNAME</code></li>
-                                        <li><code>LASTNAME</code></li>
-                                        <li><code>FULLNAMEWITHSPACES</code></li>
-                                        <li><code>USERNAME</code></li>
-                                        <li><code>STUDENTNUMBER</code> (preferred identifier)</li>
+                                        <li><code>FIRSTNAME</code> (only if firstname(s) and lastname(s) are clearly separated in the input directory, not the case with Moodle)</li>
+                                        <li><code>LASTNAME</code> (only if firstname(s) and lastname(s) are clearly separated in the input directory, not the case with Moodle)</li>
+                                        <li><code>FULLNAMEWITHSPACES</code> (typically used with Moodle)</li>
+                                        <li><code>USERNAME</code> (used with Ilias)</li>
+                                        <li><code>STUDENTNUMBER</code> (used with Ilias, preferred identifier)</li>
                                     </ul>
                                 </div>
                                 <div>
@@ -404,7 +406,8 @@
             <!-- Filesize Limits -->
             <div class="form-group settings-group">
                 <label class="block-label">Input File Size Limits:</label>
-                <div class="inline-inputs">
+                <p>Acceptable sizes of images/PDFs. Files outside this range will be skipped.</p>
+                <div class="inline-inputs d-flex gap-4">
                     <div>
                         <label for="minFileSizeKB">Min (KB):</label>
                         <input type="number" id="minFileSizeKB" value="1" min="0" class="form-control short-input">
@@ -414,7 +417,6 @@
                         <input type="number" id="maxFileSizeMB" value="20" min="1" class="form-control short-input">
                     </div>
                 </div>
-                <small>Minimum and maximum allowed size for each input file (images/PDFs). Files outside this range will be skipped.</small>
             </div>
 
             <hr>
@@ -459,7 +461,7 @@
             <p><strong>Please resolve the issues listed above using one of the following methods before continuing:</strong></p>
             <ol style="font-size: 0.95em;">
                 <li>
-                    <strong>Using CSV Files (Recommended):</strong> Place the Moodle Grading Worksheet CSV file inside <em>each</em> page subfolder within your input directory (e.g., put the 'Seite 1.csv' inside the 'Seite 1' folder). 
+                    <strong>Using CSV Files (Recommended):</strong> Place the Moodle Grading Worksheet CSV file inside <em>each</em> page subfolder within your input directory (e.g., put the 'Page 1.csv' inside the 'Page 1' folder). 
                     <ul>
                         <li>CSV files must be present in <em>all</em> page folders where students with identical names appear</li>
                         <li>Each CSV must contain both an 'ID' column (corresponding to the number in the place of SOMENUMBER in the folder name template) and an 'E-Mail-Adresse' column (rename columns if necessary)</li>
@@ -472,7 +474,7 @@
                         <li>Folders for the <em>same student</em> must have <em>exactly the same name</em> across all page directories</li>
                         <li>Folders for <em>different students</em> must have different names</li>
                         <li>You must rename <em>all</em> folders for students with same names in <em>all</em> page directories in a consistent manner, even where only one of the students submitted a particular page</li>
-                        <li>Example: If there are two 'Anna Schmidt' in 'Seite 1' and 'Seite 2', change the name (e.g. Anna1) in one of these same-named subfolders in each of these directories identically</li>
+                        <li>Example: If there are two 'Anna Schmidt' in 'Page 1' and 'Page 2', change the name (e.g. Anna1) in one of these same-named subfolders in each of these directories identically</li>
                     </ul>
                 </li>
             </ol>
@@ -523,11 +525,11 @@
                             <li><code>{{SUBMITTED_PAGES_LIST}}</code>: A list of submitted pages and original filenames.</li>
                             <li><code>{{MISSING_PAGES_LIST}}</code>: A list of expected page directories not found for the student.</li>
                         </ul>
-                        <p>Example:</p>
-                        <pre><code># Exam Submission
+                        <p>Minimalistic Example:</p>
+                        <pre><code># Booklet
 
 **Student:** {{LAST_NAME}}, {{FIRST_NAME}}
-**Number:** {{STUDENTNUMBER}}
+**Student Number:** {{STUDENTNUMBER}}
 
 ## Submitted Pages:
 {{SUBMITTED_PAGES_LIST}}
