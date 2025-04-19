@@ -803,6 +803,29 @@ document.addEventListener('DOMContentLoaded', () => {
         console.warn('Edit cover template button not found');
     }
 
+    // --- Copy Log Button Listener ---
+    const copyProcessLogBtn = document.getElementById('copyProcessLogBtn');
+    if (copyProcessLogBtn) {
+        copyProcessLogBtn.addEventListener('click', () => {
+            const logOutput = document.getElementById('processLogOutput');
+            if (logOutput && navigator.clipboard) {
+                navigator.clipboard.writeText(logOutput.value)
+                    .then(() => {
+                        // Optional: Brief visual feedback
+                        const originalIcon = copyProcessLogBtn.innerHTML;
+                        copyProcessLogBtn.innerHTML = '<i class="bi bi-clipboard-check-fill text-success"></i>';
+                        setTimeout(() => { copyProcessLogBtn.innerHTML = originalIcon; }, 1500);
+                    })
+                    .catch(err => {
+                        console.error('Failed to copy process log:', err);
+                        // Optional: Show error feedback
+                    });
+            } else {
+                console.error('Could not find log output or clipboard API.');
+            }
+        });
+    }
+
     // Initialize components or listeners that depend on the full DOM
     // For example, if ambiguity modal buttons needed setup here:
     // ambiguityPrevBtn.onclick = ... etc.

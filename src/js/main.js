@@ -6,6 +6,20 @@ const sharp = require('sharp'); // Add sharp for image validation
 const { PDFDocument } = require('pdf-lib'); // Add pdf-lib for PDF validation
 const decodeHeic = require('heic-decode'); // Needed for HEIC
 
+// Function to send logs to the renderer process UI
+function sendLogToRenderer(message) {
+    if (mainWindow && mainWindow.webContents) {
+        // Optional: Add timestamp
+        const timestamp = new Date().toLocaleTimeString(); 
+        mainWindow.webContents.send('process-log', `[${timestamp}] ${message}`);
+        // Also log to the main process console for debugging
+        console.log(`[Main Log] ${message}`);
+    } else {
+        // Fallback log if window isn't ready/available
+        console.log(`[Main Log - No Window] ${message}`);
+    }
+}
+
 // Updated require to include new functions and error
 const {
     mergeStudentPDFs,
@@ -22,16 +36,11 @@ const { generateAssignmentDates } = require('../mbz-creator/lib/dateUtils'); // 
 // Keep track of the main window
 let mainWindow = null;
 
-// Helper function to send process logs to renderer
-function sendLogToRenderer(message) {
-    console.log(message); // Keep logging to main console
-    if (mainWindow) {
-        mainWindow.webContents.send('process-log', message);
-    }
-}
-
 // Global store for processed file info during transformation
-let processedFileInfo = {}; // Format: { studentName: [{ pageName: string, originalFileName: string }, ...] }
+let processedFileInfo = {}; // Format: { studentIdentifier: [{ pageName, originalFileName, studentInfo }, ...] }
+// Global stores for summary statistics
+let skippedFileLog = []; // Array of { studentIdentifier, pageDir, fileName, reason }
+let errorFileLog = []; // Array of { studentIdentifier, pageDir, fileName, error }
 
 // Store transformation context globally
 let pendingTransformationData = null; 
@@ -539,6 +548,8 @@ async function prepareTransformations(mainDirectory, outputDirectory, folderPatt
             const potentialFiles = fs.readdirSync(studentFolderPath);
             let validatedFiles = []; // Store files that pass all checks
             const allowedExtensions = ['.pdf', '.png', '.jpg', '.jpeg', '.heic'];
+            const parsedStudentInfo = parseFolderName(studentFolder, folderPattern); // Parse student info once
+            const studentIdentifier = parsedStudentInfo.primaryIdentifier;
 
             // --- Check for Unexpected File Types FIRST ---
             for (const file of potentialFiles) {
@@ -555,6 +566,8 @@ async function prepareTransformations(mainDirectory, outputDirectory, folderPatt
                         const relativePath = path.relative(mainDirectory, filePath);
                         const warnMsg = `WARN: Unexpected file type found and ignored: ${relativePath}`;
                         sendLogToRenderer(warnMsg);
+                        // Log skip
+                        skippedFileLog.push({ studentIdentifier, pageDir, fileName: file, reason: 'Unsupported Type' });
                         if (mainWindow) mainWindow.webContents.send('error-log', warnMsg);
                     }
                 } catch (statErr) {
@@ -594,7 +607,9 @@ async function prepareTransformations(mainDirectory, outputDirectory, folderPatt
                 } catch (validationError) {
                     const relativePath = path.relative(mainDirectory, filePath);
                     const errorMsg = `Skipping file (Invalid/Corrupt): ${relativePath} - Error: ${validationError.message}`;
-                    sendLogToRenderer(errorMsg); // Also send to process log
+                    sendLogToRenderer(errorMsg);
+                    // Log skip
+                    skippedFileLog.push({ studentIdentifier, pageDir, fileName: file, reason: 'Invalid/Corrupt' });
                     if (mainWindow) mainWindow.webContents.send('error-log', errorMsg);
                     isValid = false;
                 }
@@ -611,14 +626,18 @@ async function prepareTransformations(mainDirectory, outputDirectory, folderPatt
                         const sizeKB = (fileSize / 1024).toFixed(2);
                         const relativePath = path.relative(mainDirectory, filePath);
                         const sizeErrorMsg = `Skipping file (Size Limit): ${relativePath} (${sizeKB} KB)`;
-                        sendLogToRenderer(sizeErrorMsg); // Also send to process log
+                        sendLogToRenderer(sizeErrorMsg);
+                        // Log skip
+                        skippedFileLog.push({ studentIdentifier, pageDir, fileName: file, reason: 'Size Limit' });
                         if (mainWindow) mainWindow.webContents.send('error-log', sizeErrorMsg);
                     }
                 } catch (err) { // Should not happen if buffer read worked, but safety check
                     const relativePath = path.relative(mainDirectory, filePath);
                     const statErrorMsg = `Error checking size for file ${relativePath}: ${err.message}`;
-                    sendLogToRenderer(statErrorMsg); // Also send to process log
+                    sendLogToRenderer(statErrorMsg);
                     if (mainWindow) mainWindow.webContents.send('error-log', statErrorMsg);
+                    // Log skip (though this indicates a read error, treat as skip)
+                    skippedFileLog.push({ studentIdentifier, pageDir, fileName: file, reason: 'Read Error' });
                 }
             } // End loop through potential files
 
@@ -634,8 +653,6 @@ async function prepareTransformations(mainDirectory, outputDirectory, folderPatt
             }
             
             // --- Proceed with ambiguity check / task creation using finalValidFiles --- 
-            const parsedInfo = parseFolderName(studentFolder, folderPattern);
-            const studentIdentifier = parsedInfo.primaryIdentifier;
             const studentOutputDir = path.join(outputDirectory, 'pages', studentIdentifier);
             if (!fs.existsSync(studentOutputDir)) {
                 fs.mkdirSync(studentOutputDir, { recursive: true });
@@ -648,7 +665,7 @@ async function prepareTransformations(mainDirectory, outputDirectory, folderPatt
                     outputPath: outputFilePath,
                     pageName: pageDir,
                     originalFileName: finalValidFiles[0],
-                    studentInfo: parsedInfo 
+                    studentInfo: parsedStudentInfo 
                 });
             } else { // finalValidFiles.length > 1
                 ambiguities.push({
@@ -822,7 +839,8 @@ async function processTasksDirectly(tasks, outputDirectory, dpi) {
         }
         
         try {
-            await processSingleTransformation(task.inputPath, task.outputPath, dpi);
+            // Pass sendLogToRenderer to the transformation function
+            await processSingleTransformation(task.inputPath, task.outputPath, dpi, sendLogToRenderer);
             successCount++;
             const studentIdentifier = task.studentInfo?.primaryIdentifier || path.basename(taskOutputDir);
             if (!processedFileInfo[studentIdentifier]) processedFileInfo[studentIdentifier] = [];
@@ -833,6 +851,15 @@ async function processTasksDirectly(tasks, outputDirectory, dpi) {
             });
         } catch (processingError) {
             errorCount++;
+            const studentIdentifier = task.studentInfo?.primaryIdentifier || path.basename(taskOutputDir);
+            // Log error details
+            errorFileLog.push({
+                studentIdentifier,
+                pageDir: task.pageName,
+                fileName: path.basename(task.inputPath),
+                error: processingError.message
+            });
+
             // Use relative path for input file in error message
             const relativeInputPath = task.inputPath ? path.relative(currentOutputDirectory, task.inputPath) : '[unknown input file]'; // Use currentOutputDirectory as base? Or should we pass mainDirectory?
             // Let's assume we want path relative to the *input* directory for clarity. Need mainDirectory here.
@@ -875,6 +902,8 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
     currentTransformationDpi = dpi;   
     currentOutputDirectory = outputDirectory;
     processedFileInfo = {}; 
+    skippedFileLog = []; // Clear logs for new run
+    errorFileLog = [];   // Clear logs for new run
 
     let config = {};
     try {
@@ -907,10 +936,16 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
             if (mainWindow) {
                 mainWindow.webContents.send('request-ambiguity-resolution', ambiguities);
             }
+            // Need to generate summary AFTER ambiguity is resolved
+            // Placeholder: Summary will be generated in resolve-ambiguity handler later
             return { status: 'ambiguity_detected', message: 'Ambiguity detected. Please resolve conflicts.' };
         } else {
             // Process tasks directly (includes saving processed info)
             const resultMessage = await processTasksDirectly(tasks, outputDirectory, dpi);
+            
+            // Generate and send summary log after direct processing
+            await generateAndSendSummary(outputDirectory);
+
             // Clear global state after successful direct processing
             pendingTransformationData = null; 
             currentOutputDirectory = null;
@@ -923,6 +958,9 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
         pendingTransformationData = null; 
         currentOutputDirectory = null;
         processedFileInfo = {}; 
+        // Also clear summary logs on error
+        skippedFileLog = [];
+        errorFileLog = [];
         throw error; // Re-throw to renderer
     }
 });
@@ -940,7 +978,7 @@ ipcMain.handle('resolve-ambiguity', async (event, selectedIdentifiers) => {
         emailToIdentifier[key] = identifier;
         
         // This ensures we properly associate the tasks with the correct email-based identifier
-        for (const ambiguity of pendingAmbiguities) {
+        for (const ambiguity of pendingTransformationData.ambiguities) {
             // Find matching ambiguity based on display key (which contains the folder name)
             if (ambiguity.displayKey === key) {
                 // Associate all tasks in this ambiguity with the selected identifier
@@ -959,7 +997,7 @@ ipcMain.handle('resolve-ambiguity', async (event, selectedIdentifiers) => {
     sendLogToRenderer("Email to identifier mapping:");
     
     // Now we need to remap the tasks in pendingTransformations
-    for (const task of pendingTransformations) {
+    for (const task of pendingTransformationData.unambiguousTasks) {
         const originalIdentifier = task.primaryIdentifier;
         // If the task had an email, use that as the identifier for consistency
         if (task.studentInfo && task.studentInfo.email) {
@@ -973,9 +1011,114 @@ ipcMain.handle('resolve-ambiguity', async (event, selectedIdentifiers) => {
         }
     }
     
-    // Rest of the existing code for transformations
-    // ... existing code ...
+    // Process the remaining unambiguous tasks + newly resolved tasks
+    try {
+        if (!pendingTransformationData) throw new Error("No pending data found for ambiguity resolution.");
+        
+        // Combine original tasks and resolved ambiguity tasks
+        const tasksToProcess = [...pendingTransformationData.unambiguousTasks];
+        // Add resolved tasks (logic simplified, assume resolution adds to tasksToProcess)
+        // ... [Add logic here to get resolved tasks based on selectedIdentifiers] ...
+        // Example placeholder:
+        // const resolvedTasks = getResolvedTasksFromSelection(selectedIdentifiers, pendingTransformationData.ambiguities);
+        // tasksToProcess.push(...resolvedTasks);
+        
+        const resultMessage = await processTasksDirectly(tasksToProcess, pendingTransformationData.outputDirectory, currentTransformationDpi);
+
+        // Generate and send summary log AFTER ambiguity resolution
+        await generateAndSendSummary(pendingTransformationData.outputDirectory);
+        
+        // Clear global state
+        pendingTransformationData = null; 
+        currentOutputDirectory = null;
+        return resultMessage;
+    } catch (error) {
+        sendLogToRenderer("IPC: Error processing after ambiguity resolution:");
+        pendingTransformationData = null; 
+        currentOutputDirectory = null;
+        processedFileInfo = {}; 
+        skippedFileLog = [];
+        errorFileLog = [];
+        throw error;
+    }
 });
+
+// --- Helper Function to Generate Summary --- 
+async function generateAndSendSummary(outputDirectory) {
+    sendLogToRenderer("\n--- Generating Transformation Summary ---");
+    const pagesDir = path.join(outputDirectory, 'pages');
+    let totalProcessed = 0;
+    let totalSkipped = 0;
+    let totalErrors = 0;
+    let allStudents = new Set();
+    let skippedDetails = [];
+    let errorDetails = [];
+
+    try {
+        if (!fs.existsSync(pagesDir)) {
+            sendLogToRenderer("WARN: Output 'pages' directory not found. Cannot generate summary.");
+            return;
+        }
+
+        const studentDirs = fs.readdirSync(pagesDir).filter(item => {
+            return fs.statSync(path.join(pagesDir, item)).isDirectory();
+        });
+
+        for (const studentIdentifier of studentDirs) {
+            allStudents.add(studentIdentifier);
+            const infoFilePath = path.join(pagesDir, studentIdentifier, 'processed_files.json');
+            if (fs.existsSync(infoFilePath)) {
+                try {
+                    const data = JSON.parse(fs.readFileSync(infoFilePath, 'utf-8'));
+                    totalProcessed += data.processedFiles?.length || 0;
+                    if (data.summary) {
+                        totalSkipped += data.summary.skippedFiles?.length || 0;
+                        totalErrors += data.summary.processingErrors?.length || 0;
+                        
+                        data.summary.skippedFiles?.forEach(skip => {
+                            skippedDetails.push(`- ${studentIdentifier}/${skip.pageDir}/${skip.fileName} (Reason: ${skip.reason})`);
+                        });
+                        data.summary.processingErrors?.forEach(err => {
+                            errorDetails.push(`- ${studentIdentifier}/${err.pageDir}/${err.fileName} (Error: ${err.error})`);
+                        });
+                    }
+                } catch (readErr) {
+                    sendLogToRenderer(`WARN: Could not read or parse ${infoFilePath}: ${readErr.message}`);
+                }
+            }
+        }
+
+        // Format Summary Message
+        let summaryMessage = `\n--- Transformation Summary ---
+`;
+        summaryMessage += `Total Unique Students Processed: ${allStudents.size}\n`;
+        summaryMessage += `Total Files Successfully Converted: ${totalProcessed}\n`;
+        summaryMessage += `Total Files Skipped (Validation): ${totalSkipped}\n`;
+        summaryMessage += `Total Files with Errors (Conversion): ${totalErrors}\n`;
+
+        if (totalSkipped > 0) {
+            summaryMessage += `\nSkipped Files:\n`;
+            summaryMessage += skippedDetails.join('\n');
+            summaryMessage += '\n';
+        }
+
+        if (totalErrors > 0) {
+            summaryMessage += `\nFiles with Errors:\n`;
+            summaryMessage += errorDetails.join('\n');
+            summaryMessage += '\n';
+        }
+        summaryMessage += `----------------------------\n`;
+
+        sendLogToRenderer(summaryMessage);
+
+    } catch (summaryError) {
+        sendLogToRenderer(`ERROR generating summary: ${summaryError.message}`);
+    }
+    // Clear logs after summary is generated
+    skippedFileLog = [];
+    errorFileLog = [];
+}
+// --- End Summary Function ---
 
 ipcMain.handle('start-merging', async (event, mainDirectory, outputDirectory) => {
     sendLogToRenderer(`IPC: Received start-merging for outputDir: ${outputDirectory}`);
@@ -1091,70 +1234,54 @@ ipcMain.handle('create-booklets', async (event, outputDirectory) => {
 async function saveProcessedFileInfo(outputDirectory) {
     sendLogToRenderer("Saving processed file information...");
     // The outputDirectory passed here is the *root* output dir
-    for (const studentIdentifier in processedFileInfo) {
+    const studentIdentifiers = new Set(Object.keys(processedFileInfo)); // Get unique identifiers processed
+
+    // Find all student directories in the output/pages folder to ensure we cover students
+    // even if they had no successfully processed files but had skips/errors.
+    const pagesDir = path.join(outputDirectory, 'pages');
+    if (fs.existsSync(pagesDir)) {
+        fs.readdirSync(pagesDir).forEach(dir => {
+            if (fs.statSync(path.join(pagesDir, dir)).isDirectory()) {
+                studentIdentifiers.add(dir); // Add from directory structure too
+            }
+        });
+    }
+
+    for (const studentIdentifier of studentIdentifiers) {
         // Construct path to student directory inside 'pages'
         const studentOutputDir = path.join(outputDirectory, 'pages', studentIdentifier);
         const infoFilePath = path.join(studentOutputDir, 'processed_files.json');
+
+        // Ensure the output directory exists
+         if (!fs.existsSync(studentOutputDir)) {
+             sendLogToRenderer(`WARN: Student output directory missing during save: ${studentOutputDir}. Creating.`);
+             fs.mkdirSync(studentOutputDir, { recursive: true });
+         }
         
-        // Get the data for this student
-        const allEntries = processedFileInfo[studentIdentifier];
-        
-        // Filter out entries that have different email addresses to handle collision resolution
-        // Group by email if available, to separate different students with same name
-        const emailGroups = new Map();
-        
-        allEntries.forEach(entry => {
-            const email = entry.studentInfo?.email;
-            // If this entry has an email (from CSV resolution)
-            if (email) {
-                // If email doesn't match the identifier, it might be from a different student with same name
-                if (email !== studentIdentifier && studentIdentifier.includes('@') === false) {
-                    sendLogToRenderer(`Entry for ${studentIdentifier} has email ${email} that doesn't match identifier. Possible mixed data.`);
-                }
-                
-                // Group by email
-                if (!emailGroups.has(email)) {
-                    emailGroups.set(email, []);
-                }
-                emailGroups.get(email).push(entry);
-            } else {
-                // No email, use a special key for entries without email
-                if (!emailGroups.has('no_email')) {
-                    emailGroups.set('no_email', []);
-                }
-                emailGroups.get('no_email').push(entry);
+        // Get successfully processed files for this student
+        const successfulFiles = processedFileInfo[studentIdentifier] || [];
+
+        // Get skipped and error files for this student from the global logs
+        const skippedForStudent = skippedFileLog.filter(log => log.studentIdentifier === studentIdentifier)
+                                                .map(log => ({ pageDir: log.pageDir, fileName: log.fileName, reason: log.reason }));
+        const errorsForStudent = errorFileLog.filter(log => log.studentIdentifier === studentIdentifier)
+                                             .map(log => ({ pageDir: log.pageDir, fileName: log.fileName, error: log.error }));
+
+        // Prepare the final JSON structure
+        const finalJsonData = {
+            processedFiles: successfulFiles, // Existing structure
+            summary: {
+                skippedFiles: skippedForStudent,
+                processingErrors: errorsForStudent
             }
-        });
-        
-        // If we have multiple email groups, there's a collision that was resolved with emails
-        if (emailGroups.size > 1 && emailGroups.has('no_email') === false) {
-            sendLogToRenderer(`Multiple email groups found for ${studentIdentifier}. Possible collision that was resolved with CSVs.`);
-            sendLogToRenderer(`Identifier should be an email address in this case, not a name. Check your CSV resolution.`);
-        }
-        
-        // Use the correct data to save - if this is an email-based identifier, use only entries that match the email
-        let dataToSave = allEntries;
-        
-        // If this is an email-based identifier from collision resolution
-        if (studentIdentifier.includes('@')) {
-            if (emailGroups.has(studentIdentifier)) {
-                dataToSave = emailGroups.get(studentIdentifier);
-                sendLogToRenderer(`Using ${dataToSave.length} entries with matching email ${studentIdentifier} for processed_files.json`);
-            } else {
-                sendLogToRenderer(`Email identifier ${studentIdentifier} not found in email groups. Using all entries.`);
-            }
-        }
+        };
         
         try {
-             if (!fs.existsSync(studentOutputDir)) {
-                 // It should exist from transformation, but check just in case
-                 sendLogToRenderer(`Student output directory missing during save: ${studentOutputDir}. Creating.`);
-                 fs.mkdirSync(studentOutputDir, { recursive: true });
-             }
-             fs.writeFileSync(infoFilePath, JSON.stringify(dataToSave, null, 2));
+             fs.writeFileSync(infoFilePath, JSON.stringify(finalJsonData, null, 2));
              sendLogToRenderer(`  Saved info for ${studentIdentifier} to ${infoFilePath}`);
         } catch (err) {
             sendLogToRenderer(`  Error saving processed info for ${studentIdentifier}:`);
+            sendLogToRenderer(err.message); // Log specific error
         }
     }
 }

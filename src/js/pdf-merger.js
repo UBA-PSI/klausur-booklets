@@ -374,32 +374,36 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent)
  * @param {string} inputPath Path to the input file.
  * @param {string} outputPath Path to save the resulting single-page PDF.
  * @param {number} dpiValue DPI for PDF rendering (if applicable).
+ * @param {function} [sendLog=console.log] Function to send log messages.
  */
-async function processSingleTransformation(inputPath, outputPath, dpiValue) {
+async function processSingleTransformation(inputPath, outputPath, dpiValue, sendLog = console.log) {
     const ext = path.extname(inputPath).toLowerCase(); 
+    // Get last 3 path parts for logging (e.g., PageDir/StudentDir/file.ext)
+    const logInputPath = inputPath.split(path.sep).slice(-3).join(path.sep);
+    const logOutputPath = outputPath.split(path.sep).slice(-3).join(path.sep);
     let imageBufferForPdfLib; // Buffer ready to be embedded (always PNG format)
     let needsRotation = false;
 
-    console.log(`[Transform Single] Starting: Input=${inputPath}, Output=${outputPath}, Ext=${ext}`);
+    sendLog(`[Transform Single] Starting: ${logInputPath} -> ${logOutputPath}, Ext=${ext}`);
 
     try {
         let initialBuffer; // Buffer directly from file or rendering
 
         if (ext === '.pdf') {
-            console.log(`[Transform Single] Processing as PDF.`);
+            sendLog(`[Transform Single] Processing as PDF: ${logInputPath}`);
             initialBuffer = await renderFirstPageToImage(inputPath, dpiValue); // Renders first page to PNG buffer
         } else if (ext === '.png') {
-            console.log(`[Transform Single] Processing as PNG.`);
+            sendLog(`[Transform Single] Processing as PNG: ${logInputPath}`);
             initialBuffer = fs.readFileSync(inputPath);
         } else if (ext === '.jpg' || ext === '.jpeg') {
-            console.log(`[Transform Single] Processing as JPG/JPEG.`);
+            sendLog(`[Transform Single] Processing as JPG/JPEG: ${logInputPath}`);
             initialBuffer = fs.readFileSync(inputPath);
             // Convert to PNG later if needed (e.g., for rotation check/apply)
         } else if (ext === '.heic') {
-            console.log(`[Transform Single] Processing as HEIC.`);
+            sendLog(`[Transform Single] Processing as HEIC: ${logInputPath}`);
             const heicBuffer = fs.readFileSync(inputPath);
             const { data, width, height } = await decodeHeic({ buffer: heicBuffer });
-            console.log(`[Transform Single] Decoded HEIC to raw data (${width}x${height})`);
+            sendLog(`[Transform Single] Decoded HEIC to raw data (${width}x${height}): ${logInputPath}`);
             // Convert raw to PNG buffer now
             initialBuffer = await sharp(data, {
                 raw: {
@@ -408,22 +412,22 @@ async function processSingleTransformation(inputPath, outputPath, dpiValue) {
                     channels: 4
                 }
             }).png().toBuffer();
-            console.log(`[Transform Single] Converted HEIC raw data to PNG buffer.`);
+            sendLog(`[Transform Single] Converted HEIC raw data to PNG buffer: ${logInputPath}`);
         } else {
-            console.warn(`[Transform Single] Skipping unsupported file type: ${inputPath}`);
+            sendLog(`[Transform Single] WARN: Skipping unsupported file type: ${logInputPath}`);
             return; 
         }
 
         if (!initialBuffer) {
-             console.error(`[Transform Single] Failed to get initial buffer for ${inputPath}`);
+             sendLog(`[Transform Single] ERROR: Failed to get initial buffer for ${logInputPath}`);
              return;
         }
 
         // Check dimensions and determine rotation need using Sharp
         const metadata = await sharp(initialBuffer).metadata();
-        console.log(`[Transform Single] Image dimensions: ${metadata.width}x${metadata.height}`);
+        sendLog(`[Transform Single] Image dimensions: ${metadata.width}x${metadata.height} for ${logInputPath}`);
         if (metadata.width > metadata.height) {
-            console.log(`[Transform Single] Image is landscape (width > height), rotation needed.`);
+            sendLog(`[Transform Single] Image is landscape (width > height), rotation needed: ${logInputPath}`);
             needsRotation = true;
         }
 
@@ -441,13 +445,13 @@ async function processSingleTransformation(inputPath, outputPath, dpiValue) {
             // although the buffer passed is now rotated to portrait.
             // For simplicity, let imageToPdf determine final scaling based on the buffer it receives.
             await imageToPdf(imageBufferForPdfLib, outputPath); 
-            console.log(`[Transform Single] Successfully created PDF page: ${outputPath}`);
+            sendLog(`[Transform Single] Successfully created PDF page: ${logOutputPath}`);
         } else {
-             console.error(`[Transform Single] Failed to get final image buffer for ${inputPath}`);
+             sendLog(`[Transform Single] ERROR: Failed to get final image buffer for ${logInputPath}`);
         }
 
     } catch (error) {
-        console.error(`[Transform Single] Error processing file ${inputPath}:`, error);
+        sendLog(`[Transform Single] ERROR processing file ${logInputPath}: ${error.message}`);
         throw error; 
     }
 }
