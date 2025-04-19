@@ -1,8 +1,12 @@
 {
-  "name": "pdf-merger-app",
+  "name": "booklet-tool",
   "version": "1.0.0",
-  "description": "An Electron app to merge student PDFs with a cover sheet",
+  "description": "The Booklet Tool is used by teachers to create booklet-style PDFs from a collection of student PDFs. Students are asked to submit pages with their notes regularly and get them back as printed booklets that are authorized aids during the exam. The tool supports the creation of these booklet PDFs and also allows you to create Moodle Backups (MBZ files) that allow you to create the required assignment activities in Moodle with minimal manual work.",
   "main": "src/js/main.js",
+  "author": {
+    "name": "Dominik Herrmann",
+    "email": "dh.psi@uni-bamberg.de"
+  },
   "bin": {
     "modify-mbz-js": "./bin/modify-mbz-js"
   },
@@ -23,22 +27,23 @@
     "csv-parse": "^5.5.6",
     "flatpickr": "^4.6.13",
     "heic-decode": "^2.0.0",
-    "marked": "^12.0.0",
+    "marked": "^15.0.8",
     "pdf-lib": "^1.17.1",
     "sharp": "^0.34.1",
     "tar": "^7.2.0",
     "yargs": "^17.7.2"
   },
   "devDependencies": {
+    "@eslint/js": "^9.25.0",
     "dir-compare": "^5.0.0",
     "electron": "^35.1.5",
     "electron-builder": "^26.0.12",
-    "electron-rebuild": "^3.2.9",
-    "eslint": "^8.50.0"
+    "eslint": "^9.6.0",
+    "globals": "^16.0.0"
   },
   "build": {
-    "appId": "com.psi.pdfmerger",
-    "productName": "PSI PDF Merger Tool",
+    "appId": "de.uni-bamberg.de.psi.booklet-tool",
+    "productName": "Booklet Tool",
     "asarUnpack": [
       "**/node_modules/sharp/**/*",
       "**/node_modules/@hyzyla/pdfium/dist/pdfium.wasm"
@@ -54,8 +59,7 @@
             "x64"
           ]
         }
-      ],
-      "publisherName": null
+      ]
     },
     "linux": {
       "target": "AppImage"
