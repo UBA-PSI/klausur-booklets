@@ -945,6 +945,9 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
             
             // Generate and send summary log after direct processing
             await generateAndSendSummary(outputDirectory);
+            
+            // Generate HTML summary report
+            await generateSummaryHtml(outputDirectory);
 
             // Clear global state after successful direct processing
             pendingTransformationData = null; 
@@ -1027,6 +1030,9 @@ ipcMain.handle('resolve-ambiguity', async (event, selectedIdentifiers) => {
 
         // Generate and send summary log AFTER ambiguity resolution
         await generateAndSendSummary(pendingTransformationData.outputDirectory);
+        
+        // Generate HTML summary report
+        await generateSummaryHtml(pendingTransformationData.outputDirectory);
         
         // Clear global state
         pendingTransformationData = null; 
@@ -1117,6 +1123,170 @@ async function generateAndSendSummary(outputDirectory) {
     // Clear logs after summary is generated
     skippedFileLog = [];
     errorFileLog = [];
+}
+
+/**
+ * Generates a summary.html file in the output directory with tables showing
+ * student submission statistics and overall statistics
+ * @param {string} outputDirectory - The main output directory
+ */
+async function generateSummaryHtml(outputDirectory) {
+    sendLogToRenderer("Generating summary.html report...");
+    const pagesDir = path.join(outputDirectory, 'pages');
+    if (!fs.existsSync(pagesDir)) {
+        sendLogToRenderer("WARN: Pages directory not found. Cannot generate summary HTML.");
+        return;
+    }
+
+    // Collect data from all students
+    const studentData = [];
+    const studentDirs = fs.readdirSync(pagesDir).filter(item => {
+        return fs.statSync(path.join(pagesDir, item)).isDirectory();
+    });
+
+    for (const studentIdentifier of studentDirs) {
+        const infoFilePath = path.join(pagesDir, studentIdentifier, 'processed_files.json');
+        if (fs.existsSync(infoFilePath)) {
+            try {
+                const data = JSON.parse(fs.readFileSync(infoFilePath, 'utf-8'));
+                
+                // Find student info (use the first processed file's studentInfo if available)
+                let studentInfo = { 
+                    primaryIdentifier: studentIdentifier,
+                    fullName: studentIdentifier, 
+                    lastName: studentIdentifier,
+                    firstName: ""
+                };
+                
+                if (data.processedFiles && data.processedFiles.length > 0 && 
+                    data.processedFiles[0].studentInfo) {
+                    studentInfo = data.processedFiles[0].studentInfo;
+                }
+                
+                // Count processed, skipped, and error files
+                const processedCount = data.processedFiles?.length || 0;
+                const skippedCount = data.summary?.skippedFiles?.length || 0;
+                const errorCount = data.summary?.processingErrors?.length || 0;
+
+                studentData.push({
+                    identifier: studentIdentifier,
+                    info: studentInfo,
+                    processed: processedCount,
+                    skipped: skippedCount,
+                    errors: errorCount
+                });
+            } catch (readErr) {
+                sendLogToRenderer(`WARN: Could not read/parse ${infoFilePath}: ${readErr.message}`);
+            }
+        }
+    }
+
+    // Sort students by last name
+    studentData.sort((a, b) => {
+        const lastName1 = a.info.lastName || a.identifier;
+        const lastName2 = b.info.lastName || b.identifier;
+        return lastName1.localeCompare(lastName2);
+    });
+
+    // Calculate summary statistics
+    const totalStudents = studentData.length;
+    const totalSubmissions = studentData.reduce((sum, student) => sum + student.processed, 0);
+    
+    // Calculate distribution of page counts
+    const pageDistribution = {};
+    studentData.forEach(student => {
+        const count = student.processed;
+        pageDistribution[count] = (pageDistribution[count] || 0) + 1;
+    });
+
+    // Generate HTML content
+    let htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Submission Summary</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        h1, h2 { color: #333; }
+        .stats { margin-bottom: 30px; }
+    </style>
+</head>
+<body>
+    <h1>Student Submission Summary</h1>
+    
+    <table>
+        <tr>
+            <th>Last Name</th>
+            <th>First Name</th>
+            <th>Student ID</th>
+            <th>Submitted Pages</th>
+            <th>Skipped Files</th>
+            <th>Files with Errors</th>
+        </tr>`;
+
+    // Add rows for each student
+    studentData.forEach(student => {
+        const lastName = student.info.lastName || "Unknown";
+        const firstName = student.info.firstName || "";
+        const studentId = student.info.studentNumber || "";
+        
+        htmlContent += `
+        <tr>
+            <td>${lastName}</td>
+            <td>${firstName}</td>
+            <td>${studentId}</td>
+            <td>${student.processed}</td>
+            <td>${student.skipped > 0 ? student.skipped : ''}</td>
+            <td>${student.errors > 0 ? student.errors : ''}</td>
+        </tr>`;
+    });
+
+    htmlContent += `
+    </table>
+    
+    <h2>Summary Statistics</h2>
+    
+    <div class="stats">
+        <p><strong>Total Students:</strong> ${totalStudents}</p>
+        <p><strong>Total Submitted Pages:</strong> ${totalSubmissions}</p>
+    </div>
+    
+    <h3>Distribution of Pages Per Student</h3>
+    <table>
+        <tr>
+            <th>Number of Pages</th>
+            <th>Number of Students</th>
+        </tr>`;
+
+    // Add rows for page distribution
+    Object.keys(pageDistribution).sort((a, b) => Number(a) - Number(b)).forEach(pageCount => {
+        htmlContent += `
+        <tr>
+            <td>${pageCount}</td>
+            <td>${pageDistribution[pageCount]}</td>
+        </tr>`;
+    });
+
+    htmlContent += `
+    </table>
+    
+    <p><em>Report generated on ${new Date().toLocaleString()}</em></p>
+</body>
+</html>`;
+
+    // Write the HTML file
+    const summaryFilePath = path.join(outputDirectory, 'summary.html');
+    try {
+        fs.writeFileSync(summaryFilePath, htmlContent);
+        sendLogToRenderer(`Summary HTML report created at: ${summaryFilePath}`);
+    } catch (writeErr) {
+        sendLogToRenderer(`ERROR: Failed to write summary HTML: ${writeErr.message}`);
+    }
 }
 // --- End Summary Function ---
 
@@ -1574,6 +1744,20 @@ ipcMain.handle('clear-output-folder', async (event, outputDirectory) => {
         } else {
             // Use relative path
             sendLogToRenderer(`Subfolder does not exist, skipping clear: ${path.relative(outputDirectory, folderPath)}`);
+        }
+    }
+
+    // Also clear summary.html if it exists
+    const summaryHtmlPath = path.join(outputDirectory, 'summary.html');
+    if (fs.existsSync(summaryHtmlPath)) {
+        try {
+            fs.unlinkSync(summaryHtmlPath);
+            sendLogToRenderer(`Deleted summary.html at: ${summaryHtmlPath}`);
+        } catch (err) {
+            const errorMsg = `Failed to delete summary.html: ${err.message}`;
+            sendLogToRenderer(errorMsg);
+            errors.push(errorMsg);
+            if (mainWindow) mainWindow.webContents.send('error-log', `ERROR: ${errorMsg}`);
         }
     }
 
