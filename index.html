@@ -333,243 +333,289 @@
             <span id="progress-percent" class="status-part"></span>
             <span id="status-message" class="status-part status-message-main">Ready</span>
 		</div>
-
     <!-- Modals -->
-    <div id="settingsModal" class="modal settings-modal-wide">
-        <div class="modal-content p-0">
-            <div class="modal-header bg-light border-bottom d-flex justify-content-between align-items-center p-3">
-                <h5 class="modal-title mb-0">
-                    <i class="bi bi-gear-fill text-primary me-2"></i>Settings
-                </h5>
-                <span class="close-button btn-close" aria-label="Close"></span>
-        </div>
-		
-            <div class="modal-body p-3">
-                
-                <div class="card mb-3">
-                    <div class="card-header py-2">
-                        <h6 class="mb-0">
-                            <i class="bi bi-image text-primary me-1"></i>Resolution for Rasterizing Submitted PDFs
-                        </h6>
+    <div id="settingsModal" class="modal fade" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content p-0">
+                <div class="modal-header bg-light border-bottom d-flex justify-content-between align-items-center p-3">
+                    <h5 class="modal-title mb-0">
+                        <i class="bi bi-gear-fill text-primary me-2"></i>Settings
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <div class="modal-body p-3">
+
+                    <div class="card mb-3">
+                        <div class="card-header py-2">
+                            <h6 class="mb-0">
+                                <i class="bi bi-image text-primary me-1"></i>Resolution for Rasterizing Submitted PDFs
+                            </h6>
+                        </div>
+                        <div class="card-body py-0">
+                            <div class="d-flex align-items-center mt-4">
+                                <div class="input-group" style="max-width: 180px;">
+                                    <input type="number" id="dpi" value="300" class="form-control">
+                                    <span class="input-group-text">dpi</span>
+                                </div>
+                                <span class="text-muted ms-3 align-middle" style="margin-bottom: 1.5em;">Higher values:
+                                    better quality but larger files. 300 dpi is often sufficient.</span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="card-body py-0">
-                        <div class="d-flex align-items-center mt-4">
-                            <div class="input-group" style="max-width: 180px;">
-                                <input type="number" id="dpi" value="300" class="form-control">
-                                <span class="input-group-text">dpi</span>
+
+                    <!-- Folder Pattern Setting Card -->
+                    <div class="card mb-3">
+                        <div class="card-header py-2">
+                            <h6 class="mb-0">
+                                <i class="bi bi-folder2 text-primary me-1"></i>Folder Name Pattern
+                            </h6>
+                        </div>
+                        <div class="card-body py-2">
+                            <p class="small">This pattern is used when reading the student submission folders in the input
+                                directory. The default pattern is the Moodle format, which is the format used by the
+                                University of Bamberg. If you are using Moodle, you can select the Moodle format, which will
+                                enable automatic name collision handling. The Ilias format is the format used by the Ilias
+                                LMS and contains a Student Number field, which is also supported and will avoid name
+                                collisions. The custom format allows you to enter a custom pattern.</p>
+
+                            <!-- Pattern Presets -->
+                            <div class="pattern-presets mb-2 d-flex justify-content-between">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" id="pattern-ilias" name="pattern-preset"
+                                        value="FIRSTNAME_LASTNAME_USERNAME_STUDENTNUMBER">
+                                    <label class="form-check-label" for="pattern-ilias">Ilias Format</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" id="pattern-moodle" name="pattern-preset"
+                                        value="FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file_">
+                                    <label class="form-check-label" for="pattern-moodle">Moodle Format</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" id="pattern-custom" name="pattern-preset"
+                                        value="custom" checked>
+                                    <label class="form-check-label" for="pattern-custom">Custom Format</label>
+                                </div>
                             </div>
-                            <span class="text-muted ms-3 align-middle" style="margin-bottom: 1.5em;">Higher values: better quality but larger files. 300 dpi is often sufficient.</span>
+
+                            <!-- Pattern Input -->
+                            <div class="mb-3">
+                                <input type="text" id="foldername-pattern" class="form-control"
+                                    placeholder="e.g., FIRSTNAME-LASTNAME or FULLNAMEWITHSPACES_NUMBER_assignsubmission_file_">
+                            </div>
+
+                            <!-- Compact Pattern Help -->
+                            <div class="pattern-help mb-0">
+                                <button class="btn btn-outline-secondary btn-sm w-100" type="button"
+                                    data-bs-toggle="collapse" data-bs-target="#patternHelpCollapse">
+                                    <i class="bi bi-info-circle me-1"></i>Pattern Help
+                                </button>
+                                <div class="collapse mt-2" id="patternHelpCollapse">
+                                    <div class="card card-body bg-light py-2 small">
+                                        <p class="mb-2">Define how student folders are named. Use separator character from
+                                            your folders (<code>_</code> or <code>-</code>).</p>
+                                        <p class="mb-2"><strong>Note:</strong> Selecting 'Moodle Format' enables
+                                            semi-automatic name collision handling if you place the corresponding Moodle
+                                            Grading Worksheet CSV file inside each page's input subfolder (e.g., `Page
+                                            1/worksheet.csv`). You will be prompted if collisions are detected and the CSV
+                                            files are required.</p>
+
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <strong>Available Placeholders:</strong>
+                                                <ul class="ps-3 mb-2">
+                                                    <li><code>FIRSTNAME</code> (only if firstname(s) and lastname(s) are
+                                                        clearly separated in the input directory, not the case with Moodle)
+                                                    </li>
+                                                    <li><code>LASTNAME</code> (only if firstname(s) and lastname(s) are
+                                                        clearly separated in the input directory, not the case with Moodle)
+                                                    </li>
+                                                    <li><code>FULLNAMEWITHSPACES</code> (typically used with Moodle)</li>
+                                                    <li><code>USERNAME</code> (used with Ilias)</li>
+                                                    <li><code>STUDENTNUMBER</code> (used with Ilias, preferred identifier)
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <strong>Examples:</strong>
+                                                <ul class="ps-3 mb-2">
+                                                    <li>Ilias: <code>FIRSTNAME_LASTNAME_USERNAME_STUDENTNUMBER</code></li>
+                                                    <li>Moodle:
+                                                        <code>FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file_</code>
+                                                    </li>
+                                                    <li>Simple: <code>LASTNAME-FIRSTNAME</code></li>
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        <p class="mb-0"><strong>Identifier Priority:</strong> Student Number > Username >
+                                            Full Name > Original Folder Name</p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-    </div>
-	
-                <!-- Folder Pattern Setting Card -->
-                <div class="card mb-3">
-                    <div class="card-header py-2">
-                        <h6 class="mb-0">
-                            <i class="bi bi-folder2 text-primary me-1"></i>Folder Name Pattern
-                        </h6>
-        </div>
-                    <div class="card-body py-2">
-                        <p class="small">This pattern is used when reading the student submission folders in the input directory. The default pattern is the Moodle format, which is the format used by the University of Bamberg. If you are using Moodle, you can select the Moodle format, which will enable automatic name collision handling. The Ilias format is the format used by the Ilias LMS and contains a Student Number field, which is also supported and will avoid name collisions. The custom format allows you to enter a custom pattern.</p>
-            
-            <!-- Pattern Presets -->
-                        <div class="pattern-presets mb-2 d-flex justify-content-between">
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" id="pattern-ilias" name="pattern-preset" value="FIRSTNAME_LASTNAME_USERNAME_STUDENTNUMBER">
-                                <label class="form-check-label" for="pattern-ilias">Ilias Format</label>
-                </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" id="pattern-moodle" name="pattern-preset" value="FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file_">
-                                <label class="form-check-label" for="pattern-moodle">Moodle Format</label>
-                </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" id="pattern-custom" name="pattern-preset" value="custom" checked>
-                                <label class="form-check-label" for="pattern-custom">Custom Format</label>
-                </div>
-            </div>
-            
-            <!-- Pattern Input -->
-                        <div class="mb-3">
-                            <input type="text" id="foldername-pattern" class="form-control" placeholder="e.g., FIRSTNAME-LASTNAME or FULLNAMEWITHSPACES_NUMBER_assignsubmission_file_">
+
+                    <!-- Filesize Limits Card -->
+                    <div class="card mb-3">
+                        <div class="card-header py-2">
+                            <h6 class="mb-0">
+                                <i class="bi bi-file-earmark-ruled text-primary me-1"></i>File Size Limits
+                            </h6>
                         </div>
-            
-            <!-- Compact Pattern Help -->
-                        <div class="pattern-help mb-0">
-                            <button class="btn btn-outline-secondary btn-sm w-100" type="button" data-bs-toggle="collapse" data-bs-target="#patternHelpCollapse">
-                                <i class="bi bi-info-circle me-1"></i>Pattern Help
-                            </button>
-                            <div class="collapse mt-2" id="patternHelpCollapse">
-                                <div class="card card-body bg-light py-2 small">
-                                    <p class="mb-2">Define how student folders are named. Use separator character from your folders (<code>_</code> or <code>-</code>).</p>
-                                    <p class="mb-2"><strong>Note:</strong> Selecting 'Moodle Format' enables semi-automatic name collision handling if you place the corresponding Moodle Grading Worksheet CSV file inside each page's input subfolder (e.g., `Page 1/worksheet.csv`). You will be prompted if collisions are detected and the CSV files are required.</p>
-                                    
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                <strong>Available Placeholders:</strong>
-                                            <ul class="ps-3 mb-2">
-                                                <li><code>FIRSTNAME</code> (only if firstname(s) and lastname(s) are clearly separated in the input directory, not the case with Moodle)</li>
-                                                <li><code>LASTNAME</code> (only if firstname(s) and lastname(s) are clearly separated in the input directory, not the case with Moodle)</li>
-                                                <li><code>FULLNAMEWITHSPACES</code> (typically used with Moodle)</li>
-                                                <li><code>USERNAME</code> (used with Ilias)</li>
-                                                <li><code>STUDENTNUMBER</code> (used with Ilias, preferred identifier)</li>
-                                </ul>
-                            </div>
-                                        <div class="col-md-6">
-                                <strong>Examples:</strong>
-                                            <ul class="ps-3 mb-2">
-                                    <li>Ilias: <code>FIRSTNAME_LASTNAME_USERNAME_STUDENTNUMBER</code></li>
-                                    <li>Moodle: <code>FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file_</code></li>
-                                    <li>Simple: <code>LASTNAME-FIRSTNAME</code></li>
-                                </ul>
-                            </div>
-                        </div>
-                                    
-                                    <p class="mb-0"><strong>Identifier Priority:</strong> Student Number > Username > Full Name > Original Folder Name</p>
+                        <div class="card-body py-2">
+                            <p class="small">Acceptable sizes of images/PDFs. Files outside this range will be skipped.</p>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-2">
+                                        <label for="minFileSizeKB" class="form-label">Minimum Size (KB):</label>
+                                        <input type="number" id="minFileSizeKB" value="1" min="0" class="form-control">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-2">
+                                        <label for="maxFileSizeMB" class="form-label">Maximum Size (MB):</label>
+                                        <input type="number" id="maxFileSizeMB" value="20" min="1" class="form-control">
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-                
-                <!-- Filesize Limits Card -->
-                <div class="card mb-3">
-                    <div class="card-header py-2">
-                        <h6 class="mb-0">
-                            <i class="bi bi-file-earmark-ruled text-primary me-1"></i>File Size Limits
-                        </h6>
+
+                <div class="modal-footer bg-light border-top d-flex justify-content-between p-3">
+                    <div>
+                        <button id="importConfigBtn" class="btn btn-outline-secondary">
+                            <i class="bi bi-upload me-1"></i>Import Config
+                        </button>
+                        <button id="exportConfigBtn" class="btn btn-outline-secondary ms-2">
+                            <i class="bi bi-download me-1"></i>Export Config
+                        </button>
                     </div>
-                    <div class="card-body py-2">
-                        <p class="small">Acceptable sizes of images/PDFs. Files outside this range will be skipped.</p>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-2">
-                                    <label for="minFileSizeKB" class="form-label">Minimum Size (KB):</label>
-                                    <input type="number" id="minFileSizeKB" value="1" min="0" class="form-control">
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-2">
-                                    <label for="maxFileSizeMB" class="form-label">Maximum Size (MB):</label>
-                                    <input type="number" id="maxFileSizeMB" value="20" min="1" class="form-control">
-                                </div>
-                            </div>
-            </div>
-        </div>
                 </div>
             </div>
-            
-            <div class="modal-footer bg-light border-top d-flex justify-content-between p-3">
-                <div>
-                    <button id="importConfigBtn" class="btn btn-outline-secondary">
-                        <i class="bi bi-upload me-1"></i>Import Config
-                    </button>
-                    <button id="exportConfigBtn" class="btn btn-outline-secondary ms-2">
-                        <i class="bi bi-download me-1"></i>Export Config
-                    </button>
+        </div>
+    </div>
+
+
+<div id="moodleCollisionModal" class="modal fade" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Potential Issues Detected (Moodle Pattern)</h5>
+                <button type="button" class="btn-close moodle-collision-close" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- CSV Status Section -->
+                <div id="csvStatusInfo" class="csv-status-info">
+                    <!-- Status message populated by JS -->
                 </div>
-        </div>
-    </div>
-</div>
 
-<div id="moodleCollisionModal" class="modal collision-modal-wide">
-    <div class="modal-content">
-        <span class="close-button moodle-collision-close">&times;</span>
-        <h2>Potential Issues Detected (Moodle Pattern)</h2>
-        <!-- CSV Status Section -->
-        <div id="csvStatusInfo" class="csv-status-info">
-            <!-- Status message populated by JS -->
-        </div>
-
-        <!-- Missing CSV Mappings Section (NEW) -->
-        <div id="mappingErrorSection" class="collision-section" style="display: none;"> <!-- Hidden by default -->
-            <h3><span class="warning-icon">⚠️</span> Missing CSV Mappings</h3>
-            <p><small>The following students (identified by the number in their folder name) could not be found in the CSV file located in their respective page folder. This often means the wrong CSV file was placed in that folder.</small></p>
-            <ul id="mappingErrorList">
-                <!-- List of mapping errors will be populated here -->
-            </ul>
-            <p><strong>Action required:</strong> Please ensure the correct CSV file (containing these students) is placed in each listed page folder.</p>
-        </div>
-
-        <!-- Existing Same-Name Collisions Section -->
-        <div id="collisionNameSection" class="collision-section" style="display: none;"> <!-- Hidden by default -->
-            <h3><span class="warning-icon">⚠️</span> Same-Name Collisions</h3>
-            <p><small>These student identifiers (name or email) have multiple different submission folders associated with them within the same page folder, AND this could not be resolved automatically using emails from CSV files.</small></p>
-            <ul id="collisionList">
-                <!-- List of colliding names will be populated here -->
-            </ul>
-        </div>
-
-        <!-- Resolution Options -->
-        <p><strong>Please resolve the issues listed above using one of the following methods before continuing:</strong></p>
-        <ol style="font-size: 0.95em;">
-            <li>
-                    <strong>Using CSV Files (Recommended):</strong> Place the Moodle Grading Worksheet CSV file inside <em>each</em> page subfolder within your input directory (e.g., put the 'Page 1.csv' inside the 'Page 1' folder). 
-                <ul>
-                    <li>CSV files must be present in <em>all</em> page folders where students with identical names appear</li>
-                    <li>Each CSV must contain both an 'ID' column (corresponding to the number in the place of SOMENUMBER in the folder name template) and an 'E-Mail-Adresse' column (rename columns if necessary)</li>
-                    <li>The tool uses the email addresses from the CSV files and the IDs to uniquely identify students even when names are identical</li>
-                </ul>
-            </li>
-            <li>
-                <strong>Manual Folder Renaming:</strong> If CSV files are unavailable, you must manually rename the student submission folders as follows:
-                <ul>
-                    <li>Folders for the <em>same student</em> must have <em>exactly the same name</em> across all page directories</li>
-                    <li>Folders for <em>different students</em> must have different names</li>
-                    <li>You must rename <em>all</em> folders for students with same names in <em>all</em> page directories in a consistent manner, even where only one of the students submitted a particular page</li>
-                        <li>Example: If there are two 'Anna Schmidt' in 'Page 1' and 'Page 2', change the name (e.g. Anna1) in one of these same-named subfolders in each of these directories identically</li>
-                </ul>
-            </li>
-        </ol>
-        <div style="text-align: right; margin-top: 20px;">
-            <button id="moodleCollisionRetryWithCSVBtn" class="btn btn-primary">Check Again After Changes</button>
-            <button id="moodleCollisionOkBtn">Close</button>
-        </div>
-    </div>
-</div>
-
-<div id="ambiguityModal" class="modal">
-    <div class="modal-content ambiguity-modal-content">
-        <span class="close-button ambiguity-close">&times;</span>
-        <h2>Resolve File Conflicts</h2>
-        <p>Multiple suitable files found. Please select one file for each folder:</p>
-        <div id="ambiguityProgress" style="margin-bottom: 15px; font-style: italic;"></div>
-        <div id="ambiguityList"></div> 
-        <div class="ambiguity-navigation" style="margin-top: 20px; display: flex; justify-content: space-between;">
-            <button id="ambiguityPrevBtn" disabled>&laquo; Previous</button>
-            <button id="ambiguityNextBtn">Next &raquo;</button>
-            <button id="confirmAmbiguityBtn" style="display: none;">Confirm Selections</button> <!-- Initially hidden -->
-        </div>
-        <div id="ambiguityError" class="error-message"></div>
-    </div>
-</div>
-
-<div id="coverTemplateModal" class="modal cover-template-modal">
-    <div class="modal-content">
-        <span class="close-button cover-template-close">&times;</span>
-        <h2>Edit Cover Template</h2>
-        
-        <div class="form-group">
-            <label for="coverTemplateContentInput" class="block-label">Template Content (Markdown):</label>
-            <textarea id="coverTemplateContentInput" class="form-control full-width" rows="15"></textarea>
-        </div>
-        
-        <!-- Template Help -->
-        <div class="pattern-help" style="margin-top: 15px;">
-            <details>
-                <summary><strong>Template Help</strong> (click to expand)</summary>
-                <div class="pattern-explanation compact" style="font-size: 0.9em;">
-                    <p>Use Markdown to format the cover page. The following placeholders will be replaced:</p>
-                    <ul class="compact-list">
-                        <li><code>{{FULL_NAME}}</code>: Student's full name (derived from folder name based on pattern).</li>
-                        <li><code>{{LAST_NAME}}</code>: Student's last name.</li>
-                        <li><code>{{FIRST_NAME}}</code>: Student's first name.</li>
-                        <li><code>{{STUDENTNUMBER}}</code>: Student's number (if available in folder name and pattern).</li>
-                        <li><code>{{SUBMITTED_PAGES_LIST}}</code>: A list of submitted pages and original filenames.</li>
-                        <li><code>{{MISSING_PAGES_LIST}}</code>: A list of expected page directories not found for the student.</li>
+                <!-- Missing CSV Mappings Section (NEW) -->
+                <div id="mappingErrorSection" class="collision-section" style="display: none;"> <!-- Hidden by default -->
+                    <h3><span class="warning-icon">⚠️</span> Missing CSV Mappings</h3>
+                    <p><small>The following students (identified by the number in their folder name) could not be found in the CSV file located in their respective page folder. This often means the wrong CSV file was placed in that folder.</small></p>
+                    <ul id="mappingErrorList">
+                        <!-- List of mapping errors will be populated here -->
                     </ul>
-                        <p>Minimalistic Example:</p>
-                        <pre><code># Booklet
+                    <p><strong>Action required:</strong> Please ensure the correct CSV file (containing these students) is placed in each listed page folder.</p>
+                </div>
+
+                <!-- Existing Same-Name Collisions Section -->
+                <div id="collisionNameSection" class="collision-section" style="display: none;"> <!-- Hidden by default -->
+                    <h3><span class="warning-icon">⚠️</span> Same-Name Collisions</h3>
+                    <p><small>These student identifiers (name or email) have multiple different submission folders associated with them within the same page folder, AND this could not be resolved automatically using emails from CSV files.</small></p>
+                    <ul id="collisionList">
+                        <!-- List of colliding names will be populated here -->
+                    </ul>
+                </div>
+
+                <!-- Resolution Options -->
+                <p><strong>Please resolve the issues listed above using one of the following methods before continuing:</strong></p>
+                <ol style="font-size: 0.95em;">
+                    <li>
+                            <strong>Using CSV Files (Recommended):</strong> Place the Moodle Grading Worksheet CSV file inside <em>each</em> page subfolder within your input directory (e.g., put the 'Page 1.csv' inside the 'Page 1' folder). 
+                        <ul>
+                            <li>CSV files must be present in <em>all</em> page folders where students with identical names appear</li>
+                            <li>Each CSV must contain both an 'ID' column (corresponding to the number in the place of SOMENUMBER in the folder name template) and an 'E-Mail-Adresse' column (rename columns if necessary)</li>
+                            <li>The tool uses the email addresses from the CSV files and the IDs to uniquely identify students even when names are identical</li>
+                        </ul>
+                    </li>
+                    <li>
+                        <strong>Manual Folder Renaming:</strong> If CSV files are unavailable, you must manually rename the student submission folders as follows:
+                        <ul>
+                            <li>Folders for the <em>same student</em> must have <em>exactly the same name</em> across all page directories</li>
+                            <li>Folders for <em>different students</em> must have different names</li>
+                            <li>You must rename <em>all</em> folders for students with same names in <em>all</em> page directories in a consistent manner, even where only one of the students submitted a particular page</li>
+                                <li>Example: If there are two 'Anna Schmidt' in 'Page 1' and 'Page 2', change the name (e.g. Anna1) in one of these same-named subfolders in each of these directories identically</li>
+                        </ul>
+                    </li>
+                </ol>
+            </div>
+            <div class="modal-footer">
+                <button id="moodleCollisionRetryWithCSVBtn" class="btn btn-primary">Check Again After Changes</button>
+                <button id="moodleCollisionOkBtn" class="btn btn-secondary">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="ambiguityModal" class="modal fade" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Resolve File Conflicts</h5>
+                <button type="button" class="btn-close ambiguity-close" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Multiple suitable files found. Please select one file for each folder:</p>
+                <div id="ambiguityProgress" style="margin-bottom: 15px; font-style: italic;"></div>
+                <div id="ambiguityList"></div> 
+                <div id="ambiguityError" class="error-message"></div>
+            </div>
+            <div class="modal-footer ambiguity-navigation">
+                <button id="ambiguityPrevBtn" class="btn btn-secondary" disabled>&laquo; Previous</button>
+                <button id="ambiguityNextBtn" class="btn btn-primary">Next &raquo;</button>
+                <button id="confirmAmbiguityBtn" class="btn btn-success" style="display: none;">Confirm Selections</button> <!-- Initially hidden -->
+            </div>
+        </div>
+    </div>
+</div>
+
+    <!-- UPDATED COVER TEMPLATE MODAL -->
+    <div id="coverTemplateModal" class="modal fade" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-light border-bottom p-3">
+                    <h5 class="modal-title">
+                        <i class="bi bi-file-earmark-text text-primary me-2"></i>Edit Cover Template
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-3">
+                    <div class="form-group mb-3">
+                        <label for="coverTemplateContentInput" class="form-label fw-bold">Template Content (Markdown):</label>
+                        <textarea id="coverTemplateContentInput" class="form-control font-monospace" rows="20" style="height: 60vh;"></textarea>
+                    </div>
+                    
+                    <!-- Template Help - Using Collapse Button -->
+                    <div class="pattern-help">
+                        <button class="btn btn-outline-secondary btn-sm w-100" type="button" data-bs-toggle="collapse" data-bs-target="#coverHelpCollapse">
+                            <i class="bi bi-info-circle me-1"></i>Template Help & Placeholders
+                        </button>
+                        <div class="collapse mt-2" id="coverHelpCollapse">
+                            <div class="card card-body bg-light py-2 small">
+                                <p class="mb-2">Use Markdown to format the cover page. The following placeholders will be replaced:</p>
+                                <ul class="ps-3 mb-2">
+                                    <li><code>{{FULL_NAME}}</code>: Student's full name (derived from folder name based on pattern).</li>
+                                    <li><code>{{LAST_NAME}}</code>: Student's last name.</li>
+                                    <li><code>{{FIRST_NAME}}</code>: Student's first name.</li>
+                                    <li><code>{{STUDENTNUMBER}}</code>: Student's number (if available).</li>
+                                    <li><code>{{SUBMITTED_PAGES_LIST}}</code>: List of submitted pages/filenames.</li>
+                                    <li><code>{{MISSING_PAGES_LIST}}</code>: List of expected pages not found.</li>
+                                </ul>
+                                <p class="mb-1"><strong>Minimalistic Example:</strong></p>
+                                <pre class="border bg-white p-2 rounded mb-0"><code># Booklet
 
 **Student:** {{LAST_NAME}}, {{FIRST_NAME}}
 **Student Number:** {{STUDENTNUMBER}}
@@ -579,11 +625,19 @@
 
 ## Missing Pages:
 {{MISSING_PAGES_LIST}}</code></pre>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </details>
+                <div class="modal-footer bg-light border-top p-3">
+                    <span class="text-muted small me-auto">Changes are saved automatically when closing the modal.</span>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-lg me-1"></i>Close
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
-</div>
 
     <!-- Script Includes -->
     <script src="src/js/renderer.js"></script>
@@ -655,66 +709,39 @@
             
             // Initialize modal functionality (if modal.js is removed)
             function initializeModals() {
-                 const modals = document.querySelectorAll('.modal');
-                 modals.forEach(modal => {
-                     const closeButton = modal.querySelector('.close-button');
-                     if (closeButton) {
-                         closeButton.onclick = () => modal.style.display = 'none';
-                     }
-                     // Close on outside click
-                     window.addEventListener('click', (event) => {
-                         if (event.target === modal) {
-                             modal.style.display = 'none';
-                         }
-                     });
-                 });
-                 
-                 // Specific modal triggers
-                 const settingsBtn = document.getElementById('settingsButton');
-                 if (settingsBtn) settingsBtn.onclick = () => document.getElementById('settingsModal').style.display = 'block';
-                 
-                 const coverBtn = document.getElementById('editCoverTemplateBtn');
-                 if (coverBtn) coverBtn.onclick = () => document.getElementById('coverTemplateModal').style.display = 'block';
-                 
-                 // Save config when settings/cover modals close
-                 const settingsModal = document.getElementById('settingsModal');
-                 const coverModal = document.getElementById('coverTemplateModal');
-                 if(settingsModal) {
-                     const closeButton = settingsModal.querySelector('.close-button');
-                     if (closeButton) {
-                         closeButton.addEventListener('click', () => {
-                             console.log('[DEBUG] Settings Modal: Close button clicked, triggering saveConfig.');
-                             (window.saveConfig || (() => console.warn('saveConfig not found')))();
-                         });
-                     } else {
-                         console.warn('Settings modal close button not found during listener setup.');
-                     }
-                 }
-                 if(coverModal) coverModal.querySelector('.close-button').addEventListener('click', window.saveConfig || (() => console.warn('saveConfig not found')));
-                 
-                 // Global click listener for closing modals and saving config
-                 window.addEventListener('click', (event) => {
-                     // Close on outside click (generic for all modals)
-                     const activeModal = document.querySelector('.modal[style*="display: block"]'); // Find visible modal
-                     if (activeModal && event.target === activeModal) {
-                         activeModal.style.display = 'none';
-                     }
-                     
-                     // Save config on outside click for specific modals
-                     const settingsModal = document.getElementById('settingsModal');
-                     const coverModal = document.getElementById('coverTemplateModal');
-                     
-                     if(settingsModal && event.target === settingsModal) {
-                         console.log('[DEBUG] Settings Modal: Click outside detected, triggering saveConfig.');
-                         window.saveConfig();
-                     }
-                     if(coverModal && event.target === coverModal) {
-                         console.log('[DEBUG] Cover Modal: Click outside detected, triggering saveConfig.');
-                         window.saveConfig();
-                     }
-                 });
+                // Set up modal events for auto-saving config only (no focus management)
+                ['settingsModal', 'coverTemplateModal'].forEach(modalId => {
+                    const modalEl = document.getElementById(modalId);
+                    if (modalEl) {
+                        modalEl.addEventListener('hidden.bs.modal', () => {
+                            console.log(`[DEBUG] ${modalId}: Modal hidden event, saving config`);
+                            if (typeof window.saveConfig === 'function') {
+                                window.saveConfig();
+                            }
+                        });
+                    }
+                });
+                
+                // Convert legacy modals to bootstrap modals if needed
+                document.querySelectorAll('.modal:not(.fade)').forEach(modalEl => {
+                    console.log(`[DEBUG] Converting legacy modal to Bootstrap: ${modalEl.id}`);
+                    modalEl.classList.add('fade');
+                });
+                
+                // Make main container focusable as fallback focus target
+                const mainView = document.getElementById('main-view');
+                if (mainView && !mainView.hasAttribute('tabindex')) {
+                    mainView.setAttribute('tabindex', '-1');
+                }
             }
             initializeModals();
+
+            document.addEventListener('hide.bs.modal', function (event) {
+                event.target.setAttribute('inert', '');
+            });
+            document.addEventListener('hidden.bs.modal', function (event) {
+                event.target.removeAttribute('inert');
+            });
         });
     </script>
 

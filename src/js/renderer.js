@@ -24,7 +24,43 @@ Dieses Booklet ist zugelassenes Hilfsmittel im Wintersemester 2024 und im Sommer
 function openModal() {
     const modal = document.getElementById("settingsModal");
     if (modal) {
-        modal.style.display = "block";
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+        setTimeout(logBackdrop, 100); // Give Bootstrap time to add backdrop
+        // Debug: Print computed styles and class lists for settingsModal
+        const dialog = modal.querySelector('.modal-dialog');
+        const content = modal.querySelector('.modal-content');
+        console.log('[DEBUG] settingsModal classList:', modal.classList.value);
+        const modalStyle = window.getComputedStyle(modal);
+        console.log('[DEBUG] settingsModal computed style:', modalStyle);
+        if (dialog) {
+            const dialogStyle = window.getComputedStyle(dialog);
+            console.log('[DEBUG] .modal-dialog (settings) classList:', dialog.classList.value);
+            console.log('[DEBUG] .modal-dialog (settings) computed style:', dialogStyle);
+        }
+        if (content) {
+            const contentStyle = window.getComputedStyle(content);
+            console.log('[DEBUG] .modal-content (settings) classList:', content.classList.value);
+            console.log('[DEBUG] .modal-content (settings) computed style:', contentStyle);
+        }
+        // Print key visibility properties
+        function logVisibility(name, el) {
+            if (!el) return;
+            const cs = window.getComputedStyle(el);
+            console.log(`[DEBUG] ${name} visibility:`, {
+                display: cs.display,
+                opacity: cs.opacity,
+                visibility: cs.visibility,
+                transform: cs.transform,
+                position: cs.position,
+                top: cs.top,
+                left: cs.left,
+                zIndex: cs.zIndex
+            });
+        }
+        logVisibility('settingsModal', modal);
+        logVisibility('.modal-dialog (settings)', dialog);
+        logVisibility('.modal-content (settings)', content);
     } else {
         console.error("Settings modal element not found");
     }
@@ -259,11 +295,26 @@ function openMoodleCollisionModal(collidingNames, usedCSVs = false, csvMappingsC
         moodleCollisionRetryWithCSVBtn.style.display = 'inline-block'; // Simpler: Always show retry button initially
     }
 
-    moodleCollisionModal.style.display = 'block';
+    // Show the modal using Bootstrap
+    const modalEl = document.getElementById('moodleCollisionModal');
+    const modal = new bootstrap.Modal(modalEl);
+    modal.show();
 }
 
 function closeMoodleCollisionModal() {
-    moodleCollisionModal.style.display = 'none';
+    const modalEl = document.getElementById('moodleCollisionModal');
+    const modal = bootstrap.Modal.getInstance(modalEl);
+    
+    // Focus a safe element before closing
+    const mainView = document.getElementById('main-view');
+    if (mainView) mainView.focus();
+    
+    if (modal) {
+        modal.hide();
+    } else {
+        // Fallback for legacy code
+        modalEl.style.display = 'none';
+    }
     // Reset status bar to Ready if modal is closed without starting transformation
     updateStatus('ready', 'Ready'); 
 }
@@ -337,24 +388,19 @@ if (moodleCollisionRetryWithCSVBtn) {
 
 // Also close if clicking outside
 window.addEventListener('click', (event) => {
-    if (event.target == moodleCollisionModal) {
+    // Remove direct style manipulation - Bootstrap handles backdrop clicks automatically
+    
+    // We only need to handle legacy non-Bootstrap modals if we have any
+    const moodleCollisionModal = document.getElementById('moodleCollisionModal');
+    const ambiguityModal = document.getElementById('ambiguityModal');
+    
+    if (!moodleCollisionModal.classList.contains('fade') && event.target == moodleCollisionModal) {
         closeMoodleCollisionModal();
     }
-    // ... existing click outside logic for other modals ...
-    const settingsModal = document.getElementById('settingsModal');
-    if (event.target == settingsModal) {
-        settingsModal.style.display = "none";
-        saveConfig(); // Assuming settings modal also saves on close
-    }
-    const coverModal = document.getElementById('coverTemplateModal');
-     if (event.target == coverModal) {
-         coverModal.style.display = 'none';
-         saveConfig(); // Save on close
-     }
-    const ambiguityModal = document.getElementById('ambiguityModal');
-    if (event.target == ambiguityModal) {
-        // Decide if closing ambiguity modal externally should cancel or do nothing
-        // For now, let the explicit close button handle it
+    
+    if (!ambiguityModal.classList.contains('fade') && event.target == ambiguityModal) {
+        // Close ambiguity modal if clicked outside
+        ambiguityCloseBtn.click();
     }
 });
 
@@ -440,7 +486,11 @@ window.electronAPI.onAmbiguityRequest((ambiguities) => {
     resolvedChoices = {}; // Reset stored choices
     
     displayCurrentAmbiguity(); // Display the first item
-    ambiguityModal.style.display = 'block'; // Show the modal
+    
+    // Show with Bootstrap
+    const modalEl = document.getElementById('ambiguityModal');
+    const modal = new bootstrap.Modal(modalEl);
+    modal.show();
 });
 
 // Previous Button Handler
@@ -464,7 +514,16 @@ ambiguityNextBtn.onclick = function() {
 
 // Close button for ambiguity modal
 ambiguityCloseBtn.onclick = function() {
-    ambiguityModal.style.display = "none";
+    const modalEl = document.getElementById('ambiguityModal');
+    const modal = bootstrap.Modal.getInstance(modalEl);
+    
+    // Focus a safe element before closing
+    const mainView = document.getElementById('main-view');
+    if (mainView) mainView.focus();
+    
+    if (modal) {
+        modal.hide();
+    }
     updateStatus('info', 'Ambiguity resolution cancelled by user.');
     // Reset state if needed
     currentAmbiguities = [];
@@ -486,7 +545,17 @@ confirmAmbiguityBtn.onclick = async function() {
     ambiguityErrorDiv.textContent = ''; // Clear error
     console.log("Renderer: Sending final resolved choices:", resolvedChoices);
     updateStatus('processing', 'Processing with selected files...');
-    ambiguityModal.style.display = "none"; // Hide modal
+    
+    // Focus a safe element before closing
+    const mainView = document.getElementById('main-view');
+    if (mainView) mainView.focus();
+    
+    // Hide with Bootstrap
+    const modalEl = document.getElementById('ambiguityModal');
+    const modal = bootstrap.Modal.getInstance(modalEl);
+    if (modal) {
+        modal.hide();
+    }
 
     try {
         // Send final resolved choices back to main process
@@ -585,10 +654,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const editCoverBtn = document.getElementById('editCoverTemplateBtn');
     if (editCoverBtn) {
         editCoverBtn.addEventListener('click', () => {
-            const modal = document.getElementById('coverTemplateModal');
+            const modalEl = document.getElementById('coverTemplateModal');
             const textarea = document.getElementById('coverTemplateContentInput');
             textarea.value = config.coverTemplateContent || DEFAULT_COVER_TEMPLATE;
-            modal.style.display = 'block';
+            
+            
+            // Create and show the modal using Bootstrap
+            const modal = new bootstrap.Modal(modalEl);
+
+            // Handle focus management on hide
+            modalEl.addEventListener('hide.bs.modal', { once: true }, () => {
+                // Move focus back to the button when the modal is hidden
+                setTimeout(() => editCoverBtn.focus(), 0);
+            });
+            
+            modal.show();
+            setTimeout(logBackdrop, 100);
         });
     } else {
         console.warn('Edit cover template button not found');
@@ -601,6 +682,33 @@ document.addEventListener('DOMContentLoaded', () => {
     // ambiguityPrevBtn.onclick = ... etc.
     // Make sure any functions called here (like openModal, saveConfig) are defined globally or passed correctly.
 });
+
+// Global click listener for closing modals and saving config
+window.addEventListener('click', (event) => {
+    // Close on outside click (generic for all modals)
+    const activeModal = document.querySelector('.modal[style*="display: block"]'); // Find visible modal
+    if (activeModal && event.target === activeModal) {
+        if (activeModal.id === 'coverTemplateModal') {
+            const bsModal = bootstrap.Modal.getInstance(activeModal);
+            if (bsModal) {
+                bsModal.hide();
+                window.saveConfig();
+            }
+        } else {
+            activeModal.style.display = 'none';
+        }
+    }
+    
+    // Save config on outside click for specific modals
+    const settingsModal = document.getElementById('settingsModal');
+    const coverModal = document.getElementById('coverTemplateModal');
+    
+    if(settingsModal && event.target === settingsModal) {
+        console.log('[DEBUG] Settings Modal: Click outside detected, triggering saveConfig.');
+        window.saveConfig();
+    }
+});
+
 
 
 
