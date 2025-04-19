@@ -1,7 +1,7 @@
 <!-- Note: This is the content for the MBZ Creator view -->
 <div class="mbz-creator-view">
   <!-- Left Column: Configuration -->
-  <div class="mbz-creator-left">
+  <div class="mbz-creator-left pb-3">
     <!-- 1. Template Selection -->
     <div class="card shadow-sm mb-3">
       <div class="card-body p-4">
@@ -139,15 +139,13 @@
           <div class="collapse" id="calendarInstructionsInfo">
             <div class="card card-body bg-light py-2 text-muted small mb-2">
               Click on dates in the calendar to select them as assignment deadlines. 
-              Hold Ctrl/Cmd to select multiple dates, or Shift to select a range of dates.
             </div>
           </div>
           <p class="mb-1">
             <span class="fw-medium">Instructions:</span>
             </p><ul class="mb-0">
-              <li>Click on a date to select it</li>
-              <li>Hold <kbd>Ctrl</kbd> or <kbd>⌘</kbd> to select multiple dates</li>
-              <li>Hold <kbd>Shift</kbd> to select a range of dates</li>
+              <li>Click on a date to select it.</li>
+              <li>The number of the page is displayed in the calendar cell.</li>
             </ul>
           <p></p>
         </div>
@@ -201,10 +199,10 @@
     </div>
     
     <!-- Generate Button -->
-    <div class="card shadow-sm mb-3">
-      <div class="card-body p-4">                        
+    <div class="card shadow-sm pb-0 mb-3">
+      <div class="card-body pt-4 pb-0">                        
         <div>
-          <button id="generate-btn" class="btn btn-primary btn-lg" disabled>Generate MBZ File</button>
+          <button id="generate-btn" class="btn btn-primary" disabled>Generate MBZ File</button>
           <button class="btn btn-sm text-primary p-0 ms-2 info-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#generateInfo" aria-expanded="false">
             <i class="bi bi-info-circle"></i>
           </button>                        
@@ -218,6 +216,9 @@
         </div>
       </div>
     </div>
+    
+    <div style="height: 60px;">&nbsp;</div> <!-- adds space at bottom of left column -->
+
   </div>
   
   <!-- Right Column: Vertical Calendar -->
