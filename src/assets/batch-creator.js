@@ -2,6 +2,7 @@
  * MBZ Batch Creator Component
  * Manages the batch creator view and integrates with the vertical calendar
  */
+
 class MbzBatchCreator {
   /**
    * Initialize the batch creator
@@ -209,9 +210,17 @@ class MbzBatchCreator {
         this.elements.templateToggleBtn.textContent = 'Use Custom MBZ';
         this.elements.templateStatusText.textContent = 'Using Default Backup Template (Moodle 4.5)';
         this.elements.customMbzSelector.style.display = 'none';
-        // Set default MBZ path (if you have one)
-        this.mbzPath = 'default'; // This would be replaced with your actual default path
+        this.mbzPath = null;
         this.updateGenerateButtonState();
+      }
+
+      // Ensure initial state matches button text
+      if (this.elements.templateToggleBtn.textContent === 'Use Custom MBZ') {
+          this.elements.templateStatusText.textContent = 'Using Default Template';
+          this.elements.customMbzSelector.style.display = 'none';
+      } else {
+          this.elements.templateStatusText.textContent = 'Using Custom MBZ File';
+          this.elements.customMbzSelector.style.display = 'block';
       }
     });
     
@@ -422,7 +431,23 @@ class MbzBatchCreator {
         mbzFilePath = this.mbzPath;
       } else {
         // Using default MBZ template
-        mbzFilePath = './moodle-4.5-2024100700.mbz'; // Default MBZ template
+        try {
+          // Get the default template path from the main process via IPC
+          const templateMbzPath = await window.electronAPI.getDefaultMbzTemplatePath();
+          if (!templateMbzPath) {
+            throw new Error('Main process did not return a default template path.');
+          }
+          
+          mbzFilePath = templateMbzPath; // Use the path returned by the main process
+          await window.electronAPI.fsExists(mbzFilePath); // Check if it exists
+          this.setStatus('Using default MBZ template.', 'info');
+        } catch (err) {
+          console.error('Default MBZ template check failed:', err);
+          this.setStatus(`Error: Default MBZ template not found or inaccessible at expected path. ${err.message}`, 'error');
+          this.elements.generateBtn.disabled = false;
+          this.elements.generateBtn.textContent = 'Generate Batch Assignments';
+          return;
+        }
       }
       
       const options = {

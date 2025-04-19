@@ -21,11 +21,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showOpenDialog: (options) => ipcRenderer.invoke('dialog:showOpenDialog', options),
   showSaveDialog: (options) => ipcRenderer.invoke('dialog:showSaveDialog', options),
   showMessageBox: (options) => ipcRenderer.invoke('dialog:showMessageBox', options),
-  pathBasename: (filePath) => ipcRenderer.invoke('path:basename', filePath),
-  pathDirname: (filePath) => ipcRenderer.invoke('path:dirname', filePath),
+  pathBasename: (filePath) => ipcRenderer.invoke('path-basename', filePath),
+  pathDirname: (filePath) => ipcRenderer.invoke('path-dirname', filePath),
   createBatchAssignments: (options) => ipcRenderer.invoke('mbz:createBatchAssignments', options),
   getUserDataPath: () => ipcRenderer.invoke('app:getUserDataPath'),
   loadMbzCreatorHtml: () => ipcRenderer.invoke('load-mbz-creator-html'),
+  fsExists: (filePath) => ipcRenderer.invoke('fs-exists', filePath),
+  getDefaultMbzTemplatePath: () => ipcRenderer.invoke('get-default-mbz-template-path'),
   // --- End New APIs ---
 
   // Main -> Renderer (receive)

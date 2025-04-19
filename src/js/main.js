@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, shell } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { parse } = require('csv-parse/sync'); // Import sync parser
@@ -49,6 +49,8 @@ let currentOutputDirectory = null;
 let someNumberToEmailMap = {}; // Global map for CSV lookup
 
 function createWindow() {
+
+
     const win = new BrowserWindow({
         width: 1200,
         height: 850,
@@ -1827,11 +1829,11 @@ ipcMain.handle('dialog:showMessageBox', async (event, options) => {
     return dialog.showMessageBox(mainWindow, options);
 });
 
-ipcMain.handle('path:basename', async (event, filePath) => {
+ipcMain.handle('path-basename', async (event, filePath) => { // Corrected channel name
     return path.basename(filePath);
 });
 
-ipcMain.handle('path:dirname', (event, filePath) => {
+ipcMain.handle('path-dirname', (event, filePath) => { // Added missing handler
     return path.dirname(filePath);
 });
 
@@ -1927,3 +1929,43 @@ ipcMain.handle('mbz:createBatchAssignments', async (event, incomingOptions) => {
   }
 });
 // --- End IPC Handler for MBZ Batch Creation --- 
+
+// --- IPC Handlers ---
+
+// Function to safely get the path to the default MBZ template
+function getDefaultMbzTemplatePath() {
+  let templateMbzPath;
+  const templateFilename = 'moodle-4.5-2024100700.mbz'; // Define filename centrally
+  
+  if (app.isPackaged) {
+    // Packaged app: Path relative to resources dir, inside app.asar.unpacked
+    templateMbzPath = path.join(
+      process.resourcesPath,
+      'app.asar.unpacked',
+      'src',
+      'assets',
+      'mbz-templates',
+      templateFilename
+    );
+  } else {
+    // Development: Path relative to the project root (__dirname is src/js)
+    templateMbzPath = path.join(
+      __dirname,       // src/js
+      '..',            // src/
+      'assets',
+      'mbz-templates',
+      templateFilename
+    );
+  }
+  return templateMbzPath;
+}
+
+// Expose the template path getter via IPC
+ipcMain.handle('get-default-mbz-template-path', async () => {
+  return getDefaultMbzTemplatePath();
+});
+
+// Existing IPC handler for fs.exists
+ipcMain.handle('fs-exists', async (event, filePath) => {
+  return fs.promises.access(filePath, fs.constants.F_OK);
+});

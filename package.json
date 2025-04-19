@@ -14,7 +14,7 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
-    "build": "electron-builder && cd testdata-name-collision && zip -r ../dist/booklet-tool-testdata.zip no-collision consistent-collision && cd ..",
+    "build": "dotenv electron-builder && cd testdata-name-collision && zip -r ../dist/booklet-tool-testdata.zip no-collision consistent-collision && cd ..",
     "postinstall": "electron-builder install-app-deps",
     "lint": "eslint .",
     "pdf-process": "node src/js/pdf-cmdline-processor.js",
@@ -38,6 +38,7 @@
     "@electron/notarize": "^3.0.1",
     "@eslint/js": "^9.25.0",
     "dir-compare": "^5.0.0",
+    "dotenv-cli": "^8.0.0",
     "electron": "^35.1.5",
     "electron-builder": "^26.0.12",
     "electron-notarize": "^1.2.2",
@@ -46,17 +47,21 @@
   },
   "build": {
     "appId": "de.uni-bamberg.de.psi.booklet-tool",
+    "icon": "build/icon",
     "productName": "Booklet Tool",
     "asarUnpack": [
       "**/node_modules/sharp/**/*",
-      "**/node_modules/@hyzyla/pdfium/dist/pdfium.wasm"
+      "**/node_modules/@hyzyla/pdfium/dist/pdfium.wasm",
+      "src/assets/mbz-templates/**/*"
     ],
     "mac": {
       "category": "public.app-category.developer-tools",
       "target": [
         {
           "target": "default",
-          "arch": ["universal"]
+          "arch": [
+            "universal"
+          ]
         }
       ],
       "artifactName": "${productName}.${ext}",
@@ -66,7 +71,6 @@
       "entitlementsInherit": "build/entitlements.mac.plist",
       "gatekeeperAssess": false
     },
-    "afterSign": "scripts/notarize.js",
     "win": {
       "target": [
         {
