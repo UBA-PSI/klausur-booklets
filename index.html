@@ -336,95 +336,141 @@
 
     <!-- Modals -->
     <div id="settingsModal" class="modal settings-modal-wide">
-        <div class="modal-content">
-            <span class="close-button">&times;</span>
-            <h2>Settings</h2>
-            
-            <!-- DPI Setting -->
-            <div class="form-group settings-group">
-                <label for="dpi" class="block-label">DPI:</label>
-                <input type="number" id="dpi" value="300" class="form-control short-input">
-                <small>Resolution for rasterizing submitted PDFs. Higher values results in better quality but larger files. 300 dpi is standard for printing.</small>
+        <div class="modal-content p-0">
+            <div class="modal-header bg-light border-bottom d-flex justify-content-between align-items-center p-3">
+                <h5 class="modal-title mb-0">
+                    <i class="bi bi-gear-fill text-primary me-2"></i>Settings
+                </h5>
+                <span class="close-button btn-close" aria-label="Close"></span>
             </div>
-
-            <!-- Folder Pattern Setting -->
-            <div class="form-group settings-group">
-                <label for="foldername-pattern" class="block-label">Folder Name Pattern:</label>
-                <p>This pattern is used when reading the student submission folders in the input directory. The default pattern is the Moodle format, which is the format used by the University of Bamberg. If you are using Moodle, you can select the Moodle format, which will enable automatic name collision handling. The Ilias format is the format used by the Ilias LMS and contains a Student Number field, which is also supported and will avoid name collisions. The custom format allows you to enter a custom pattern. </p>
-                <!-- Pattern Presets -->
-                <div class="pattern-presets">
-                    <div class="preset-option">
-                        <input type="radio" id="pattern-ilias" name="pattern-preset" value="FIRSTNAME_LASTNAME_USERNAME_STUDENTNUMBER">
-                        <label for="pattern-ilias">Ilias Format</label>
+            
+            <div class="modal-body p-3">
+                
+                <div class="card mb-3">
+                    <div class="card-header py-2">
+                        <h6 class="mb-0">
+                            <i class="bi bi-image text-primary me-1"></i>Resolution for Rasterizing Submitted PDFs
+                        </h6>
                     </div>
-                    <div class="preset-option">
-                        <input type="radio" id="pattern-moodle" name="pattern-preset" value="FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file_">
-                        <label for="pattern-moodle">Moodle Format (may require manual collision handling)</label>
-                    </div>
-                    <div class="preset-option">
-                        <input type="radio" id="pattern-custom" name="pattern-preset" value="custom" checked>
-                        <label for="pattern-custom">Custom Format</label>
+                    <div class="card-body py-0">
+                        <div class="d-flex align-items-center mt-4">
+                            <div class="input-group" style="max-width: 180px;">
+                                <input type="number" id="dpi" value="300" class="form-control">
+                                <span class="input-group-text">dpi</span>
+                            </div>
+                            <span class="text-muted ms-3 align-middle" style="margin-bottom: 1.5em;">Higher values: better quality but larger files. 300 dpi is often sufficient.</span>
+                        </div>
                     </div>
                 </div>
                 
-                <!-- Pattern Input -->
-                <input type="text" id="foldername-pattern" class="form-control full-width" placeholder="e.g., FIRSTNAME-LASTNAME or FULLNAMEWITHSPACES_NUMBER_assignsubmission_file_">
-                
-                <!-- Compact Pattern Help -->
-                <div class="pattern-help">
-                    <details>
-                        <summary><strong>Pattern Help</strong> (click to expand)</summary>
-                        <div class="pattern-explanation compact">
-                            <p>Define how student folders are named. Use separator character from your folders (<code>_</code> or <code>-</code>).</p>
-                            <p><small><strong>Note:</strong> Selecting 'Moodle Format' enables semi-automatic name collision handling if you place the corresponding Moodle Grading Worksheet CSV file inside each page's input subfolder (e.g., `Page 1/worksheet.csv`). You will be prompted if collisions are detected and the CSV files are required.</small></p>
-                            <div class="two-columns">
-                                <div>
-                                    <strong>Available Placeholders:</strong>
-                                    <ul class="compact-list">
-                                        <li><code>FIRSTNAME</code> (only if firstname(s) and lastname(s) are clearly separated in the input directory, not the case with Moodle)</li>
-                                        <li><code>LASTNAME</code> (only if firstname(s) and lastname(s) are clearly separated in the input directory, not the case with Moodle)</li>
-                                        <li><code>FULLNAMEWITHSPACES</code> (typically used with Moodle)</li>
-                                        <li><code>USERNAME</code> (used with Ilias)</li>
-                                        <li><code>STUDENTNUMBER</code> (used with Ilias, preferred identifier)</li>
-                                    </ul>
-                                </div>
-                                <div>
-                                    <strong>Examples:</strong>
-                                    <ul class="compact-list">
-                                        <li>Ilias: <code>FIRSTNAME_LASTNAME_USERNAME_STUDENTNUMBER</code></li>
-                                        <li>Moodle: <code>FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file_</code></li>
-                                        <li>Simple: <code>LASTNAME-FIRSTNAME</code></li>
-                                    </ul>
+                <!-- Folder Pattern Setting Card -->
+                <div class="card mb-3">
+                    <div class="card-header py-2">
+                        <h6 class="mb-0">
+                            <i class="bi bi-folder2 text-primary me-1"></i>Folder Name Pattern
+                        </h6>
+                    </div>
+                    <div class="card-body py-2">
+                        <p class="small">This pattern is used when reading the student submission folders in the input directory. The default pattern is the Moodle format, which is the format used by the University of Bamberg. If you are using Moodle, you can select the Moodle format, which will enable automatic name collision handling. The Ilias format is the format used by the Ilias LMS and contains a Student Number field, which is also supported and will avoid name collisions. The custom format allows you to enter a custom pattern.</p>
+                        
+                        <!-- Pattern Presets -->
+                        <div class="pattern-presets mb-2 d-flex justify-content-between">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" id="pattern-ilias" name="pattern-preset" value="FIRSTNAME_LASTNAME_USERNAME_STUDENTNUMBER">
+                                <label class="form-check-label" for="pattern-ilias">Ilias Format</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" id="pattern-moodle" name="pattern-preset" value="FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file_">
+                                <label class="form-check-label" for="pattern-moodle">Moodle Format</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" id="pattern-custom" name="pattern-preset" value="custom" checked>
+                                <label class="form-check-label" for="pattern-custom">Custom Format</label>
+                            </div>
+                        </div>
+                        
+                        <!-- Pattern Input -->
+                        <div class="mb-3">
+                            <input type="text" id="foldername-pattern" class="form-control" placeholder="e.g., FIRSTNAME-LASTNAME or FULLNAMEWITHSPACES_NUMBER_assignsubmission_file_">
+                        </div>
+                        
+                        <!-- Compact Pattern Help -->
+                        <div class="pattern-help mb-0">
+                            <button class="btn btn-outline-secondary btn-sm w-100" type="button" data-bs-toggle="collapse" data-bs-target="#patternHelpCollapse">
+                                <i class="bi bi-info-circle me-1"></i>Pattern Help
+                            </button>
+                            <div class="collapse mt-2" id="patternHelpCollapse">
+                                <div class="card card-body bg-light py-2 small">
+                                    <p class="mb-2">Define how student folders are named. Use separator character from your folders (<code>_</code> or <code>-</code>).</p>
+                                    <p class="mb-2"><strong>Note:</strong> Selecting 'Moodle Format' enables semi-automatic name collision handling if you place the corresponding Moodle Grading Worksheet CSV file inside each page's input subfolder (e.g., `Page 1/worksheet.csv`). You will be prompted if collisions are detected and the CSV files are required.</p>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <strong>Available Placeholders:</strong>
+                                            <ul class="ps-3 mb-2">
+                                                <li><code>FIRSTNAME</code> (only if firstname(s) and lastname(s) are clearly separated in the input directory, not the case with Moodle)</li>
+                                                <li><code>LASTNAME</code> (only if firstname(s) and lastname(s) are clearly separated in the input directory, not the case with Moodle)</li>
+                                                <li><code>FULLNAMEWITHSPACES</code> (typically used with Moodle)</li>
+                                                <li><code>USERNAME</code> (used with Ilias)</li>
+                                                <li><code>STUDENTNUMBER</code> (used with Ilias, preferred identifier)</li>
+                                            </ul>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <strong>Examples:</strong>
+                                            <ul class="ps-3 mb-2">
+                                                <li>Ilias: <code>FIRSTNAME_LASTNAME_USERNAME_STUDENTNUMBER</code></li>
+                                                <li>Moodle: <code>FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file_</code></li>
+                                                <li>Simple: <code>LASTNAME-FIRSTNAME</code></li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    
+                                    <p class="mb-0"><strong>Identifier Priority:</strong> Student Number > Username > Full Name > Original Folder Name</p>
                                 </div>
                             </div>
-                            <p><small><strong>Identifier Priority:</strong> Student Number > Username > Full Name > Original Folder Name</small></p>
                         </div>
-                    </details>
-                </div>
-            </div>
-
-            <!-- Filesize Limits -->
-            <div class="form-group settings-group">
-                <label class="block-label">Input File Size Limits:</label>
-                <p>Acceptable sizes of images/PDFs. Files outside this range will be skipped.</p>
-                <div class="inline-inputs d-flex gap-4">
-                    <div>
-                        <label for="minFileSizeKB">Min (KB):</label>
-                        <input type="number" id="minFileSizeKB" value="1" min="0" class="form-control short-input">
-                    </div>
-                    <div>
-                        <label for="maxFileSizeMB">Max (MB):</label>
-                        <input type="number" id="maxFileSizeMB" value="20" min="1" class="form-control short-input">
                     </div>
                 </div>
+                
+                <!-- Filesize Limits Card -->
+                <div class="card mb-3">
+                    <div class="card-header py-2">
+                        <h6 class="mb-0">
+                            <i class="bi bi-file-earmark-ruled text-primary me-1"></i>File Size Limits
+                        </h6>
+                    </div>
+                    <div class="card-body py-2">
+                        <p class="small">Acceptable sizes of images/PDFs. Files outside this range will be skipped.</p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-2">
+                                    <label for="minFileSizeKB" class="form-label">Minimum Size (KB):</label>
+                                    <input type="number" id="minFileSizeKB" value="1" min="0" class="form-control">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-2">
+                                    <label for="maxFileSizeMB" class="form-label">Maximum Size (MB):</label>
+                                    <input type="number" id="maxFileSizeMB" value="20" min="1" class="form-control">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-
-            <hr>
-
-            <!-- Config Actions -->
-            <div class="button-group settings-actions">
-                 <button id="exportConfigBtn" class="btn btn-secondary">Export Config</button>
-                 <button id="importConfigBtn" class="btn btn-secondary">Import Config</button>
+            
+            <div class="modal-footer bg-light border-top d-flex justify-content-between p-3">
+                <div>
+                    <button id="importConfigBtn" class="btn btn-outline-secondary">
+                        <i class="bi bi-upload me-1"></i>Import Config
+                    </button>
+                    <button id="exportConfigBtn" class="btn btn-outline-secondary ms-2">
+                        <i class="bi bi-download me-1"></i>Export Config
+                    </button>
+                </div>
+                <button id="saveConfigBtn" ="button" class="btn btn-primary close-button">
+                    <i class="bi bi-check-lg me-1"></i>Save Changes
+                </button>
             </div>
         </div>
     </div>
