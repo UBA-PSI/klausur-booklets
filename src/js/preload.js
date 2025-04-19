@@ -37,6 +37,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Listener for logs from main process
   onLogError: (callback) => ipcRenderer.on('error-log', (_event, message) => callback(message)),
+  // Listener for general process logs from main process
+  onProcessLog: (callback) => ipcRenderer.on('process-log', (_event, message) => callback(message)),
 
   // Function to remove listeners if needed (optional but good practice)
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),

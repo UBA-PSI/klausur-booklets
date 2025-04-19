@@ -594,10 +594,29 @@ window.electronAPI.onTransformationProgress((progressData) => {
 });
 // --- End Progress Listener ---
 
-// --- Listener for Errors from Main Process ---
-window.electronAPI.onLogError((message) => {
-    logErrorToUI(message); // Use the function we created earlier
+// --- Listener for Process Logs ---
+const processLogContainer = document.getElementById('processLogContainer');
+const processLogOutput = document.getElementById('processLogOutput');
+window.electronAPI.onProcessLog((message) => {
+    if (processLogContainer && processLogOutput) {
+        processLogContainer.style.display = 'block'; // Show container
+        processLogOutput.value += message + '\n'; // Append message
+        processLogOutput.scrollTop = processLogOutput.scrollHeight; // Scroll to bottom
+    }
 });
+// --- End Process Log Listener ---
+
+// --- Listener for Errors from Main Process ---
+const errorLogContainer = document.getElementById('errorLogContainer');
+const errorLogOutput = document.getElementById('errorLogOutput');
+function logErrorToUI(message) {
+    if (errorLogContainer && errorLogOutput) {
+        errorLogContainer.style.display = 'block'; // Show container
+        errorLogOutput.value += message + '\n'; // Append error message
+        errorLogOutput.scrollTop = errorLogOutput.scrollHeight; // Scroll to bottom
+    }
+}
+window.electronAPI.onLogError(logErrorToUI);
 // --- End Error Listener ---
 
 // --- End Ambiguity Resolution Logic ---
