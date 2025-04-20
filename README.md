@@ -83,3 +83,5 @@ This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.t
 Dominik Herrmann (dh.psi@uni-bamberg.de)
 Chair of Privacy and Security in Information Systems
 University of Bamberg 
+
+During development, the following GenAI models have been used for design, implementation, and writing documentation: Anthropic Claude Sonnet 3.7, OpenAI GPT 4.1/4.5, Google Gemini 2.5 Pro Experimental.
