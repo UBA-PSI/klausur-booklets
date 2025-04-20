@@ -829,6 +829,82 @@ document.addEventListener('DOMContentLoaded', () => {
     // For example, if ambiguity modal buttons needed setup here:
     // ambiguityPrevBtn.onclick = ... etc.
     // Make sure any functions called here (like openModal, saveConfig) are defined globally or passed correctly.
+
+    // --- Import/Export Config Button Listeners ---
+    const importBtn = document.getElementById('importConfigBtn');
+    const exportBtn = document.getElementById('exportConfigBtn');
+
+    if (exportBtn) {
+        exportBtn.addEventListener('click', async () => {
+            console.log('Export Config button clicked.');
+            try {
+                // Ensure current UI settings are captured before exporting
+                saveConfig(); // This saves the config to the config variable
+                const result = await window.electronAPI.handleExportConfig(config);
+                if (result.success) {
+                    updateStatus('success', `Config exported to ${result.filePath}`);
+                } else if (!result.cancelled) {
+                    updateStatus('error', `Failed to export config: ${result.error}`);
+                }
+            } catch (error) {
+                console.error('Error during config export:', error);
+                updateStatus('error', `Error exporting config: ${error.message}`);
+            }
+        });
+    } else {
+        console.warn('Export Config button not found');
+    }
+
+    if (importBtn) {
+        importBtn.addEventListener('click', async () => {
+            console.log('Import Config button clicked.');
+            try {
+                const result = await window.electronAPI.handleImportConfig();
+                if (result.success && result.config) {
+                    updateStatus('success', `Config imported from ${result.filePath}`);
+                    // Update the global config object
+                    config = result.config; 
+                    
+                    // Manually update UI elements based on the new config
+                    // This mirrors the logic in onLoadConfig
+                    if (config.mainDirectory) document.getElementById('mainDirectoryPath').value = config.mainDirectory;
+                    if (config.outputDirectory) document.getElementById('outputDirectoryPath').value = config.outputDirectory;
+                    if (config.dpi) document.getElementById('dpi').value = config.dpi;
+                    if (config.foldernamePattern) {
+                        document.getElementById('foldername-pattern').value = config.foldernamePattern;
+                        // Update radio buttons for pattern
+                        const iliasPatternVal = document.getElementById('pattern-ilias')?.value;
+                        const moodlePatternVal = document.getElementById('pattern-moodle')?.value;
+                        if (iliasPatternVal && config.foldernamePattern === iliasPatternVal) {
+                             document.getElementById('pattern-ilias').checked = true;
+                        } else if (moodlePatternVal && config.foldernamePattern === moodlePatternVal) {
+                             document.getElementById('pattern-moodle').checked = true;
+                        } else {
+                             const customRadio = document.getElementById('pattern-custom');
+                             if (customRadio) customRadio.checked = true;
+                        }
+                    }
+                    const coverTemplateTextarea = document.getElementById('coverTemplateContentInput');
+                    if (coverTemplateTextarea) {
+                        coverTemplateTextarea.value = config.coverTemplateContent || DEFAULT_COVER_TEMPLATE;
+                    }
+                    if (config.minFileSizeKB !== undefined) document.getElementById('minFileSizeKB').value = config.minFileSizeKB;
+                    if (config.maxFileSizeMB !== undefined) document.getElementById('maxFileSizeMB').value = config.maxFileSizeMB;
+
+                    // Optionally, save the newly imported config back to the default location immediately
+                    // saveConfig(); // Decide if this is desired behavior
+
+                } else if (!result.cancelled) {
+                    updateStatus('error', `Failed to import config: ${result.error}`);
+                }
+            } catch (error) {
+                console.error('Error during config import:', error);
+                updateStatus('error', `Error importing config: ${error.message}`);
+            }
+        });
+    } else {
+        console.warn('Import Config button not found');
+    }
 });
 
 // Global click listener for closing modals and saving config
