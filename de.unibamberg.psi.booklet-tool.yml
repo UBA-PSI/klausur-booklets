@@ -18,7 +18,7 @@ build-options:
     # Use npm cache dir within the build sandbox
     npm_config_cache: /run/build/booklet-tool/.npm-cache
     # Recommended for reproducible builds in CI
-    npm_config_offline: 'true'
+    # npm_config_offline: 'true' # Remove offline requirement for npm
     # Correct Electron distribution type for Flatpak
     ELECTRON_OVERRIDE_DISTRIBUTION: 'flatpak'
     # Ensure electron-builder uses the correct arch from flatpak-builder
@@ -45,8 +45,8 @@ modules:
   - name: booklet-tool
     buildsystem: simple
     build-commands:
-      # Install dependencies using lockfile in offline mode
-      - npm ci --frozen-lockfile --offline
+      # Install dependencies using lockfile (allow network access)
+      - npm ci --frozen-lockfile
 
       # Rebuild native modules using the correct Electron version and arch
       # Note: electron/package.json needs to exist and be correct
