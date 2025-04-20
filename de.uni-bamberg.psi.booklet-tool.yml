@@ -1,0 +1,59 @@
+# de.uni-bamberg.psi.booklet-tool.yml
+app-id: de.uni-bamberg.de.psi.booklet-tool
+runtime: io.atom.electron.BaseApp
+runtime-version: '24.08' # Use a recent stable Electron runtime version
+sdk: org.freedesktop.Sdk//24.08
+command: booklet-tool # This should match the executableName in package.json or the final executable
+
+finish-args:
+  # Filesystem access needed for selecting directories
+  - "--filesystem=host"
+  # Network access might be needed (e.g., updates?), keep for now
+  - "--share=network"
+  # Add Wayland/X11 socket access for GUI
+  - "--socket=wayland"
+  - "--socket=fallback-x11"
+  # Device access might be needed depending on peripherals
+  - "--device=dri"
+
+modules:
+  - name: booklet-tool
+    buildsystem: simple
+    build-options:
+      # Environment variables for the build process inside the sandbox
+      env:
+        # Set cache location for npm inside the build sandbox
+        XDG_CACHE_HOME: /run/build/booklet-tool/npm-cache
+        # Prevent electron-builder from trying to build installers we don't need
+        ELECTRON_BUILDER_ALLOW_INSTALLER_TARGET: "false"
+    build-commands:
+      # Install Node.js dependencies using the lockfile
+      # --ignore-scripts might be needed if some scripts fail in the sandbox
+      - npm install --frozen-lockfile --ignore-scripts
+
+      # Optional: Rebuild native modules if needed for the specific Flatpak architecture
+      # This might require electron-rebuild and specific arguments
+      # - npx electron-rebuild --arch=$FLATPAK_ARCH
+
+      # Package the application using electron-builder's 'dir' target
+      # This creates an unpacked version of the app without making an installer package
+      # We target linux explicitly. $FLATPAK_ARCH is set by flatpak-builder.
+      - npx electron-builder --dir --linux --arch=$FLATPAK_ARCH --publish never
+
+      # Copy the packaged application into the Flatpak's /app directory
+      # Adjust the source path ('dist/linux*-unpacked') if electron-builder outputs differently
+      - cp -r dist/linux*-unpacked/* /app/
+
+      # Optional: Install desktop file and icon
+      - install -Dm644 build/icon.png /app/share/icons/hicolor/512x512/apps/${FLATPAK_APP_ID}.png
+      # Assume electron-builder generates a .desktop file in the unpacked dir
+      # Need to verify the exact path and name electron-builder creates
+      - install -Dm644 dist/linux*-unpacked/*.desktop /app/share/applications/${FLATPAK_APP_ID}.desktop
+      # Update the .desktop file if needed (e.g., fix Exec path)
+      - desktop-file-edit --set-key=Exec --set-value="booklet-tool %U" /app/share/applications/${FLATPAK_APP_ID}.desktop
+
+    sources:
+      # This tells flatpak-builder to use the source code from the host directory
+      # The flatpak-github-actions action mounts the checkout directory here
+      - type: dir
+        path: . 

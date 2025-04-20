@@ -1,4 +1,4 @@
-name: Manual Build (Win/Linux)
+name: Manual Build (Win/Linux/Flatpak)
 
 on:
   workflow_dispatch: # Allows manual triggering
@@ -7,10 +7,12 @@ permissions:
   contents: read # Read permissions needed to checkout code
 
 jobs:
-  build:
+  build-native:
+    # This job builds Windows exe, Linux deb, tar.gz, AppImage
+    name: Build Native (Win/Linux)
     strategy:
       matrix:
-        # Use ubuntu-20.04 for better AppImage compatibility
+        # Use ubuntu-22.04 for consistency, 20.04 might be needed for AppImage glibc compat
         os: [ubuntu-22.04, windows-latest]
 
     runs-on: ${{ matrix.os }}
@@ -24,28 +26,19 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          # Specify your Node.js version - using LTS as an example
           node-version: '20.x'
           cache: 'npm'
 
       - name: Install dependencies
         run: npm install
 
-      # --- Install Flatpak for Linux build ---
-      - name: Install Flatpak tools
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder
+      # Removed Flatpak install step - no longer needed here
 
-      - name: Build application
-        # Run electron-builder directly to build for the OS runner
-        # It will use the config in package.json
+      - name: Build application (Native)
+        # Run electron-builder directly to build native packages
         run: npx electron-builder --publish never
         env:
-          # Add DEBUG environment variable for more verbose output
-          DEBUG: 'electron-builder,@malept/flatpak-bundler'
-          # Disable automatic certificate discovery to prevent signing attempts
+          # Removed DEBUG variable unless needed for native build debugging
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
       - name: Upload Windows Artifact
@@ -54,16 +47,77 @@ jobs:
         with:
           name: booklet-tool-windows-portable
           path: dist/*.exe
-          retention-days: 7 # Optional: How long to keep the artifact
+          retention-days: 7
 
-      - name: Upload Linux Artifact
+      - name: Upload Linux Native Artifacts
         if: runner.os == 'Linux'
         uses: actions/upload-artifact@v4
         with:
-          name: booklet-tool-linux # More general name
+          name: booklet-tool-linux-native # Updated artifact name
           path: |
             dist/*.AppImage
             dist/*.deb
-            dist/*.flatpak
+            # dist/*.flatpak # Removed flatpak from this upload
             dist/*.tar.gz
-          retention-days: 7 # Optional: How long to keep the artifact 
+          retention-days: 7
+
+  build-flatpak:
+    # This job builds Flatpak using the recommended action
+    name: Build Flatpak (${{ matrix.variant.arch }})
+    needs: build-native # Optional: Run after native builds if needed, or run in parallel
+    runs-on: ${{ matrix.variant.runner }}
+    strategy:
+      fail-fast: false # Keep running other arch builds if one fails
+      matrix:
+        variant:
+          - { arch: x86_64, runner: ubuntu-24.04 }
+          - { arch: aarch64, runner: ubuntu-24.04-arm }
+
+    # Use the Flathub container
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-48 # Using gnome-48 SDK base
+      options: --privileged # Needed for flatpak-builder
+
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      # Note: Node.js/npm are likely included in the Flathub container,
+      # but explicitly setting up might be safer or needed for specific versions/caching.
+      # - name: Set up Node.js (inside container)
+      #   uses: actions/setup-node@v4
+      #   with:
+      #     node-version: '20.x'
+      #     cache: 'npm'
+
+      # Install deps inside container (needed by build command in manifest)
+      # - name: Install dependencies (inside container)
+      #   run: npm install --frozen-lockfile --ignore-scripts
+      #   env:
+      #     XDG_CACHE_HOME: ${{ github.workspace }}/.cache/npm # Cache npm inside workspace
+
+      - name: Build Flatpak
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          # Output bundle file name
+          bundle: booklet-tool-${{ matrix.variant.arch }}.flatpak
+          # Path to the manifest file we created
+          manifest-path: de.uni-bamberg.psi.booklet-tool.yml
+          # Architecture from the matrix
+          arch: ${{ matrix.variant.arch }}
+          # Optional: Enable caching
+          cache: true
+          cache-key: flatpak-builder-${{ matrix.variant.arch }}-${{ github.sha }}
+          # Recommended extra args for CI
+          extra-args: "--disable-rofiles-fuse"
+          # Optional env vars if needed by build-commands in manifest
+          # env-vars: "npm_config_offline=true"
+
+      - name: Upload Flatpak Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: booklet-tool-flatpak-${{ matrix.variant.arch }}
+          path: booklet-tool-${{ matrix.variant.arch }}.flatpak
+          retention-days: 7 

@@ -85,15 +85,8 @@
     "linux": {
       "target": [
         { "target": "deb", "arch": ["x64", "arm64"] },
-        { "target": "flatpak", "arch": ["x64", "arm64"] },
         { "target": "tar.gz", "arch": ["x64", "arm64"] },
         { "target": "AppImage", "arch": ["x64"] }
-      ]
-    },
-    "flatpak": {
-      "finishArgs": [
-        "--share=network", 
-        "--filesystem=host"
       ]
     },
     "directories": {
