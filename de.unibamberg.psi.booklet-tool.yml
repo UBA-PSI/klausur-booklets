@@ -1,5 +1,5 @@
-# de.uni-bamberg.psi.booklet-tool.yml
-app-id: de.uni-bamberg.de.psi.booklet-tool
+# de.unibamberg.psi.booklet-tool.yml
+app-id: de.unibamberg.de.psi.booklet-tool
 # Updated runtime name based on current standards
 runtime: org.electronjs.Electron2.BaseApp
 runtime-version: '24.08' # Keeping 24.08, assuming it exists for the new runtime
