@@ -1,14 +1,16 @@
-# Moodle Booklet Submission System: Instructor Guide
+# Booklet Tool: Instructor Guide
 
-**Important Note:** This guide describes the workflow specifically for the Moodle instance as configured at the **University of Bamberg**. While the general principles might apply elsewhere, details may differ significantly in other Moodle installations. For the **Ilias** learning platform, the overall process of collecting pages and generating booklets is similar, but currently lacks the automated assignment setup script described here.
+**Important Note:** This guide describes the workflow specifically for the Moodle instance as configured at the **University of Bamberg**. While the general principles might apply elsewhere, details may differ significantly in other Moodle installations.
+
+For the **Ilias** learning platform, the overall process of collecting pages and generating booklets is similar, but currently lacks the automated assignment creation workflow described here.
 
 ## 1. Purpose and Overview
 
-Welcome to the Moodle Booklet system! This guide explains how to set up and manage student submissions for multi-page "Booklets" (like journals, portfolios, or exam aids) using Moodle.
+This guide explains how to set up and manage student submissions for multi-page "Booklets" using Moodle. This tool facilitates the "Klausur-Booklet" incentive system as described at [www.uni-bamberg.de/psi/teaching/booklet-tool/](https://www.uni-bamberg.de/psi/teaching/booklet-tool/). Students submit note pages regularly during the semester, and instructors use this tool to compile these submissions (along with generated cover sheets) into printed A5 booklets allowed during the final exam.
 
 **The Problem:** Encouraging students to engage actively with course material through regular note-taking can be challenging. Traditional methods might not provide enough incentive or structure.
 
-**The Solution:** This system uses Moodle assignments to collect individual booklet pages from students throughout the semester. At the end, you (the instructor) can easily download all submitted pages per student and use the companion **Booklet Generator** desktop application to compile these pages into a single, printable A5 booklet for each student. These booklets can then serve as personalized learning aids, potentially even for use during exams (as per your course rules).
+**The Solution:** This system allows instructors to set up Moodle assignments to collect individual booklet pages from students throughout the semester. At the end, you (the instructor) can easily download all submitted pages per student and use the **Booklet Tool** desktop application to compile these pages into a single, printable A5 booklet for each student. These booklets can then serve as personalized learning aids, potentially even for use during exams (as per your course rules).
 
 **Workflow Summary:**
 
@@ -17,18 +19,11 @@ Welcome to the Moodle Booklet system! This guide explains how to set up and mana
 3.  **Import into Moodle:** Restore the generated `.mbz` file into your Moodle course to add the assignments to the dedicated section you created in Step 1.
 4.  **Instruct Students:** Provide clear guidelines on content, format (e.g., strictly only handwritten), technical details (PDF, JPG, PNG; students should rotate and crop images on their smartphone before uploading) and how to submit each page to the correct Moodle assignment.
 5.  **Download Submissions:** After deadlines pass, download all submitted files from each assignment using Moodle's "Download all submissions" feature. You will get one ZIP file per deadline.
-6.  **Generate Booklets:** Use the separate **Booklet Generator** application, feeding it the folder containing all downloaded submissions to create the final printable A5 booklets.
+6.  **Generate Booklets:** Use the **Booklet Tool**, feeding it the folder containing all downloaded submissions to create the final printable A5 booklets.
 
 ## 2. Prerequisites
 
-Before starting, ensure you have:
-
-1.  **Python 3:** The assignment generation script requires Python. Most Mac and Linux systems have it; Windows users might need to install it from [python.org](https://www.python.org/). You only need it for Step 3 (Generating Assignments).
-2.  **Provided Files:**
-    *   `modify_moodle_backup.py`: The Python script.
-    *   `sample.mbz`: A template Moodle backup file (used *only* by the script).
-3.  **Booklet Generator Application:** The separate desktop application (e.g., `.exe`, `.app`, `.dmg`) used in the final step. This guide covers getting submissions *ready* for it; refer to its own documentation for usage.
-4.  **Moodle Course Access:** Teacher or editing permissions in the target Moodle course.
+To use this tool, ensure you have teacher or editing permissions in the target Moodle course.
 
 ## 3. Step-by-Step Workflow
 
@@ -64,7 +59,7 @@ While this approach works, it involves a significant amount of clicking and can 
 
 #### Automated Approach (Recommended)
 
-This guide primarily focuses on the automated approach using the `modify_moodle_backup.py` script, which:
+This guide primarily focuses on the automated approach using **Booklet Tool**, which:
 
 * Creates a properly formatted Moodle backup (`.mbz`) file containing all assignments at once
 * Sets all due dates, cutoff dates, and activation dates automatically
@@ -76,7 +71,6 @@ This guide primarily focuses on the automated approach using the `modify_moodle_
 * You must have permission to restore course backups in your Moodle instance
 * You need to create a dedicated section in your course with a specific title (Step 3.1)
 * You need to know your Moodle course's start date, and ideally it should be configured to start at midnight (00:00)
-* You need basic familiarity with running commands in a terminal/command prompt
 
 The following steps will guide you through this recommended automated approach.
 
@@ -89,56 +83,14 @@ The following steps will guide you through this recommended automated approach.
 *   **CRITICAL:** Note down the **exact name** of this section. You'll need it precisely for the script in the next step.
 *   **IMPORTANT:** Note the **Course Start Date** in your Moodle course settings. You will need this exact date for the script in the next step. For assignments to appear with the correct deadlines, ensure your Moodle course start date is set to **00:00 (midnight)** of the selected day. If your course uses a different start time, the assignment deadlines may not align correctly.
 
-### Step 3.2: Generate Moodle Assignments using the Python Script
+### Step 3.2: Generate Moodle Assignments with the Booklet Tool
 
-This script takes the `sample.mbz` template and creates a *new* Moodle backup file (`.mbz`) containing all the individual page assignments tailored to your schedule and naming preferences.
+In the Booklet Tool, click on the button **Go to Moodle Assignment Creation** in the top right corner. Enter the requested pieces of information and create the MBZ backup file for Moodle. Store it on your machine.
 
-*   **Open Terminal / Command Prompt:**
-    *   **Windows:** Search for `cmd` or `PowerShell`.
-    *   **Mac:** Open `Terminal` (Applications > Utilities).
-    *   **Linux:** Open your terminal.
-*   **Navigate to the Folder:** Use the `cd` command to go to the directory where `modify_moodle_backup.py` and `sample.mbz` are saved.
-    ```bash
-    cd path/to/your/files
-    ```
-*   **Run the Script:** Use the `python3` command (or `python` on some systems) followed by the script name and necessary parameters:
-
-    ```bash
-    python3 modify_moodle_backup.py sample.mbz -o <output_file.mbz> --section-title "Your Exact Section Name in Moodle" --target-start-date YYYY-MM-DD [Date Options] [Other Options]
-    ```
-
-    The script allows you to create multiple assignments in a batch. You can still edit the details and deadlines in Moodle later, but this involves a lot of clicking and can be errorprone.
-
-    **Key Parameters Explained:**
-
-    *   `sample.mbz`: The input template file (don't change this).
-    *   `-o <output_file.mbz>`: **Required.** Specifies the name of the *new* Moodle backup file to be created (e.g., `-o Fall2024_BookletAssignments.mbz`).
-    *   `--section-title "Your Exact Section Name"`: **Required.** Provide the *exact* title of the Moodle section you created in Step 3.1. Use quotes if the name has spaces. This tells Moodle where to put the assignments during import.
-    *   `--target-start-date YYYY-MM-DD`: **Required.** This must match the start date of your **target Moodle course** where you'll import the assignments. This ensures that assignment due dates will be correctly preserved during import. The date format must be `YYYY-MM-DD` (e.g., `2024-09-01`).
-    *   `--assignment-name-prefix "Prefix"`: (Optional, Default: `"Page"`). Sets the base name for assignments. The script adds a space and number (e.g., `"Page 1"`, `"Page 2"`). You could use `--assignment-name-prefix "Booklet Submission"` to get "Booklet Submission 1", etc. These names will be used for the assignments in Moodle.
-    *   **Date Options (Choose ONE method):**
-        *   **A) Weekly Schedule:** Use *both* `--first-submission-date` and `--num-consecutive-weeks`.
-            *   `--first-submission-date YYYY-MM-DD`: Date of the *first* assignment deadline.
-            *   `--num-consecutive-weeks N`: Total number of weekly assignments to create.
-            *   *Example:* `--first-submission-date 2024-10-07 --num-consecutive-weeks 7` creates 7 assignments, due Oct 7, Oct 14, Oct 21, etc.
-        *   **B) Specific Dates:** Use `--submission-dates` with a comma-separated list.
-            *   `--submission-dates YYYY-MM-DD,YYYY-MM-DD,...`: List of exact due dates.
-            *   *Example:* `--submission-dates 2024-10-07,2024-10-21,2024-11-04` creates 3 assignments due on those specific dates.
-    *   **Common Time Options:**
-        *   `--submission-time HH:MM:SS`: (Optional, Default: `"23:59:59"`). The time of day the assignment is due.
-        *   `--extra-time minutes`: (Optional, Default: `60`). Grace period in minutes after the due time before the final cutoff.
-
-*   **Full Example Command:**
-    ```bash
-    python3 modify_moodle_backup.py sample.mbz -o WI24_Booklets.mbz --section-title "Exam Booklet Pages" --target-start-date 2024-10-01 --assignment-name-prefix "Booklet Page" --submission-dates 2024-11-04,2024-11-18,2024-12-02,2024-12-16,2025-01-06,2025-01-20,2025-02-03 --submission-time 18:00:00 --extra-time 15
-    ```
-    *(This creates `WI24_Booklets.mbz` with 7 assignments named "Booklet Page 1" through "Booklet Page 7", placed in the "Exam Booklet Pages" Moodle section, using October 1, 2024 as the course start date, due on the specified dates at 6:00 PM, with a 15-minute cutoff grace period.)*
-
-*   **Result:** The script will print progress messages and create the specified output `.mbz` file (e.g., `WI24_Booklets.mbz`) in the current folder.
 
 ### Step 3.3: Import Assignments into Moodle
 
-Upload the `.mbz` file *generated by the script* into your Moodle course.
+Upload the `.mbz` file generated by the tool into your Moodle course.
 
 *   In your Moodle course, go to "Course administration" (often a gear icon ⚙️) > "Restore".
     * At University of Bamberg (VC): In a course, click on **More** in the course's top menu, then click on **Course reuse**, then click on **Restore**.
@@ -222,11 +174,11 @@ booklet-submissions/
 
 ## 4. Important Reminders
 
-*   **Script Creates Files, Doesn't Change Moodle Directly:** The Python script only *generates* an `.mbz` file. You *must* always use the Moodle "Restore" function (Step 3.3) to get the assignments into your course.
-*   **Use the CORRECT `.mbz` File:** Only import the file *created by the script* (e.g., `WI24_Booklets.mbz`) into Moodle. Never import the `sample.mbz` template file directly.
-*   **Exact Section Title Match:** The `--section-title` used in the script *must perfectly match* the Moodle section name created in Step 3.1 for the import to work correctly.
-*   **Target Start Date:** The `--target-start-date` parameter must exactly match the start date of your Moodle course. This is crucial for assignment deadlines to be preserved correctly during import.
-*   **Midnight Start Time:** For best results, your Moodle course should be configured to start at 00:00 (midnight) of the date you specify with `--target-start-date`. If your course uses a different start time, you may need to adjust your assignment due dates after import.
+*   **Tool Creates Files, Doesn't Change Moodle Directly:** The Booklet Tool only *generates* an `.mbz` file. You *must* always use the Moodle "Restore" function (Step 3.3) to get the assignments into your course.
+*   **Use the CORRECT `.mbz` File:** Only import the file *created by the script* (e.g., `WI24_Booklets.mbz`) into Moodle.
+*   **Exact Section Title Match:** The Section Title used in the tool  *must perfectly match* the Moodle section name created in Step 3.1 for the import to work correctly.
+*   **Target Start Date:** The Course Start Date must exactly match the start date of your Moodle course. This is crucial for assignment deadlines to be preserved correctly during import.
+*   **Midnight Start Time:** For best results, your Moodle course should be configured to start at 00:00 (midnight) of the date you specify in the Booklet Tool. If your course uses a different start time, you may need to adjust your assignment due dates after import.
 *   **Moodle Backups:** Consider making a standard Moodle backup of your course *before* restoring the assignments, just as a safety measure.
 *   **Offline Feedback:** The generated assignments are configured to allow downloading grading worksheets (CSV files) if needed for offline grading workflows, although the primary goal is booklet generation.
 

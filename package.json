@@ -68,8 +68,7 @@
       "type": "distribution",
       "hardenedRuntime": true,
       "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist",
-      "gatekeeperAssess": false
+      "entitlementsInherit": "build/entitlements.mac.plist"
     },
     "win": {
       "target": [

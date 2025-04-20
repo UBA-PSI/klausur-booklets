@@ -1,6 +1,6 @@
 # Booklet Tool
 
-An Electron application developed at the [Chair of Privacy and Security in Information Systems](https://www.uni-bamberg.de/psi/), University of Bamberg, designed to help instructors create personalized exam aids ("Klausur-Booklets") from student submissions.
+The Booklet Tool is an Electron application (Windows, macOS, Linux) developed at the [Chair of Privacy and Security in Information Systems](https://www.uni-bamberg.de/psi/), University of Bamberg, designed to help instructors create personalized exam aids ("Klausur-Booklets") from student submissions.
 
 This tool facilitates the "Klausur-Booklet" incentive system as described at [www.uni-bamberg.de/psi/teaching/booklet-tool/](https://www.uni-bamberg.de/psi/teaching/booklet-tool/). Students submit note pages regularly during the semester, and instructors use this tool to compile these submissions (along with generated cover sheets) into printed A5 booklets allowed during the final exam.
 
@@ -12,12 +12,19 @@ This tool facilitates the "Klausur-Booklet" incentive system as described at [ww
 - Creates print-ready A5 booklets with correct imposition.
 - Optionally generates Moodle Backup (MBZ) files to easily create corresponding assignment activities in Moodle.
 
-## Requirements (for the Electron App)
+### Supported Learning Management Systems
 
-- **Node.js:** Version 16.x or later.
-- **Operating System:** macOS, Windows, or Linux (Builds are provided).
+- Built for **Moodle**: automatically matches students' uploads stored in FULLNAMEWITHSPACES_SOMENUMBER_assignment_file_ folders.
+- Should also work with **Ilias**: submission activities having folder names like FIRSTNAME_LASTNAME_USERNAME_STUDENTNUMBER are supported
+- Works with custom folder structures.
 
-*(Note: Python is NOT required to run the packaged Electron application.)*
+## Documentation
+
+[Read the Documentation for instructors.](documentation.md)
+
+## Requirements
+
+**Operating System:** macOS, Windows, or Linux (Builds are provided).
 
 ## Setup & Running (for Development)
 

@@ -1,0 +1,44 @@
+name: Create GitHub Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*' # Trigger on version tags like v1.0.0
+
+permissions:
+  contents: write # Needed to create releases
+
+jobs:
+  create_release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        # No need for full history if we're using CHANGELOG.md
+
+      - name: Read CHANGELOG
+        id: read_changelog
+        uses: mindsers/changelog-reader-action@v2
+        # with:
+          # Optional: specify the path if not CHANGELOG.md
+          # path: ./CHANGELOG.md
+          # The action automatically uses the pushed tag as the version
+
+      - name: Create Draft Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          # Set draft: true if you want to manually review/upload before publishing
+          # Set prerelease: true if you want to mark it as pre-release
+          # Omit both or set draft: false / prerelease: false for immediate publishing (less recommended if manual upload needed)
+          draft: true
+          prerelease: false
+          # Use the extracted changelog content as the release body
+          body: ${{ steps.read_changelog.outputs.changes }}
+          # Disable automatic note generation
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is automatically provided by GitHub
+
+      - name: Output Release URL
+        run: echo "Draft release created at ${{ steps.create_release.outputs.url }}" 
