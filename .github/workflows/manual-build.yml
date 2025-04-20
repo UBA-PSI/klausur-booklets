@@ -66,6 +66,13 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Install FPM for Linux Runners (for .deb build)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ruby ruby-dev build-essential rpm
+          sudo gem install fpm
+
       # Removed Flatpak install step - no longer needed here
 
       - name: Build application (Native)
