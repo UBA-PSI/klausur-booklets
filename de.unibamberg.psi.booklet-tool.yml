@@ -2,9 +2,9 @@
 app-id: de.unibamberg.psi.booklet-tool
 runtime: org.freedesktop.Platform
 runtime-version: '24.08' # Matches BaseApp version
-sdk: org.freedesktop.Sdk//${runtime-version} # Use variable for consistency
+sdk: org.freedesktop.Sdk
 base: org.electronjs.Electron2.BaseApp
-base-version: '24.08' # Stable version, should exist if Flathub remote is configured
+base-version: '23.08' # Stable version, should exist if Flathub remote is configured
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.node20 # Use Node 20 SDK Extension
 command: booklet-tool # Should match the executable
@@ -22,11 +22,13 @@ build-options:
     # Correct Electron distribution type for Flatpak
     ELECTRON_OVERRIDE_DISTRIBUTION: 'flatpak'
     # Ensure electron-builder uses the correct arch from flatpak-builder
-    ELECTRON_ARCH: ${FLATPAK_ARCH}
+    ELECTRON_ARCH: $FLATPAK_ARCH
     # Prevent building unnecessary installers
     ELECTRON_BUILDER_ALLOW_INSTALLER_TARGET: "false"
     # Cache location for npm inside the build sandbox
     XDG_CACHE_HOME: /run/build/booklet-tool/.npm-cache
+    # Add Node options here to help with potential network issues in sandbox
+    NODE_OPTIONS: --dns-result-order=ipv4first
 
 finish-args:
   # Filesystem access needed for selecting directories
@@ -53,7 +55,7 @@ modules:
         if [ -f node_modules/electron/package.json ]; then
           electron_version=$(node -p "require('electron/package.json').version")
           echo "Rebuilding native modules for Electron $electron_version..."
-          npx electron-rebuild -v $electron_version --arch=${FLATPAK_ARCH} -f
+          npx electron-rebuild -v $electron_version --arch=$FLATPAK_ARCH -f
         else
           echo "Warning: node_modules/electron/package.json not found. Skipping electron-rebuild."
           # Attempt install anyway in case rebuild isn't strictly needed
@@ -62,11 +64,11 @@ modules:
 
       # Package the application using electron-builder's 'dir' target
       # Targets linux explicitly, uses arch from flatpak-builder.
-      - npx electron-builder --dir --linux --arch=${FLATPAK_ARCH} --publish never
+      - npx electron-builder --dir --linux --arch=$FLATPAK_ARCH --publish never
 
       # Copy the packaged application into the Flatpak's /app directory
       # Use more specific path based on arch
-      - cp -r dist/linux-${FLATPAK_ARCH}-unpacked/* /app/
+      - cp -r dist/linux-$FLATPAK_ARCH-unpacked/* /app/
 
       # Install desktop file and icon (assuming build/icon.png exists)
       - install -Dm644 build/icon.png /app/share/icons/hicolor/512x512/apps/${FLATPAK_APP_ID}.png

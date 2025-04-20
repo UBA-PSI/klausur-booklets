@@ -153,21 +153,6 @@ jobs:
           # Enable caching
           cache: true
           cache-key: flatpak-builder-${{ matrix.variant.arch }}-${{ github.sha }}
-          # Pass required extra args
-          extra-args: |
-            --disable-rofiles-fuse
-            --require-changes
-            --user
-            --install
-            --install-deps-from=flathub
-            --force-clean
-            --repo=repo
-            --enable-network
-            --env=FLATPAK_ENABLE_SDK_EXT=node20
-          # Pass required env vars
-          env-vars: |
-            FLATPAK_USER_DIR=/root/.local/share/flatpak
-            NODE_OPTIONS=--dns-result-order=ipv4first
 
       - name: Upload Flatpak Artifact
         # Only run this step if arch is 'all' or matches the matrix arch
