@@ -188,36 +188,67 @@ app.on('activate', () => {
 // --- Determine Configuration Path --- 
 function getConfigPath() {
     let configDir;
+    let isPortable = false; // Flag to track if we determined a portable path
+
     // Use standard userData path for macOS (.app bundles)
     if (process.platform === 'darwin') {
         configDir = app.getPath('userData');
+        console.log(`macOS detected. Using standard userData path: ${configDir}`);
     } else {
         // For Windows/Linux, try to use a 'config' folder next to the executable
+        const appDir = path.dirname(process.execPath);
+        const potentialPortableConfigDir = path.join(appDir, 'config');
+        
         try {
-            // Path to the directory containing the executable
-            const appDir = path.dirname(process.execPath);
-            configDir = path.join(appDir, 'config');
-            // Important: Check if we can actually write here.
-            // This is a simple check; a more robust one might try creating the dir.
-            fs.accessSync(appDir, fs.constants.W_OK);
-            console.log(`Using portable config directory: ${configDir}`);
+            // 1. Ensure the potential portable config directory exists
+            if (!fs.existsSync(potentialPortableConfigDir)) {
+                fs.mkdirSync(potentialPortableConfigDir, { recursive: true });
+                console.log(`Created potential portable config directory: ${potentialPortableConfigDir}`);
+            } else {
+                console.log(`Potential portable config directory already exists: ${potentialPortableConfigDir}`);
+            }
+
+            // 2. Check if we can write specifically to this config directory
+            fs.accessSync(potentialPortableConfigDir, fs.constants.W_OK);
+            
+            // If both steps succeeded, use the portable path
+            configDir = potentialPortableConfigDir;
+            isPortable = true;
+            console.log(`Successfully accessed/created portable config directory: ${configDir}`);
+
         } catch (err) {
-            // Fallback to userData if portable path isn't writable or accessible
-            console.warn(`Portable config path not writable/accessible (${err.message}), falling back to userData path.`);
+            // Fallback to userData if creating or accessing the portable path fails
+            console.warn(`Portable config path unusable (${potentialPortableConfigDir}). Reason: ${err.message}. Falling back to userData path.`);
             configDir = app.getPath('userData');
+
+            // Clean up potentially created empty portable directory if fallback occurs
+            if (!isPortable && fs.existsSync(potentialPortableConfigDir)) {
+                try {
+                    // Check if it's empty before removing
+                    const files = fs.readdirSync(potentialPortableConfigDir);
+                    if (files.length === 0) {
+                         fs.rmdirSync(potentialPortableConfigDir);
+                         console.log(`Cleaned up empty portable config directory: ${potentialPortableConfigDir}`);
+                    }
+                } catch (cleanupErr) {
+                    console.warn(`Could not clean up portable config directory ${potentialPortableConfigDir}: ${cleanupErr.message}`);
+                }
+            }
         }
     }
 
-    // Ensure the chosen config directory exists
-    if (!fs.existsSync(configDir)) {
+    // Ensure the *final chosen* config directory exists (especially needed for the userData fallback)
+    if (!isPortable && !fs.existsSync(configDir)) { // Only need this check if we fell back to userData and it might not exist
         try {
             fs.mkdirSync(configDir, { recursive: true });
-            console.log(`Created config directory: ${configDir}`);
+            console.log(`Created final config directory (userData fallback): ${configDir}`);
         } catch (mkdirErr) {
             // Very unlikely fallback: if we can't create userData, log error and maybe use temp?
             console.error(`FATAL: Could not create config directory at ${configDir}. Error: ${mkdirErr.message}`);
             // As a last resort, could use temp dir, but config would be lost on exit.
             configDir = app.getPath('temp');
+            console.log(`Using temporary directory as last resort: ${configDir}`);
+            // No need to create temp, it should exist.
         }
     }
 
