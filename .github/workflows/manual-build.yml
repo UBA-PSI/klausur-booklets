@@ -44,9 +44,9 @@ jobs:
             arch: x64
             runner: ubuntu-22.04
             build_args: "--linux --x64"
-          - os: ubuntu-latest-arm64
+          - os: ubuntu-24.04-arm
             arch: arm64
-            runner: ubuntu-latest-arm64 # Use an ARM runner
+            runner: ubuntu-24.04-arm
             build_args: "--linux --arm64"
 
     runs-on: ${{ matrix.runner }} # Use runner from matrix
@@ -146,17 +146,28 @@ jobs:
         with:
           # Output bundle file name
           bundle: booklet-tool-${{ matrix.variant.arch }}.flatpak
-          # Path to the manifest file we created
+          # Path to the manifest file we updated
           manifest-path: de.unibamberg.psi.booklet-tool.yml
           # Architecture from the matrix
           arch: ${{ matrix.variant.arch }}
-          # Optional: Enable caching
+          # Enable caching
           cache: true
           cache-key: flatpak-builder-${{ matrix.variant.arch }}-${{ github.sha }}
-          # Recommended extra args for CI
-          extra-args: "--disable-rofiles-fuse"
-          # Optional env vars if needed by build-commands in manifest
-          # env-vars: "npm_config_offline=true"
+          # Pass required extra args
+          extra-args: |
+            --disable-rofiles-fuse
+            --require-changes
+            --user
+            --install
+            --install-deps-from=flathub
+            --force-clean
+            --repo=repo
+            --enable-network
+            --env=FLATPAK_ENABLE_SDK_EXT=node20
+          # Pass required env vars
+          env-vars: |
+            FLATPAK_USER_DIR=/root/.local/share/flatpak
+            NODE_OPTIONS=--dns-result-order=ipv4first
 
       - name: Upload Flatpak Artifact
         # Only run this step if arch is 'all' or matches the matrix arch

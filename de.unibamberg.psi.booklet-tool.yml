@@ -1,10 +1,32 @@
 # de.unibamberg.psi.booklet-tool.yml
-app-id: de.unibamberg.de.psi.booklet-tool
-# Updated runtime name based on current standards
-runtime: org.electronjs.Electron2.BaseApp
-runtime-version: '24.08' # Keeping 24.08, assuming it exists for the new runtime
-sdk: org.freedesktop.Sdk//24.08
-command: booklet-tool # This should match the executableName in package.json or the final executable
+app-id: de.unibamberg.psi.booklet-tool
+runtime: org.freedesktop.Platform
+runtime-version: '24.08' # Matches BaseApp version
+sdk: org.freedesktop.Sdk//${runtime-version} # Use variable for consistency
+base: org.electronjs.Electron2.BaseApp
+base-version: '24.08' # Stable version, should exist if Flathub remote is configured
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.node20 # Use Node 20 SDK Extension
+command: booklet-tool # Should match the executable
+
+build-options:
+  # Add Node bin to path and set required env vars for build
+  append-path: /usr/lib/sdk/node20/bin
+  env:
+    # Set Node dir for native modules
+    npm_config_nodedir: /usr/lib/sdk/node20
+    # Use npm cache dir within the build sandbox
+    npm_config_cache: /run/build/booklet-tool/.npm-cache
+    # Recommended for reproducible builds in CI
+    npm_config_offline: 'true'
+    # Correct Electron distribution type for Flatpak
+    ELECTRON_OVERRIDE_DISTRIBUTION: 'flatpak'
+    # Ensure electron-builder uses the correct arch from flatpak-builder
+    ELECTRON_ARCH: ${FLATPAK_ARCH}
+    # Prevent building unnecessary installers
+    ELECTRON_BUILDER_ALLOW_INSTALLER_TARGET: "false"
+    # Cache location for npm inside the build sandbox
+    XDG_CACHE_HOME: /run/build/booklet-tool/.npm-cache
 
 finish-args:
   # Filesystem access needed for selecting directories
@@ -20,43 +42,43 @@ finish-args:
 modules:
   - name: booklet-tool
     buildsystem: simple
-    build-options:
-      # Environment variables for the build process inside the sandbox
-      env:
-        # Pass the architecture to electron-builder inside the sandbox
-        ELECTRON_ARCH: $FLATPAK_ARCH
-        # Set cache location for npm inside the build sandbox
-        XDG_CACHE_HOME: /run/build/booklet-tool/npm-cache
-        # Prevent electron-builder from trying to build installers we don't need
-        ELECTRON_BUILDER_ALLOW_INSTALLER_TARGET: "false"
     build-commands:
-      # Install Node.js dependencies using the lockfile
-      # --ignore-scripts might be needed if some scripts fail in the sandbox
-      - npm install --frozen-lockfile --ignore-scripts
+      # Install dependencies using lockfile in offline mode
+      - npm ci --frozen-lockfile --offline
 
-      # Optional: Rebuild native modules if needed for the specific Flatpak architecture
-      # This might require electron-rebuild and specific arguments
-      # - npx electron-rebuild --arch=$FLATPAK_ARCH
+      # Rebuild native modules using the correct Electron version and arch
+      # Note: electron/package.json needs to exist and be correct
+      # Ensure 'electron' is a devDependency
+      - |
+        if [ -f node_modules/electron/package.json ]; then
+          electron_version=$(node -p "require('electron/package.json').version")
+          echo "Rebuilding native modules for Electron $electron_version..."
+          npx electron-rebuild -v $electron_version --arch=${FLATPAK_ARCH} -f
+        else
+          echo "Warning: node_modules/electron/package.json not found. Skipping electron-rebuild."
+          # Attempt install anyway in case rebuild isn't strictly needed
+          # Or consider adding 'electron' to devDependencies if missing
+        fi
 
       # Package the application using electron-builder's 'dir' target
-      # This creates an unpacked version of the app without making an installer package
-      # We target linux explicitly. $FLATPAK_ARCH is set by flatpak-builder.
-      - npx electron-builder --dir --linux --arch=$FLATPAK_ARCH --publish never
+      # Targets linux explicitly, uses arch from flatpak-builder.
+      - npx electron-builder --dir --linux --arch=${FLATPAK_ARCH} --publish never
 
       # Copy the packaged application into the Flatpak's /app directory
-      # Adjust the source path ('dist/linux*-unpacked') if electron-builder outputs differently
-      - cp -r dist/linux*-unpacked/* /app/
+      # Use more specific path based on arch
+      - cp -r dist/linux-${FLATPAK_ARCH}-unpacked/* /app/
 
-      # Optional: Install desktop file and icon
+      # Install desktop file and icon (assuming build/icon.png exists)
       - install -Dm644 build/icon.png /app/share/icons/hicolor/512x512/apps/${FLATPAK_APP_ID}.png
-      # Assume electron-builder generates a .desktop file in the unpacked dir
-      # Need to verify the exact path and name electron-builder creates
-      - install -Dm644 dist/linux*-unpacked/*.desktop /app/share/applications/${FLATPAK_APP_ID}.desktop
-      # Update the .desktop file if needed (e.g., fix Exec path)
+      # Electron-builder usually places the desktop file in the unpacked dir root
+      # The name often includes the app name. Verify this path/name.
+      - install -Dm644 /app/booklet-tool.desktop /app/share/applications/${FLATPAK_APP_ID}.desktop
+      # Update the .desktop file Exec line if necessary (ensure 'booklet-tool' is correct command)
       - desktop-file-edit --set-key=Exec --set-value="booklet-tool %U" /app/share/applications/${FLATPAK_APP_ID}.desktop
+      # Update Name if needed
+      - desktop-file-edit --set-key=Name --set-value="Booklet Tool" /app/share/applications/${FLATPAK_APP_ID}.desktop
 
     sources:
-      # This tells flatpak-builder to use the source code from the host directory
-      # The flatpak-github-actions action mounts the checkout directory here
+      # Use the source code from the host directory mounted by the action
       - type: dir
         path: . 
