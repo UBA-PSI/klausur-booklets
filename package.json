@@ -14,7 +14,7 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
-    "build": "dotenv electron-builder && cd testdata-name-collision && zip -r ../dist/booklet-tool-testdata.zip no-collision consistent-collision && cd ..",
+    "build": "dotenv electron-builder && cd testdata-name-collision && zip -r ../dist/booklet-tool-testdata.zip no-collision consistent-collision -x \"*/.DS_Store\" && cd ..",
     "postinstall": "electron-builder install-app-deps",
     "lint": "eslint .",
     "pdf-process": "node src/js/pdf-cmdline-processor.js",
