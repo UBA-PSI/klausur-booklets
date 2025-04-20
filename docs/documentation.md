@@ -105,7 +105,7 @@ The following steps will guide you through this recommended automated approach.
 
 In the Booklet Tool, click on the button **Go to Moodle Assignment Creation** in the top right corner. Enter the requested pieces of information and create the MBZ backup file for Moodle. Store it on your machine.
 
-<img src="docs/moodle-assignment-creator.png" width="600" alt="Moodle Assignment Creator dialog">
+<img src="moodle-assignment-creator.png" width="600" alt="Moodle Assignment Creator dialog">
 
 ### Step 3.3: Import Assignments into Moodle
 
@@ -214,9 +214,9 @@ booklet-submissions/
 
 <table>
 <tr>
-  <td><img src="docs/settings-editor.png" width="320" alt="Settings editor"></td>
-  <td><img src="docs/cover-template-editor.png" width="320" alt="Cover template editor"></td>
-  <td><img src="docs/resulting-booklets.png" width="320" alt="Generated A5 booklets"></td>
+  <td><img src="settings-editor.png" width="320" alt="Settings editor"></td>
+  <td><img src="cover-template-editor.png" width="320" alt="Cover template editor"></td>
+  <td><img src="resulting-booklets.png" width="320" alt="Generated A5 booklets"></td>
 </tr>
 <tr>
   <td align="center"><sub>Settings Editor</sub></td>
