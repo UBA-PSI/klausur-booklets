@@ -1,7 +1,8 @@
 # de.uni-bamberg.psi.booklet-tool.yml
 app-id: de.uni-bamberg.de.psi.booklet-tool
-runtime: io.atom.electron.BaseApp
-runtime-version: '24.08' # Use a recent stable Electron runtime version
+# Updated runtime name based on current standards
+runtime: org.electronjs.Electron2.BaseApp
+runtime-version: '24.08' # Keeping 24.08, assuming it exists for the new runtime
 sdk: org.freedesktop.Sdk//24.08
 command: booklet-tool # This should match the executableName in package.json or the final executable
 
@@ -22,6 +23,8 @@ modules:
     build-options:
       # Environment variables for the build process inside the sandbox
       env:
+        # Pass the architecture to electron-builder inside the sandbox
+        ELECTRON_ARCH: $FLATPAK_ARCH
         # Set cache location for npm inside the build sandbox
         XDG_CACHE_HOME: /run/build/booklet-tool/npm-cache
         # Prevent electron-builder from trying to build installers we don't need

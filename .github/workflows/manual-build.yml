@@ -2,6 +2,26 @@ name: Manual Build (Win/Linux/Flatpak)
 
 on:
   workflow_dispatch: # Allows manual triggering
+    inputs:
+      run_native:
+        description: 'Run Native Builds (Win/Linux)?'
+        required: true
+        type: boolean
+        default: true
+      run_flatpak:
+        description: 'Run Flatpak Builds?'
+        required: true
+        type: boolean
+        default: true
+      flatpak_arch:
+        description: 'Flatpak Architecture to Build'
+        required: true
+        type: choice
+        options:
+          - all
+          - x86_64
+          - aarch64
+        default: 'all'
 
 permissions:
   contents: read # Read permissions needed to checkout code
@@ -10,6 +30,8 @@ jobs:
   build-native:
     # This job builds Windows exe, Linux deb, tar.gz, AppImage
     name: Build Native (Win/Linux)
+    # Only run if the input is true
+    if: github.event.inputs.run_native == true
     strategy:
       matrix:
         # Use ubuntu-22.04 for consistency, 20.04 might be needed for AppImage glibc compat
@@ -64,7 +86,10 @@ jobs:
   build-flatpak:
     # This job builds Flatpak using the recommended action
     name: Build Flatpak (${{ matrix.variant.arch }})
-    needs: build-native # Optional: Run after native builds if needed, or run in parallel
+    # Remove the 'needs' condition to allow independent running
+    # needs: build-native
+    # Only run if the input is true
+    if: github.event.inputs.run_flatpak == true
     runs-on: ${{ matrix.variant.runner }}
     strategy:
       fail-fast: false # Keep running other arch builds if one fails
@@ -98,7 +123,15 @@ jobs:
       #   env:
       #     XDG_CACHE_HOME: ${{ github.workspace }}/.cache/npm # Cache npm inside workspace
 
+      # Add step to configure Flatpak remotes before building
+      - name: Configure Flatpak Remotes
+        run: |
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak update --appstream
+
       - name: Build Flatpak
+        # Only run this step if arch is 'all' or matches the matrix arch
+        if: github.event.inputs.flatpak_arch == 'all' || github.event.inputs.flatpak_arch == matrix.variant.arch
         uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
           # Output bundle file name
@@ -116,6 +149,8 @@ jobs:
           # env-vars: "npm_config_offline=true"
 
       - name: Upload Flatpak Artifact
+        # Only run this step if arch is 'all' or matches the matrix arch
+        if: github.event.inputs.flatpak_arch == 'all' || github.event.inputs.flatpak_arch == matrix.variant.arch
         uses: actions/upload-artifact@v4
         with:
           name: booklet-tool-flatpak-${{ matrix.variant.arch }}
