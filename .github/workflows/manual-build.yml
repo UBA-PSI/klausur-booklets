@@ -30,8 +30,8 @@ jobs:
   build-native:
     # This job builds Windows exe, Linux deb, tar.gz, AppImage
     name: Build Native (Win/Linux)
-    # Only run if the input is true
-    if: github.event.inputs.run_native == true
+    # Use direct boolean check for the input
+    if: github.event.inputs.run_native
     strategy:
       matrix:
         # Use ubuntu-22.04 for consistency, 20.04 might be needed for AppImage glibc compat
@@ -86,10 +86,8 @@ jobs:
   build-flatpak:
     # This job builds Flatpak using the recommended action
     name: Build Flatpak (${{ matrix.variant.arch }})
-    # Remove the 'needs' condition to allow independent running
-    # needs: build-native
-    # Only run if the input is true
-    if: github.event.inputs.run_flatpak == true
+    # Use direct boolean check for the input
+    if: github.event.inputs.run_flatpak
     runs-on: ${{ matrix.variant.runner }}
     strategy:
       fail-fast: false # Keep running other arch builds if one fails
