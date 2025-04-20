@@ -64,7 +64,8 @@ modules:
 
       # Package the application using electron-builder's 'dir' target
       # Targets linux explicitly, uses arch from flatpak-builder.
-      - npx electron-builder --dir --linux --arch=$FLATPAK_ARCH --publish never
+      # Prepend NODE_OPTIONS to ensure DNS setting is applied
+      - NODE_OPTIONS=--dns-result-order=ipv4first npx electron-builder --dir --linux --arch=$FLATPAK_ARCH --publish never
 
       # Copy the packaged application into the Flatpak's /app directory
       # Use more specific path based on arch

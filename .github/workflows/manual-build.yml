@@ -84,6 +84,19 @@ jobs:
           # Set USE_SYSTEM_FPM only for Linux builds
           USE_SYSTEM_FPM: ${{ runner.os == 'Linux' }}
 
+      - name: List Sharp libs in unpacked dir (ARM Linux)
+        if: runner.os == 'Linux' && matrix.arch == 'arm64'
+        run: |
+          UNPACKED_DIR="dist/linux-arm64-unpacked/resources/app.asar.unpacked"
+          echo "----
+          echo "Checking specific path: ${UNPACKED_DIR}/node_modules/@img/sharp-libvips-linux-arm64*/lib/"
+          ls -lR "${UNPACKED_DIR}/node_modules/@img/sharp-libvips-linux-arm64*/lib/"
+          echo "----
+          echo "Finding all files containing 'vips' in ${UNPACKED_DIR}/"
+          find "${UNPACKED_DIR}/" -iname '*vips*'
+          echo "----"
+        continue-on-error: true # Don't fail the build if the path doesn't exist
+
       - name: Upload Windows Artifact
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
