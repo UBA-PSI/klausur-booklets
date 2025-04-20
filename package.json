@@ -91,7 +91,7 @@
       ]
     },
     "flatpak": {
-      "finish-args": [
+      "finishArgs": [
         "--share=network", 
         "--filesystem=host"
       ]
