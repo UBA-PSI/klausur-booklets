@@ -163,6 +163,14 @@ While these measures help safeguard student data, instructors should still:
   - However, all text elements intended for students (e.g., on the cover sheet) can be customized by the instructor via the Cover Template Editor.
 </details>
 
+<details>
+  <summary>Naive First/Last Name Splitting (Moodle)</summary>
+
+  - When parsing Moodle folder names (e.g., `Firstname Middlename Lastname_SOMENUMBER_...`), the tool assumes the part after the *last* space is the student's last name.
+  - This naive logic will lead to incorrect last names (and consequently, incorrect cover sheets and summary sorting) for students whose actual last name contains spaces (e.g., "van der Berg", "de la Cruz").
+  - Currently, there is no workaround for this other than manually correcting the cover sheets with a PDF editor if needed.
+</details>
+
 
 ## For Developers
 

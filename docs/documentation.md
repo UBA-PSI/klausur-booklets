@@ -18,7 +18,7 @@
 
 </details>
 
-**Important Note:** This guide describes the workflow specifically for the Moodle instance as configured at the **University of Bamberg**. While the general principles might apply elsewhere, details may differ significantly in other Moodle installations. **Tested with:** Moodle 4.5.
+**Important Note:** This guide describes the workflow specifically for the Moodle instance as configured at the **University of Bamberg**. While the general principles might apply elsewhere, details may differ significantly in other Moodle installations. **Tested with:** Moodle 4.5.
 
 For the **Ilias** learning platform, the overall process of collecting pages and generating booklets is similar, but currently lacks the automated assignment creation workflow described here.
 
@@ -128,9 +128,9 @@ Clear instructions are essential for student success and to ensure the Booklet T
 
 We recommend:
 
-1. Add a page or label titled **“How to create your weekly booklet page”** and paste the contents of the [Student Guide](student-guide.md) there (or link to its web copy).
+1. Add a page or label titled **"How to create your weekly booklet page"** and paste the contents of the [Student Guide](student-guide.md) there (or link to its web copy).
 2. Mention the guide in your first lecture and in the announcement that opens the first assignment.
-3. If you change the number of pages, accepted file types, or any formatting rule, adjust the Student Guide accordingly before class starts.
+3. If you change the number of pages, accepted file types, or any formatting rule, adjust the Student Guide accordingly before class starts.
 
 The format requirements mentioned in the Student Guide correspond to the rules typically used at the PSI Chair – feel free to adapt to fit your pedagogical concept).
 
@@ -175,8 +175,42 @@ booklet-submissions/
 *   Follow its specific instructions. Typically, you will:
     *   Select the single folder containing all the downloaded student submissions (from Step 3.5).
     *   Configure output options (e.g., cover pages).
-    *   Run the three-step generation process.
+    *   Run the three-step generation process:
+        1.  **Convert to PDFs:** The tool processes each submitted file (PDF, JPG, PNG, HEIC) into a standardized A5 PDF page. Images are rotated if necessary. **Ambiguity Handling:** If a student submission folder (e.g., `Clara Clever_55551_assignsubmission_file_`) contains multiple valid files, the tool will pause and prompt you to select which specific file should be included in the final booklet for that page.
+        2.  **Merge PDFs:** Cover sheets are generated, and the converted A5 pages are merged into individual booklets for each student.
+        3.  **Create Booklets:** The individual A5 booklets are imposed onto A4 pages, ready for double-sided printing.
 *   The application will output the compiled A5 booklets (likely as PDF files), ready for printing.
+*   **Output Location:** The final printable booklets (`<StudentIdentifier>.pdf`) are  placed in an `booklets/` subfolder relative to your output directory. Intermediate files (converted A5 pages, merged PDFs) are stored in other subfolders within the output directory.
+*   **Summary Report:** The tool also generates an HTML file named `summary.html` in the output directory. This file provides a convenient overview:
+    *   Lists all students found.
+    *   Shows the number of pages successfully submitted by each student.
+    *   Includes summary statistics (total students, total pages).
+    *   Shows the distribution of page counts across students.
+    *   Indicates if any files were skipped or encountered errors during processing.
+
+    Example structure:
+    ```html
+    <!-- Snippet of summary_report.html -->
+    <h1>Student Submission Summary</h1>
+    <table>
+      <thead>
+        <tr>
+          <th>Last Name</th>
+          <th>First Name</th>
+          <th>Student ID</th>
+          <th>Submitted Pages</th>
+          <th>Skipped Files</th>
+          <th>Files with Errors</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Beispiel</td><td>Bernd</td><td></td><td>3</td><td></td><td></td></tr>
+        <tr><td>Clever</td><td>Clara</td><td></td><td>3</td><td></td><td></td></tr>
+        <!-- ... more students ... -->
+      </tbody>
+    </table>
+    <!-- ... summary statistics ... -->
+    ```
 
 <table>
 <tr>
