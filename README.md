@@ -58,7 +58,7 @@ _That's it  – no command line required._
     <td align="center"><sub>Settings Editor</sub></td>
   </tr>
   <tr>
-    <td><img src="docs/covert-template-editor.png"    width="340" alt="Cover template editor"></td>
+    <td><img src="docs/cover-template-editor.png"    width="340" alt="Cover template editor"></td>
     <td><img src="docs/resulting-booklets.png"        width="340" alt="Generated A5 booklets"></td>
   </tr>
   <tr>
