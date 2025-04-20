@@ -31,9 +31,16 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      # --- Install Flatpak for Linux build ---
+      - name: Install Flatpak tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+
       - name: Build application
         # Run electron-builder directly to build for the OS runner
-        # It will use the config in package.json (win portable, linux AppImage)
+        # It will use the config in package.json
         run: npx electron-builder --publish never
         env:
           # Disable automatic certificate discovery to prevent signing attempts
@@ -51,6 +58,10 @@ jobs:
         if: runner.os == 'Linux'
         uses: actions/upload-artifact@v4
         with:
-          name: booklet-tool-linux-appimage
-          path: dist/*.AppImage
+          name: booklet-tool-linux # More general name
+          path: |
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.flatpak
+            dist/*.tar.gz
           retention-days: 7 # Optional: How long to keep the artifact 
