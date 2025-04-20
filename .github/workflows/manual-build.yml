@@ -34,6 +34,9 @@ jobs:
         # Run electron-builder directly to build for the OS runner
         # It will use the config in package.json (win portable, linux AppImage)
         run: npx electron-builder --publish never
+        env:
+          # Disable automatic certificate discovery to prevent signing attempts
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
       - name: Upload Windows Artifact
         if: runner.os == 'Windows'

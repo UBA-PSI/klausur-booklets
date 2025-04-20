@@ -72,6 +72,7 @@
       "entitlementsInherit": "build/entitlements.mac.plist"
     },
     "win": {
+      "icon": "build/icon/icon.ico",
       "target": [
         {
           "target": "portable",
