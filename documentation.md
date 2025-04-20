@@ -142,6 +142,7 @@ After the deadlines have passed:
 *   **CRITICAL:** Create a **single, dedicated folder** on your computer. Move **all** the extracted student submission files (from *all* assignments) into this one folder. The structure inside doesn't usually matter as long as all files are present.
 *   The resulting structure should look like this:
 
+```
 booklet-submissions/
 ├── Seite 1/
 │   ├── Bernd Beispiel_44441_assignsubmission_file_/
@@ -160,7 +161,7 @@ booklet-submissions/
     │   └── IMG_13941.jpg
     └── Clara Clever_55553_assignsubmission_file_/
         └── dummy.png
-
+```
 
 
 ### Step 3.6: Generate the Final Booklets
