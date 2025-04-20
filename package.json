@@ -47,7 +47,7 @@
     "globals": "^16.0.0"
   },
   "build": {
-    "appId": "de.uni-bamberg.de.psi.booklet-tool",
+    "appId": "de.unibamberg.de.psi.booklet-tool",
     "icon": "build/icon",
     "productName": "Booklet Tool",
     "asarUnpack": [
@@ -86,7 +86,7 @@
       "target": [
         { "target": "deb", "arch": ["x64", "arm64"] },
         { "target": "tar.gz", "arch": ["x64", "arm64"] },
-        { "target": "AppImage", "arch": ["x64"] }
+        { "target": "AppImage", "arch": ["x64", "arm64"] }
       ]
     },
     "directories": {

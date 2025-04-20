@@ -29,15 +29,27 @@ permissions:
 jobs:
   build-native:
     # This job builds Windows exe, Linux deb, tar.gz, AppImage
-    name: Build Native (Win/Linux)
-    # Use direct boolean check for the input
-    if: github.event.inputs.run_native
+    name: Build Native (${{ matrix.os }} / ${{ matrix.arch }})
+    # Explicitly compare input string to 'true'
+    if: github.event.inputs.run_native == 'true'
     strategy:
+      fail-fast: false # Keep running other builds if one fails
       matrix:
-        # Use ubuntu-22.04 for consistency, 20.04 might be needed for AppImage glibc compat
-        os: [ubuntu-22.04, windows-latest]
+        include:
+          - os: windows-latest
+            arch: x64
+            runner: windows-latest
+            build_args: "--win --x64"
+          - os: ubuntu-22.04
+            arch: x64
+            runner: ubuntu-22.04
+            build_args: "--linux --x64"
+          - os: ubuntu-latest-arm64
+            arch: arm64
+            runner: ubuntu-latest-arm64 # Use an ARM runner
+            build_args: "--linux --arm64"
 
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.runner }} # Use runner from matrix
 
     steps:
       - name: Checkout main branch
@@ -57,8 +69,8 @@ jobs:
       # Removed Flatpak install step - no longer needed here
 
       - name: Build application (Native)
-        # Run electron-builder directly to build native packages
-        run: npx electron-builder --publish never
+        # Run electron-builder directly, targeting specific arch
+        run: npx electron-builder ${{ matrix.build_args }} --publish never
         env:
           # Removed DEBUG variable unless needed for native build debugging
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
@@ -67,7 +79,7 @@ jobs:
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
-          name: booklet-tool-windows-portable
+          name: booklet-tool-windows-portable-${{ matrix.arch }}
           path: dist/*.exe
           retention-days: 7
 
@@ -75,7 +87,7 @@ jobs:
         if: runner.os == 'Linux'
         uses: actions/upload-artifact@v4
         with:
-          name: booklet-tool-linux-native # Updated artifact name
+          name: booklet-tool-linux-native-${{ matrix.arch }}
           path: |
             dist/*.AppImage
             dist/*.deb
@@ -86,8 +98,8 @@ jobs:
   build-flatpak:
     # This job builds Flatpak using the recommended action
     name: Build Flatpak (${{ matrix.variant.arch }})
-    # Use direct boolean check for the input
-    if: github.event.inputs.run_flatpak
+    # Explicitly compare input string to 'true'
+    if: github.event.inputs.run_flatpak == 'true'
     runs-on: ${{ matrix.variant.runner }}
     strategy:
       fail-fast: false # Keep running other arch builds if one fails
@@ -135,7 +147,7 @@ jobs:
           # Output bundle file name
           bundle: booklet-tool-${{ matrix.variant.arch }}.flatpak
           # Path to the manifest file we created
-          manifest-path: de.uni-bamberg.psi.booklet-tool.yml
+          manifest-path: de.unibamberg.psi.booklet-tool.yml
           # Architecture from the matrix
           arch: ${{ matrix.variant.arch }}
           # Optional: Enable caching
