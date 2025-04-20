@@ -34,11 +34,17 @@ _That's it  – no command line required._
 
 ## Features
 
-- Processes individual student PDF submissions.
+**First Stage:** Set up Moodle for collection of booklet pages.
+
+- Use the Booklet Tool to generate a Moodle Backup (MBZ) file with multiple assignment activities to collect individual pages at certain deadlines.
+
+**Second Stage:** Create booklets.
+
+- Booklet Tool processes individual student PDF submissions automatically.
 - Generates cover sheets that list student information and highlight missing submissions.
 - Merges cover sheets and submitted pages into complete, personalized booklets.
 - Creates print-ready A5 booklets with correct imposition.
-- Optionally generates Moodle Backup (MBZ) files to easily create corresponding assignment activities in Moodle.
+- Booklet Tool creates a Summary HTML file listing all students and the number of pages.
 
 ### Interface Highlights
 
@@ -96,6 +102,66 @@ While these measures help safeguard student data, instructors should still:
 - Check with their local data protection officers regarding the legal basis for processing
 - Determine appropriate ways to inform students about the data processing involved in creating booklet pages
 - Follow institutional guidelines for handling student submissions
+
+
+## Known Limitations
+
+<details>
+  <summary>CSV Format for Name Collision Resolution</summary>
+
+  - When using Grading Worksheet CSV files for automated name collision resolution (necessary in Moodle environments if multiple students share the same name), the CSV file must adhere to specific formatting requirements currently hardcoded in `src/js/main.js`:
+    - It **must** contain a column containing `id` (case-insensitive) which includes the `SOMENUMBER` found in Moodle's submission folder names (e.g., `FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file_`).
+    - It **must** contain a column for student email addresses, and the header for this column **must** include one of the following substrings (case-insensitive): `email`, `e-mail`, `mail-adresse`, or `e-mail-adresse`.
+  - Using other unique identifiers potentially available in Moodle exports (like student ID number) is not currently supported for collision resolution. If your Moodle instance provides such identifiers and you need this feature, please contact the author.
+</details>
+
+<details>
+  <summary>Single-Threaded Processing</summary>
+
+  - The conversion of submitted files (images, PDFs) to the standardized PDF format is currently performed single-threaded. Processing a large number of student submissions, especially if they contain many high-resolution images or complex PDFs, can take a significant amount of time.
+</details>
+
+<details>
+  <summary>Fixed Page Format</summary>
+
+  - The tool generates intermediate PDFs in A5 format and final booklets intended for A4 paper (printed double-sided, flipped on the short edge). These formats are currently fixed and cannot be configured within the application. You might be able to scale the output to different paper sizes using your printer's settings.
+</details>
+
+<details>
+  <summary>Moodle-Specific Feature: MBZ Creation</summary>
+
+  - **MBZ Creation:** The feature for automatically generating Moodle Backup (`.mbz`) files to set up assignment activities is specific to Moodle and does not support other Learning Management Systems like Ilias.
+</details>
+
+<details>
+  <summary>At Least Two Assignments Needed</summary>
+
+  - **MBZ Assignment Limit:** Due to peculiarities in creating the MBZ files, you have to specify **at least two activities** when creating an MBZ file. Generating an MBZ for a single assignment is not possible and will result in an error during Moodle import.
+
+</details>
+
+<details>
+  <summary>Only One Deadline Per Day</summary>
+
+  - **Simplistic Design:** Due to limitations in the Booklet Tool, every day in the calendar can only have one assignment activity deadline. If you want students to be able to submit more than one page per day, you have to use different dates and make changes to the deadline in Moodle after importing the file.
+
+</details>
+
+
+<details>
+  <summary>No Support for Booklet Preview/Distribution</summary>
+
+  - The tool currently offers no built-in mechanism to easily distribute the generated individual student booklets back to the students for preview before the exam.
+  - The generated PDFs are placed in the `pdfs/<Student Name>.pdf` subdirectories within the chosen output folder. The filenames are fixed based on the student name or email address.
+  - A possible workaround for distribution might involve manually uploading these PDFs as feedback files to the corresponding Moodle assignments, but this workflow is not automated by the tool.
+</details>
+
+<details>
+  <summary>User Interface Language</summary>
+
+  - The user interface of the Booklet Tool is currently only available in English.
+  - However, all text elements intended for students (e.g., on the cover sheet) can be customized by the instructor via the Cover Template Editor.
+</details>
 
 
 ## For Developers
