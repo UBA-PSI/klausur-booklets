@@ -1,7 +1,7 @@
 # Booklet Tool
 
-[![release](https://img.shields.io/github/v/release/UBA-PSI/klausur-booklets)](https://github.com/UBA-PSI/booklet-tool/releases/latest)
-[![downloads](https://img.shields.io/github/downloads/UBA-PSI/klausur-booklets/total)](https://github.com/UBA-PSI/booklet-tool/releases)
+[![release](https://img.shields.io/github/v/release/UBA-PSI/klausur-booklets)](https://github.com/UBA-PSI/klausur-booklets/releases/latest)
+[![downloads](https://img.shields.io/github/downloads/UBA-PSI/klausur-booklets/total)](https://github.com/UBA-PSI/klausur-booklets/releases)
 
 > **Create personalised exam booklets from students’ handwritten note pages in minutes.**
 > Download the latest version for **Windows · macOS · Linux** and get started right away.
@@ -12,7 +12,7 @@ This tool facilitates the "Klausur-Booklet" incentive system as described at [ww
 
 ## Quick Start for Instructors
 
-1. **Download** the latest release for your platform from the [Releases page](https://github.com/UBA-PSI/booklet-tool/releases/latest) and unzip it.
+1. **Download** the latest release for your platform from the [Releases page](https://github.com/UBA-PSI/klausur-booklets/releases/latest) and unzip it.
 2. **Launch** *Booklet Tool* and click **Go to Moodle Assignment Creation** to create the `.mbz` file for your course.
 3. **Restore** the obtained `.mbz` file in Moodle and tell students to upload their weekly pages.
 4. **After the last deadline** or at any time during the semester, download all submissions, unzip them into a single folder, select that folder in the Booklet Tool, and create booklets in three steps: **Convert to PDFs**, **Merge PDFs**, and **Create Booklets**.
@@ -28,9 +28,27 @@ _That’s it  – no command line required._
 - Creates print-ready A5 booklets with correct imposition.
 - Optionally generates Moodle Backup (MBZ) files to easily create corresponding assignment activities in Moodle.
 
-### Screenshot
+### Interface Highlights
 
-![Booklet Tool workflow](docs/img/workflow.gif)
+<table>
+  <tr>
+    <td><img src="docs/moodle-assignment-creator.png" width="340" alt="Moodle assignment creator dialog"></td>
+    <td><img src="docs/settings-editor.png"            width="340" alt="Settings editor"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Moodle Assignment Creator</sub></td>
+    <td align="center"><sub>Settings Editor</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/covert-template-editor.png"    width="340" alt="Cover template editor"></td>
+    <td><img src="docs/resulting-booklets.png"        width="340" alt="Generated A5 booklets"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Cover Template Editor</sub></td>
+    <td align="center"><sub>Resulting Booklets</sub></td>
+  </tr>
+</table>
+
 
 ### Supported Learning Management Systems
 
@@ -38,7 +56,8 @@ _That’s it  – no command line required._
 - Should also work with **Ilias**: submission activities having folder names like FIRSTNAME_LASTNAME_USERNAME_STUDENTNUMBER are supported
 - Works with custom folder structures.
 
-## Prerequisites
+
+## System Requirements
 
 | Component | Minimum version | Needed for |
 |-----------|-----------------|------------|
@@ -51,9 +70,6 @@ _That’s it  – no command line required._
 
 [Read the Documentation for instructors.](documentation.md)
 
-## Requirements
-
-**Operating System:** macOS, Windows, or Linux (Builds are provided).
 
 ## For Developers
 
