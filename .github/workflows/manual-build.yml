@@ -77,10 +77,12 @@ jobs:
 
       - name: Build application (Native)
         # Run electron-builder directly, targeting specific arch
+        # Force using system FPM on Linux to avoid downloading incompatible binaries
         run: npx electron-builder ${{ matrix.build_args }} --publish never
         env:
-          # Removed DEBUG variable unless needed for native build debugging
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          # Set USE_SYSTEM_FPM only for Linux builds
+          USE_SYSTEM_FPM: ${{ runner.os == 'Linux' }}
 
       - name: Upload Windows Artifact
         if: runner.os == 'Windows'
