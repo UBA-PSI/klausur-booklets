@@ -90,6 +90,12 @@
         { "target": "AppImage", "arch": ["x64"] }
       ]
     },
+    "flatpak": {
+      "finish-args": [
+        "--share=network", 
+        "--filesystem=host"
+      ]
+    },
     "directories": {
       "output": "dist"
     }

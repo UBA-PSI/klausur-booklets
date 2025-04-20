@@ -43,6 +43,8 @@ jobs:
         # It will use the config in package.json
         run: npx electron-builder --publish never
         env:
+          # Add DEBUG environment variable for more verbose output
+          DEBUG: 'electron-builder,@malept/flatpak-bundler'
           # Disable automatic certificate discovery to prevent signing attempts
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
