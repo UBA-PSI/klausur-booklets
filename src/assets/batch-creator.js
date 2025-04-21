@@ -468,6 +468,7 @@ class MbzBatchCreator {
         outputFilename: outputPath ? await window.electronAPI.pathBasename(outputPath) : suggestedFilename,
         sectionTitle: sectionTitle,
         targetStartDate: targetStartDate,
+        gracePeriodMinutes: parseInt(this.elements.gracePeriod?.value || '0', 10)
       };
       
       console.log("Sending options to main process:", options);

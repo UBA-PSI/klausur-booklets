@@ -1949,7 +1949,7 @@ ipcMain.handle('mbz:createBatchAssignments', async (event, incomingOptions) => {
         // If they are Date objects, need to format them first
         submissionDates: incomingOptions.selectedDates?.map(d => typeof d === 'string' ? d.split('T')[0] : new Date(d).toISOString().split('T')[0]).join(','),
         submissionTime: submissionTime,
-        // extraTime: 60, // Use default from modifyMoodleBackup or get from UI?
+        extraTime: incomingOptions.gracePeriodMinutes, // Use grace period from options
         assignmentNamePrefix: incomingOptions.namePrefix || 'Assignment',
     };
     const assignments = generateAssignmentDates(dateGenOpts);
