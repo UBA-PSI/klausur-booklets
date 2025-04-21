@@ -3,6 +3,7 @@
   "version": "1.0.1",
   "description": "The Booklet Tool is used by teachers to create booklet-style PDFs from a collection of student PDFs. Students are asked to submit pages with their notes regularly and get them back as printed booklets that are authorized aids during the exam. The tool supports the creation of these booklet PDFs and also allows you to create Moodle Backups (MBZ files) that allow you to create the required assignment activities in Moodle with minimal manual work.",
   "main": "src/js/main.js",
+  "homepage": "https://github.com/UBA-PSI/klausur-booklets/",
   "license": "MIT",
   "author": {
     "name": "Dominik Herrmann",
@@ -44,7 +45,8 @@
     "electron-builder": "^26.0.12",
     "electron-notarize": "^1.2.2",
     "eslint": "^9.6.0",
-    "globals": "^16.0.0"
+    "globals": "^16.0.0",
+    "update-electron-app": "^3.1.1"
   },
   "build": {
     "appId": "de.unibamberg.de.psi.booklet-tool",
