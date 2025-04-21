@@ -578,6 +578,22 @@ function logErrorToUI(message) {
 window.electronAPI.onLogError(logErrorToUI);
 // --- End Error Listener ---
 
+// --- Helper to log to process log ---
+function logProcessMessage(message) {
+    if (processLogContainer && processLogOutput) {
+        processLogContainer.style.display = 'block'; // Show container
+        // Format timestamp consistently
+        const now = new Date();
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        const timestamp = `${hours}:${minutes}:${seconds}`;
+        processLogOutput.value += `[${timestamp}] ${message}\n`; // Append message with timestamp
+        processLogOutput.scrollTop = processLogOutput.scrollHeight; // Scroll to bottom
+    }
+}
+// --- End Helper ---
+
 // --- End Ambiguity Resolution Logic ---
 
 // Validate directory inputs before starting operations
@@ -719,6 +735,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const mainDir = document.getElementById('mainDirectoryPath').value; // Although not directly used, good for context
             const outputDir = document.getElementById('outputDirectoryPath').value;
             updateStatus('processing', 'Merging PDFs...');
+            // Log to the UI process log immediately
+            logProcessMessage('UI: Clicked Merge PDFs button. Invoking merge...');
             try {
                 const result = await window.electronAPI.startMerging(mainDir, outputDir);
                 updateStatus('success', result);

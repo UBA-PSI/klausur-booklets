@@ -9,11 +9,15 @@ const decodeHeic = require('heic-decode'); // Needed for HEIC
 // Function to send logs to the renderer process UI
 function sendLogToRenderer(message) {
     if (mainWindow && mainWindow.webContents) {
-        // Optional: Add timestamp
-        const timestamp = new Date().toLocaleTimeString(); 
+        // Format timestamp consistently
+        const now = new Date();
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        const timestamp = `${hours}:${minutes}:${seconds}`;
         mainWindow.webContents.send('process-log', `[${timestamp}] ${message}`);
         // Also log to the main process console for debugging
-        console.log(`[Main Log] ${message}`);
+        console.log(`[Main Log ${timestamp}] ${message}`);
     } else {
         // Fallback log if window isn't ready/available
         console.log(`[Main Log - No Window] ${message}`);
@@ -1435,15 +1439,14 @@ Missing:
             sendLogToRenderer("IPC: Error reading config for cover template, using default:");
         }
 
+        sendLogToRenderer("Main: Starting mergeStudentPDFs function..."); // Log before starting
         // Pass the template CONTENT string to mergeStudentPDFs
         await mergeStudentPDFs(mainDirectory, outputDirectory, coverTemplateContent);
+        sendLogToRenderer("Main: mergeStudentPDFs completed successfully."); // Log on success
         return "Success"; // Indicate success to renderer
     } catch (error) {
-        sendLogToRenderer("IPC: Error during start-merging:");
-        if (error.message.startsWith("Name collision detected")) {
-            // Existing collision handling (consider if needed)
-            // event.sender.send('name-collision', error.message);
-        }
+        sendLogToRenderer(`Main: Error during PDF merging: ${error.message}`); // Log error
+        sendLogToRenderer("Main: Preparing to re-throw error for start-merging."); // Keep this one for errors
         // Re-throw error to be caught by renderer's try/catch block
         throw error;  
     }
@@ -1915,7 +1918,6 @@ ipcMain.handle('load-mbz-creator-html', async (event) => {
   try {
     // Corrected path: Go up one level from src/js to src, then find the file
     const htmlPath = path.join(__dirname, '..', 'mbz_creator.html'); 
-    sendLogToRenderer(`Attempting to load HTML from: ${htmlPath}`);
     const htmlContent = fs.readFileSync(htmlPath, 'utf-8');
     return htmlContent;
   } catch (error) {
