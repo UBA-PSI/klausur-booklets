@@ -20,7 +20,10 @@
     "postinstall": "electron-builder install-app-deps",
     "lint": "eslint .",
     "pdf-process": "node src/js/pdf-cmdline-processor.js",
-    "test:mbz": "node src/mbz-creator/test/mbzCreator.test.js"
+    "test:mbz": "node src/mbz-creator/test/mbzCreator.test.js",
+    "sharp:win": "npm uninstall sharp && npm install --platform=win32 --arch=x64 sharp",
+    "sharp:linux-x64": "npm uninstall sharp && npm install --platform=linux --arch=x64 sharp",
+    "sharp:linux-arm64": "npm uninstall sharp && npm install --platform=linux --arch=arm64 sharp"
   },
   "dependencies": {
     "@electron/remote": "^2.1.2",
@@ -37,7 +40,8 @@
     "yargs": "^17.7.2"
   },
   "optionalDependencies": {
-    "@img/sharp-libvips-linux-arm64": "^1.0.6"
+    "@img/sharp-libvips-linux-arm64": "^1.0.6",
+    "@img/sharp-libvips-win32-x64": "^1.0.6"
   },
   "devDependencies": {
     "@electron/notarize": "^3.0.1",
@@ -90,8 +94,6 @@
     },
     "linux": {
       "target": [
-        "deb",
-        "tar.gz",
         "AppImage"
       ]
     },

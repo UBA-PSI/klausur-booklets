@@ -62,6 +62,25 @@ jobs:
       - name: Install dependencies
         run: npm install --verbose
 
+      # Windows build modifications
+      - name: Install Sharp for Windows
+        if: runner.os == 'Windows'
+        run: npm run sharp:win
+
+      # Linux x64 build modifications
+      - name: Install Sharp for Linux x64
+        if: matrix.os == 'ubuntu-22.04' && matrix.arch == 'x64'
+        run: npm run sharp:linux-x64
+
+      # Linux ARM64 build modifications
+      - name: Install Sharp for Linux ARM64
+        if: matrix.os == 'ubuntu-24.04-arm' && matrix.arch == 'arm64'
+        run: npm run sharp:linux-arm64
+
+      # Add this step after npm install for all platforms
+      - name: Rebuild native modules
+        run: npx electron-builder install-app-deps
+
       - name: Check node_modules after install
         if: runner.os == 'Linux'
         run: |
@@ -76,8 +95,6 @@ jobs:
           find node_modules/ -iname '*vips*'
           echo "----"
         continue-on-error: true
-
-      # Removed Flatpak install step - no longer needed here
 
       - name: Build application (Native)
         # Run electron-builder directly, targeting specific arch
@@ -117,6 +134,5 @@ jobs:
           path: |
             dist/*.AppImage
             dist/*.deb
-            # dist/*.flatpak # Removed flatpak from this upload
             dist/*.tar.gz
           retention-days: 7 
