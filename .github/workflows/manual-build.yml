@@ -181,7 +181,14 @@ jobs:
           pip3 install --user git+https://github.com/flatpak/flatpak-builder-tools.git@master#subdirectory=node
         
       - name: Generate flatpak Node sources
-        run: |          
+        run: |
+          # Make a copy of the original lockfile
+          cp package-lock.json original-package-lock.json
+          
+          # Generate a version 1 lockfile without installing dependencies
+          npm config set lockfile-version 1
+          npm install --package-lock-only
+
           # Generate the sources file with a specific output name
           flatpak-node-generator npm \
             --electron-node-headers \
@@ -202,6 +209,9 @@ jobs:
           # Display generated file for debugging
           echo "Generated sources file content:"
           head -n 20 generated-sources.json
+
+          # Restore the original lockfile
+          mv original-package-lock.json package-lock.json
           
       - name: Build Flatpak
         # Only run this step if arch is 'all' or matches the matrix arch
