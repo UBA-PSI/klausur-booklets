@@ -175,7 +175,34 @@ jobs:
         run: |
           flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
           flatpak update --appstream
-
+      
+      - name: Install flatpak-node-generator
+        run: |
+          pip3 install --user git+https://github.com/flatpak/flatpak-builder-tools.git@master#subdirectory=node
+        
+      - name: Generate flatpak Node sources
+        run: |          
+          # Generate the sources file with a specific output name
+          flatpak-node-generator npm \
+            --electron-node-headers \
+            --electron-ffmpeg=lib \
+            -o generated-sources.json \
+            package-lock.json
+          
+          # Create architecture detection script for electron-builder
+          if [ "${{ matrix.variant.arch }}" = "aarch64" ]; then
+            echo '#!/bin/sh' > electron-builder-arch.sh
+            echo 'export ELECTRON_BUILDER_ARCH_ARGS="--arm64"' >> electron-builder-arch.sh
+          else
+            echo '#!/bin/sh' > electron-builder-arch.sh
+            echo 'export ELECTRON_BUILDER_ARCH_ARGS=""' >> electron-builder-arch.sh
+          fi
+          chmod +x electron-builder-arch.sh
+          
+          # Display generated file for debugging
+          echo "Generated sources file content:"
+          head -n 20 generated-sources.json
+          
       - name: Build Flatpak
         # Only run this step if arch is 'all' or matches the matrix arch
         if: github.event.inputs.flatpak_arch == 'all' || github.event.inputs.flatpak_arch == matrix.variant.arch

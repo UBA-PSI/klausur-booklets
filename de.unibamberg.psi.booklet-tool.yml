@@ -18,7 +18,7 @@ build-options:
     # Use npm cache dir within the build sandbox
     npm_config_cache: /run/build/booklet-tool/.npm-cache
     # Recommended for reproducible builds in CI
-    # npm_config_offline: 'true' # Remove offline requirement for npm
+    npm_config_offline: 'true'
     # Correct Electron distribution type for Flatpak
     ELECTRON_OVERRIDE_DISTRIBUTION: 'flatpak'
     # Ensure electron-builder uses the correct arch from flatpak-builder
@@ -26,9 +26,14 @@ build-options:
     # Prevent building unnecessary installers
     ELECTRON_BUILDER_ALLOW_INSTALLER_TARGET: "false"
     # Cache location for npm inside the build sandbox
-    XDG_CACHE_HOME: /run/build/booklet-tool/.npm-cache
+    XDG_CACHE_HOME: /run/build/booklet-tool/flatpak-node/cache
     # Add Node options here to help with potential network issues in sandbox
     NODE_OPTIONS: --dns-result-order=ipv4first
+    ELECTRON_BUILDER_ARCH_ARGS: ""
+    # Add this to ensure npm ci uses offline mode
+    npm_config_prefer_offline: 'true'
+    # Add this to prevent automatic node-gyp rebuilds
+    npm_config_build_from_source: 'false'
 
 finish-args:
   # Filesystem access needed for selecting directories
@@ -45,43 +50,54 @@ modules:
   - name: booklet-tool
     buildsystem: simple
     build-commands:
-      # Install dependencies using lockfile (allow network access)
-      - npm ci --frozen-lockfile
-
-      # Rebuild native modules using the correct Electron version and arch
-      # Note: electron/package.json needs to exist and be correct
-      # Ensure 'electron' is a devDependency
+      # Setup and prepare environment
+      - rm -rf .npm-cache || true
+      - mkdir -p .npm-cache
+      
+      # Install dependencies in offline mode
+      - npm ci --offline
+      
+      # Source the architecture detection script
+      - . ./electron-builder-arch-args.sh
+      
+      # Build the application once with all appropriate flags
+      - NODE_OPTIONS=--dns-result-order=ipv4first npx electron-builder --dir --linux $ELECTRON_BUILDER_ARCH_ARGS --publish never
+      
+      # Install the application
       - |
-        if [ -f node_modules/electron/package.json ]; then
-          electron_version=$(node -p "require('electron/package.json').version")
-          echo "Rebuilding native modules for Electron $electron_version..."
-          npx electron-rebuild -v $electron_version --arch=$FLATPAK_ARCH -f
+        if [ "$FLATPAK_ARCH" = "aarch64" ]; then
+          UNPACKED_DIR="dist/linux-arm64-unpacked"
         else
-          echo "Warning: node_modules/electron/package.json not found. Skipping electron-rebuild."
-          # Attempt install anyway in case rebuild isn't strictly needed
-          # Or consider adding 'electron' to devDependencies if missing
+          UNPACKED_DIR="dist/linux-unpacked"
         fi
-
-      # Package the application using electron-builder's 'dir' target
-      # Targets linux explicitly, uses arch from flatpak-builder.
-      # Prepend NODE_OPTIONS to ensure DNS setting is applied
-      - NODE_OPTIONS=--dns-result-order=ipv4first npx electron-builder --dir --linux --arch=$FLATPAK_ARCH --publish never
-
-      # Copy the packaged application into the Flatpak's /app directory
-      # Use more specific path based on arch
-      - cp -r dist/linux-$FLATPAK_ARCH-unpacked/* /app/
-
-      # Install desktop file and icon (assuming build/icon.png exists)
-      - install -Dm644 build/icon.png /app/share/icons/hicolor/512x512/apps/${FLATPAK_APP_ID}.png
-      # Electron-builder usually places the desktop file in the unpacked dir root
-      # The name often includes the app name. Verify this path/name.
-      - install -Dm644 /app/booklet-tool.desktop /app/share/applications/${FLATPAK_APP_ID}.desktop
-      # Update the .desktop file Exec line if necessary (ensure 'booklet-tool' is correct command)
-      - desktop-file-edit --set-key=Exec --set-value="booklet-tool %U" /app/share/applications/${FLATPAK_APP_ID}.desktop
-      # Update Name if needed
-      - desktop-file-edit --set-key=Name --set-value="Booklet Tool" /app/share/applications/${FLATPAK_APP_ID}.desktop
+        cp -r ${UNPACKED_DIR}/* /app/
+      
+      # Install desktop file and icon
+      - install -Dm644 build/icon.png /app/share/icons/hicolor/512x512/apps/${FLATPAK_ID}.png
+      - |
+        if [ -f /app/booklet-tool.desktop ]; then
+          install -Dm644 /app/booklet-tool.desktop /app/share/applications/${FLATPAK_ID}.desktop
+          desktop-file-edit --set-key=Exec --set-value="booklet-tool %U" /app/share/applications/${FLATPAK_ID}.desktop
+          desktop-file-edit --set-key=Name --set-value="Booklet Tool" /app/share/applications/${FLATPAK_ID}.desktop
+        else
+          echo "Warning: Desktop file not found in expected location"
+          find /app -name "*.desktop" -type f
+        fi
 
     sources:
       # Use the source code from the host directory mounted by the action
       - type: dir
         path: . 
+      - type: file
+        path: generated-sources.json
+      - type: script
+        dest-filename: electron-builder-arch-args.sh
+        commands:
+          - |
+            if [ "$FLATPAK_ARCH" = "aarch64" ]; then
+              echo 'export ELECTRON_BUILDER_ARCH_ARGS="--arm64"'
+            elif [ "$FLATPAK_ARCH" = "arm" ]; then
+              echo 'export ELECTRON_BUILDER_ARCH_ARGS="--armv7l"'
+            else
+              echo 'export ELECTRON_BUILDER_ARCH_ARGS=""'
+            fi
