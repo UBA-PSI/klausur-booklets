@@ -186,8 +186,7 @@ jobs:
           flatpak-node-generator npm \
             --electron-node-headers \
             --electron-ffmpeg=lib \
-            --recursive \
-            --include-dev \
+            -r \
             -o generated-sources.json \
             package-lock.json
           
