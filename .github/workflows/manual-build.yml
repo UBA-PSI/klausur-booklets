@@ -56,20 +56,14 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          # Remove libvips-dev - no longer building from source
           sudo apt-get install -y ruby ruby-dev build-essential rpm
-          sudo gem install fpm --no-document # Use --no-document for faster gem install
+          sudo gem install fpm --no-document
 
       - name: Install dependencies
-        if: runner.os != 'Linux' || matrix.arch != 'arm64'
-        run: npm install
-      - name: Install dependencies (ARM Linux)
-        if: runner.os == 'Linux' && matrix.arch == 'arm64'
-        # Reverted build from source
         run: npm install --verbose
 
-      - name: Check node_modules after install (ARM Linux)
-        if: runner.os == 'Linux' && matrix.arch == 'arm64'
+      - name: Check node_modules after install
+        if: runner.os == 'Linux'
         run: |
           echo "----"
           echo Checking for Sharp platform package in node_modules/@img/
@@ -94,8 +88,8 @@ jobs:
           # Set USE_SYSTEM_FPM only for Linux builds
           USE_SYSTEM_FPM: ${{ runner.os == 'Linux' }}
 
-      - name: List Sharp libs in unpacked dir (ARM Linux)
-        if: runner.os == 'Linux' && matrix.arch == 'arm64'
+      - name: List Sharp libs in unpacked dir
+        if: runner.os == 'Linux'
         run: |
           UNPACKED_DIR="dist/linux-arm64-unpacked/resources/app.asar.unpacked"
           echo "----
