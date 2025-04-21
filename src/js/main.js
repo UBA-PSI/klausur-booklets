@@ -2036,3 +2036,17 @@ ipcMain.handle('get-default-mbz-template-path', async () => {
 ipcMain.handle('fs-exists', async (event, filePath) => {
   return fs.promises.access(filePath, fs.constants.F_OK);
 });
+
+ipcMain.handle('get-app-version', () => { // New handler
+    return app.getVersion();
+});
+
+ipcMain.handle('get-app-homepage', () => { // New handler for homepage
+    try {
+        const packageJson = require('../../package.json');
+        return packageJson.homepage || 'https://github.com/UBA-PSI/klausur-booklets/';
+    } catch (error) {
+        console.error('Error reading package.json:', error);
+        return 'https://github.com/UBA-PSI/klausur-booklets/';
+    }
+});

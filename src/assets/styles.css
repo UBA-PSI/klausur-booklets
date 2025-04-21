@@ -219,6 +219,10 @@ h1 {
     margin-bottom: 0;
 }
 
+#processingHelp li {
+    padding-bottom: 0.5lh;
+}
+
 /* Base styling for the status bar */
 #status-bar {
     display: flex;

@@ -28,6 +28,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadMbzCreatorHtml: () => ipcRenderer.invoke('load-mbz-creator-html'),
   fsExists: (filePath) => ipcRenderer.invoke('fs-exists', filePath),
   getDefaultMbzTemplatePath: () => ipcRenderer.invoke('get-default-mbz-template-path'),
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  getAppHomepage: () => ipcRenderer.invoke('get-app-homepage'),
   // --- End New APIs ---
 
   // Main -> Renderer (receive)

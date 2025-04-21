@@ -905,6 +905,63 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         console.warn('Import Config button not found');
     }
+
+    // --- End Import/Export Config Button Listeners ---
+
+    // --- Initialize version display ---
+    const appVersionDisplay = document.getElementById('appVersionDisplay');
+    if (appVersionDisplay) {
+        window.electronAPI.getAppVersion()
+            .then(version => {
+                appVersionDisplay.textContent = `v${version}`;
+                appVersionDisplay.title = `Version ${version}`;
+            })
+            .catch(err => {
+                console.error('Failed to load app version:', err);
+                appVersionDisplay.textContent = '';
+            });
+    }
+
+    // --- More Info Button Listener ---
+    const moreInfoBtn = document.getElementById('moreInfoBtn');
+    if (moreInfoBtn) {
+        moreInfoBtn.addEventListener('click', async () => {
+            const modalEl = document.getElementById('moreInfoModal');
+            const versionSpan = document.getElementById('appVersionSpan');
+            const repoLink = document.getElementById('repoLink');
+
+            if (modalEl && versionSpan) {
+                try {
+                    // Fetch version and homepage when modal is opened
+                    versionSpan.textContent = 'Fetching...'; // Show loading state
+                    const version = await window.electronAPI.getAppVersion();
+                    const homepage = await window.electronAPI.getAppHomepage();
+                    versionSpan.textContent = version || 'N/A';
+                    
+                    // Update the repo link with the homepage from package.json
+                    if (repoLink && homepage) {
+                        repoLink.href = homepage;
+                        repoLink.textContent = homepage + ' ';
+                        repoLink.innerHTML += '<i class="bi bi-box-arrow-up-right ms-1"></i>';
+                    }
+
+                    const modal = new bootstrap.Modal(modalEl);
+                    modal.show();
+                } catch (error) {
+                    console.error('Error fetching app info:', error);
+                    versionSpan.textContent = 'Error';
+                    // Show modal anyway, but indicate error
+                    const modal = new bootstrap.Modal(modalEl);
+                    modal.show();
+                }
+            } else {
+                console.error('More Info modal elements not found.');
+            }
+        });
+    } else {
+        console.warn('More Info button not found');
+    }
+    // --- End More Info Button Listener ---
 });
 
 // Global click listener for closing modals and saving config
