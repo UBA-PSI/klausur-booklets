@@ -58,13 +58,17 @@ jobs:
         run: npm install
       - name: Install dependencies (ARM Linux)
         if: runner.os == 'Linux' && matrix.arch == 'arm64'
+        # Force build from source for sharp
         run: npm install --verbose
+        env:
+          npm_config_build_from_source: true
 
       - name: Install FPM for Linux Runners (for .deb build)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y ruby ruby-dev build-essential rpm
+          # Add libvips-dev for building sharp from source
+          sudo apt-get install -y ruby ruby-dev build-essential rpm libvips-dev
           sudo gem install fpm
 
       - name: Check node_modules after install (ARM Linux)
