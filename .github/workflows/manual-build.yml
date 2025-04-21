@@ -69,6 +69,11 @@ jobs:
         env:
           npm_config_build_from_source: true
 
+      - name: Rebuild sharp for Electron (ARM Linux)
+        if: runner.os == 'Linux' && matrix.arch == 'arm64'
+        # Use npx to run @electron/rebuild, force (-f) rebuild of sharp
+        run: npx @electron/rebuild --force --module-dir . --only sharp
+
       - name: Check node_modules after install (ARM Linux)
         if: runner.os == 'Linux' && matrix.arch == 'arm64'
         run: |
