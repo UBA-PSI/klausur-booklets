@@ -49,8 +49,16 @@ jobs:
           node-version: '20.x'
           cache: 'npm'
 
+      - name: Clear npm cache
+        run: npm cache clean --force
+
       - name: Install dependencies
+        # Add platform/arch flags and verbose logging specifically for ARM
+        if: runner.os != 'Linux' || matrix.arch != 'arm64'
         run: npm install
+      - name: Install dependencies (ARM Linux)
+        if: runner.os == 'Linux' && matrix.arch == 'arm64'
+        run: npm install --platform=linux --arch=arm64 --verbose
 
       - name: Install FPM for Linux Runners (for .deb build)
         if: runner.os == 'Linux'
