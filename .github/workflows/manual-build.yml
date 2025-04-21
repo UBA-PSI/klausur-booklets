@@ -73,6 +73,21 @@ jobs:
           sudo apt-get install -y ruby ruby-dev build-essential rpm
           sudo gem install fpm
 
+      - name: Check node_modules after install (ARM Linux)
+        if: runner.os == 'Linux' && matrix.arch == 'arm64'
+        run: |
+          echo "----
+          echo "Checking for Sharp platform package in node_modules/@img/"
+          ls -l node_modules/@img/
+          echo "----
+          echo "Checking for Sharp libs in node_modules/@img/sharp-libvips-linux-arm64*/lib/"
+          ls -lR node_modules/@img/sharp-libvips-linux-arm64*/lib/
+          echo "----
+          echo "Finding all files containing 'vips' in node_modules/"
+          find node_modules/ -iname '*vips*'
+          echo "----"
+        continue-on-error: true
+
       # Removed Flatpak install step - no longer needed here
 
       - name: Build application (Native)
