@@ -52,6 +52,7 @@
     "productName": "Booklet Tool",
     "asarUnpack": [
       "**/node_modules/sharp/**/*",
+      "**/node_modules/@img/sharp-libvips-*/**",
       "**/node_modules/@hyzyla/pdfium/dist/pdfium.wasm",
       "src/assets/mbz-templates/**/*"
     ],
