@@ -75,15 +75,6 @@ _That's it  – no command line required._
 - Works with custom folder structures.
 
 
-## System Requirements
-
-| Component | Minimum version | Needed for |
-|-----------|-----------------|------------|
-| Windows, macOS, or Linux | 64‑bit | Running the pre‑built desktop app |
-| Node.js | 18 LTS | For developers who want to build the application from source |
-| Python | 3.7 | Optional CLI for MBZ modification |
-
-
 ## Documentation
 
 Read the [Documentation for instructors](docs/documentation.md) and the [Student Guide](docs/student-guide.md).
@@ -170,6 +161,54 @@ While these measures help safeguard student data, instructors should still:
   - This naive logic will lead to incorrect last names (and consequently, incorrect cover sheets and summary sorting) for students whose actual last name contains spaces (e.g., "van der Berg", "de la Cruz").
   - Currently, there is no workaround for this other than manually correcting the cover sheets with a PDF editor if needed.
 </details>
+
+
+
+## System Requirements
+
+| Component | Minimum version | Needed for |
+|-----------|-----------------|------------|
+| Windows, macOS, or Linux | 64‑bit | Running the pre‑built desktop app |
+| Node.js | 18 LTS | For developers who want to build the application from source |
+| Python | 3.7 | Optional CLI for MBZ modification |
+
+
+### Notes for Linux (particularly Ubuntu 24.04)
+
+To run the AppImage on Linux, you may have to install two additional packages. On Ubuntu 24.04, use this command:
+
+```
+sudo apt install libfuse2 zlib1g-dev
+```
+
+Moreover, changes introduced with Ubuntu 24.04 and its AppArmor protection prevent the Electron app from creating its sandbox. As a result, nothing happens when the AppImage is double-clicked. When the AppImage is started on the command line, you see a permissions error. This error on Ubuntu 24.04 is due to new AppArmor restrictions that limit unprivileged user namespaces. This security feature was introduced to prevent certain types of attacks, but it affects legitimate applications like Electron-based AppImages that rely on sandboxing.
+
+You *can* disable the sandbox by running the AppImage file on the command line with `--no-sandbox`, put this reduces the security protections offered by the sandbox. Alternatively, you can create a new AppArmor profile for the app:
+
+```
+sudo nano /etc/apparmor.d/your-appimage
+```
+
+with content (change the path to match your environment)
+
+```
+# Allow your specific AppImage to run with proper sandbox permissions
+abi <abi/4.0>,
+include <tunables/global>
+
+profile appimage.your-tool /path/to/your-AppImage flags=(complain) {
+  userns,
+  include if exists <local/appimage.your-tool>
+}
+```
+
+Then run
+
+```
+sudo apparmor_parser -r /etc/apparmor.d/your-appimage
+```
+
+
 
 
 ## For Developers
