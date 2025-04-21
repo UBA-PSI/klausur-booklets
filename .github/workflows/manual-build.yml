@@ -52,8 +52,14 @@ jobs:
       - name: Clear npm cache
         run: npm cache clean --force
 
+      - name: Install System Build Dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ruby ruby-dev build-essential rpm libvips-dev
+          sudo gem install fpm --no-document # Use --no-document for faster gem install
+
       - name: Install dependencies
-        # Add platform/arch flags and verbose logging specifically for ARM
         if: runner.os != 'Linux' || matrix.arch != 'arm64'
         run: npm install
       - name: Install dependencies (ARM Linux)
@@ -62,14 +68,6 @@ jobs:
         run: npm install --verbose
         env:
           npm_config_build_from_source: true
-
-      - name: Install FPM for Linux Runners (for .deb build)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          # Add libvips-dev for building sharp from source
-          sudo apt-get install -y ruby ruby-dev build-essential rpm libvips-dev
-          sudo gem install fpm
 
       - name: Check node_modules after install (ARM Linux)
         if: runner.os == 'Linux' && matrix.arch == 'arm64'
