@@ -58,7 +58,7 @@ jobs:
         run: npm install
       - name: Install dependencies (ARM Linux)
         if: runner.os == 'Linux' && matrix.arch == 'arm64'
-        run: npm install --platform=linux --arch=arm64 --verbose
+        run: npm install --verbose
 
       - name: Install FPM for Linux Runners (for .deb build)
         if: runner.os == 'Linux'
