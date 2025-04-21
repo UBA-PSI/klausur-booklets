@@ -17,7 +17,7 @@
     "dev": "electron .",
     "build": "dotenv electron-builder && cd testdata-name-collision && rm -f ../dist/booklet-tool-testdata.zip && zip -r ../dist/booklet-tool-testdata.zip no-collision consistent-collision -x \"*/.DS_Store\" && cd ..",
     "build:ci": "gh workflow run manual-build.yml --ref main",
-    "_postinstall": "electron-builder install-app-deps",
+    "postinstall": "electron-builder install-app-deps",
     "lint": "eslint .",
     "pdf-process": "node src/js/pdf-cmdline-processor.js",
     "test:mbz": "node src/mbz-creator/test/mbzCreator.test.js"
@@ -35,6 +35,9 @@
     "sharp": "^0.34.1",
     "tar": "^7.2.0",
     "yargs": "^17.7.2"
+  },
+  "optionalDependencies": {
+    "@img/sharp-libvips-linux-arm64": "^1.0.6"
   },
   "devDependencies": {
     "@electron/notarize": "^3.0.1",
