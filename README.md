@@ -77,7 +77,8 @@ _That's it  – no command line required._
 
 ## Documentation
 
-Read the [Documentation for instructors](docs/documentation.md) and the [Student Guide](docs/student-guide.md).
+*   **Instructor Guides:** [English](docs/documentation.md) | [Deutsch](docs/documentation-de.md)
+*   **Student Guides:** [English](docs/student-guide.md) | [Deutsch](docs/student-guide-de.md)
 
 
 ## Data Protection
