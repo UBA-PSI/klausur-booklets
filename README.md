@@ -277,3 +277,8 @@ Chair of Privacy and Security in Information Systems
 University of Bamberg 
 
 During development, the following GenAI models have been used for design, implementation, and writing documentation: Anthropic Claude Sonnet 3.7, OpenAI GPT 4.1/4.5/o3, Google Gemini 2.5 Pro Experimental.
+
+## Acknowledgements
+
+The "Klausur-Booklet" incentive system is part of [Project DiKuLe](https://www.uni-bamberg.de/dikule/), sponsored by [Stiftung Innovation in der Hochschullehre (StIL)](https://stiftung-hochschullehre.de/).
+
