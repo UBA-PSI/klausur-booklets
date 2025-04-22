@@ -3,8 +3,10 @@
 [![release](https://img.shields.io/github/v/release/UBA-PSI/klausur-booklets)](https://github.com/UBA-PSI/klausur-booklets/releases/latest)
 [![downloads](https://img.shields.io/github/downloads/UBA-PSI/klausur-booklets/total)](https://github.com/UBA-PSI/klausur-booklets/releases)
 
-> **Create personalized exam booklets from students' handwritten note pages in minutes.**
-> Download the latest version for **Windows · macOS · Linux** and get started right away.
+**Create personalized exam booklets from students' handwritten note pages in minutes.**
+Download the latest version for [**Windows**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.0.1/Booklet-Tool.1.0.1-win-portable.exe) · [**macOS**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.0.1/Booklet-Tool-1.0.1-mac-universal.dmg) · [**Linux**](https://github.com/UBA-PSI/klausur-booklets/releases/) and get started right away.
+
+[**Download test data**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.0.1/booklet-tool-testdata.zip) to try out the tool's features.
 
 The Booklet Tool is an Electron application (Windows, macOS, Linux) developed at the [Chair of Privacy and Security in Information Systems](https://www.uni-bamberg.de/psi/), University of Bamberg, within [Projekt DiKuLe](https://www.uni-bamberg.de/dikule/). The Booklet Tool helps instructors create personalized exam aids ("Klausur-Booklets") from student submissions.
 
@@ -13,18 +15,18 @@ This tool facilitates the [Klausur-Booklet](https://www.uni-bamberg.de/psi/teach
 <details>
   <summary><b>Learn more about the Klausur-Booklet concept</b></summary>
 
-  The pedagogical concept, organizational aspects, and benefits of the Klausur-Booklet incentive system are described in the following book chapter (in German):
+  The pedagogical concept, organizational aspects, and benefits of the Klausur-Booklet incentive system are described in the following **open access book chapter** (in German):
 
-  > Herrmann, Dominik (2024). Klausur-Booklets zur Stärkung von Methodenkompetenzen und zur Reduktion von Prokrastination. In: Theresia Witt/ Carmen Herrmann/ Lorenz Mrohs/ Hannah Brodel/ Konstantin Lindner/ Ilona Maidanjuk (Eds.), _Diversität und Digitalität in der Hochschullehre_ (pp. 169-180). Bielefeld: transcript Verlag. <https://doi.org/10.14361/9783839469385-013>
+  > Herrmann, Dominik (2024). Klausur-Booklets zur Stärkung von Methodenkompetenzen und zur Reduktion von Prokrastination. In: Theresia Witt, Carmen Herrmann, Lorenz Mrohs, Hannah Brodel, Konstantin Lindner, Ilona Maidanjuk (Eds.), _Diversität und Digitalität in der Hochschullehre_ (pp. 169-180). Bielefeld: transcript Verlag. <https://doi.org/10.14361/9783839469385-013>
 
   **Abstract:**
   > Studying during the semester often fails due to a lack of methodological competence and a tendency to procrastinate. One solution to this is the concept of Exam Booklets: Lecturers allow their students to create up to 15 handwritten sheets of paper during the semester and use them as aids in the exam. Exam booklets overcome the disadvantages of open-book exams and other incentive systems such as midterm exams and bonus points. They provide a strong incentive for students, can improve the examination culture, and are easy to implement with the organizational and technical experience obtained so far. In light of this, it seems sensible to make more room for teaching methodological skills in existing courses.
 
 </details>
 
-## Quick  Start for Instructors
+## Quick Start for Instructors
 
-1. **Download** the latest release for your platform from the [Releases page](https://github.com/UBA-PSI/klausur-booklets/releases/latest) and unzip it.
+1. **Download** the latest release for your platform from the [Releases page](https://github.com/UBA-PSI/klausur-booklets/releases/latest) and unzip it.
 2. **Launch** *Booklet Tool* and click **Go to Moodle Assignment Creation** to create the `.mbz` file for your course.
 3. **Restore** the obtained `.mbz` file in Moodle and tell students to upload their weekly pages.
 4. **After the last deadline** or at any time during the semester, download all submissions, unzip them into a single folder, select that folder in the Booklet Tool, and create booklets in three steps: **Convert to PDFs**, **Merge PDFs**, and **Create Booklets**.
