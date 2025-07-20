@@ -244,6 +244,177 @@ This command will:
 1.  Build the platform-specific application bundles in the `dist/` directory.
 2.  Create a `dist/booklet-tool-testdata.zip` file containing sample input PDFs for testing the tool's functionality. Unzip this file and use the contained folders/files as input within the Booklet Tool.
 
+### Release Process
+
+This section documents the complete process for creating and publishing a new release.
+
+#### Prerequisites
+
+- **macOS Development Machine**: Required for building and signing macOS binaries
+- **Apple Developer Account**: Configured in `.env` file with:
+  - `APPLE_ID`: Your Apple Developer email
+  - `APPLE_TEAM_ID`: Your Apple Developer Team ID  
+  - `APPLE_APP_SPECIFIC_PASSWORD`: App-specific password for notarization
+- **GitHub CLI**: Install with `brew install gh` and authenticate with `gh auth login`
+
+#### Step 1: Prepare the Release
+
+1. **Update Version Number**
+   ```bash
+   # Update version in package.json
+   npm version patch  # for bug fixes (1.0.1 -> 1.0.2)
+   npm version minor  # for new features (1.0.2 -> 1.1.0)  
+   npm version major  # for breaking changes (1.1.0 -> 2.0.0)
+   ```
+
+2. **Update CHANGELOG.md**
+   ```markdown
+   ## [1.0.2] - 2025-01-XX
+   
+   - [FIXED] Description of bug fixes
+   - [IMPROVED] Description of improvements
+   - [ADDED] Description of new features
+   ```
+
+3. **Commit Changes**
+   ```bash
+   git add package.json CHANGELOG.md
+   git commit -m "Release v1.0.2: Brief description of changes"
+   git push origin main
+   ```
+
+#### Step 2: Build macOS Version
+
+1. **Clean Previous Builds**
+   ```bash
+   rm -rf dist/
+   ```
+
+2. **Build macOS Universal Binary**
+   ```bash
+   npm run build
+   ```
+   This creates:
+   - `dist/Booklet Tool-1.0.2-mac-universal.dmg` (signed & notarized)
+   - `dist/booklet-tool-testdata.zip`
+
+3. **Verify macOS Build**
+   ```bash
+   # Check that the DMG was created and signed
+   ls -la dist/
+   spctl -a -t open --context context:primary-signature dist/Booklet\ Tool*.dmg
+   ```
+
+#### Step 3: Build Windows/Linux Versions via GitHub Actions
+
+1. **Trigger GitHub Actions Build**
+   ```bash
+   npm run build:ci
+   ```
+   
+   This runs the "Manual Build (Win/Linux)" workflow which creates:
+   - Windows: `.exe` portable executable
+   - Linux: `.AppImage`, `.deb`, and `.tar.gz` files (x64 and arm64)
+
+2. **Monitor Build Progress**
+   ```bash
+   gh run list --workflow="Manual Build (Win/Linux)"
+   ```
+
+3. **Download Artifacts** (once build completes)
+   ```bash
+   # Go to Actions tab on GitHub and download:
+   # - booklet-tool-windows-portable-x64
+   # - booklet-tool-linux-native-x64
+   # - booklet-tool-linux-native-arm64
+   ```
+
+#### Step 4: Create Git Tag and GitHub Release
+
+1. **Create and Push Git Tag**
+   ```bash
+   git tag v1.0.2
+   git push origin v1.0.2
+   ```
+
+2. **Automatic Draft Release Creation**
+   
+   The tag push triggers the "Create GitHub Release" workflow which:
+   - Reads changelog content for the version
+   - Creates a **draft release** on GitHub
+   - Sets the release body from CHANGELOG.md
+
+3. **Find the Draft Release**
+   ```bash
+   gh release list
+   # Or visit: https://github.com/UBA-PSI/klausur-booklets/releases
+   ```
+
+#### Step 5: Upload Build Artifacts
+
+1. **Upload macOS Build**
+   ```bash
+   gh release upload v1.0.2 "dist/Booklet Tool-1.0.2-mac-universal.dmg"
+   gh release upload v1.0.2 "dist/booklet-tool-testdata.zip"
+   ```
+
+2. **Upload Windows/Linux Builds**
+   ```bash
+   # Extract downloaded artifacts and upload
+   gh release upload v1.0.2 path/to/Booklet-Tool.1.0.2-win-portable.exe
+   gh release upload v1.0.2 path/to/Booklet-Tool-1.0.2-linux-x64.AppImage
+   gh release upload v1.0.2 path/to/Booklet-Tool-1.0.2-linux-arm64.AppImage
+   # ... upload other Linux formats (.deb, .tar.gz)
+   ```
+
+#### Step 6: Publish Release
+
+1. **Edit Release Notes** (if needed)
+   ```bash
+   gh release edit v1.0.2
+   ```
+
+2. **Publish the Release**
+   ```bash
+   gh release edit v1.0.2 --draft=false
+   ```
+
+#### Step 7: Update Download Links (Optional)
+
+Update README.md download links to point to the new version:
+```markdown
+Download the latest version for [**Windows**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.0.2/Booklet-Tool.1.0.2-win-portable.exe) · [**macOS**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.0.2/Booklet-Tool-1.0.2-mac-universal.dmg) · [**Linux**](https://github.com/UBA-PSI/klausur-booklets/releases/)
+```
+
+#### Troubleshooting
+
+**macOS Build Issues:**
+```bash
+# Verify certificates
+security find-identity -v -p codesigning
+
+# Clear derived data and rebuild
+rm -rf ~/Library/Developer/Xcode/DerivedData
+rm -rf dist/
+npm run build
+```
+
+**GitHub Actions Build Issues:**
+```bash
+# Check workflow logs
+gh run list --workflow="Manual Build (Win/Linux)"
+gh run view [RUN_ID] --log
+```
+
+**Release Issues:**
+```bash
+# Delete and recreate tag if needed
+git tag -d v1.0.2
+git push origin :refs/tags/v1.0.2
+git tag v1.0.2
+git push origin v1.0.2
+```
+
 ### Configuration
 
 PDF processing settings (like DPI) can be adjusted via the Settings button within the application.
