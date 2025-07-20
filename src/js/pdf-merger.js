@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { PDFDocument, PDFPage, StandardFonts, rgb } = require('pdf-lib');
+const fontkit = require('fontkit');
 const sharp = require('sharp');
 const decodeHeic = require('heic-decode');
 const { marked } = require('marked');
@@ -14,6 +15,122 @@ class AmbiguityError extends Error {
         this.name = "AmbiguityError";
         this.ambiguities = ambiguities; 
     }
+}
+// ---------------------------------
+
+// --- Text Sanitization for WinAnsi Compatibility ---
+function sanitizeTextForWinAnsi(text) {
+    // First normalize Unicode to convert combining characters to composed forms
+    const normalizedText = text.normalize('NFC');
+    console.log(`Sanitizing text for WinAnsi: "${text}" -> normalized: "${normalizedText}"`);
+    
+    // Map common Unicode characters to their closest ASCII equivalents
+    const charMap = {
+        // German umlauts
+        'ä': 'ae', 'ö': 'oe', 'ü': 'ue', 'ß': 'ss',
+        'Ä': 'Ae', 'Ö': 'Oe', 'Ü': 'Ue',
+        // French accents
+        'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'å': 'a',
+        'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e',
+        'ì': 'i', 'í': 'i', 'î': 'i', 'ï': 'i',
+        'ò': 'o', 'ó': 'o', 'ô': 'o', 'õ': 'o',
+        'ù': 'u', 'ú': 'u', 'û': 'u',
+        'ñ': 'n', 'ç': 'c',
+        'À': 'A', 'Á': 'A', 'Â': 'A', 'Ã': 'A', 'Å': 'A',
+        'È': 'E', 'É': 'E', 'Ê': 'E', 'Ë': 'E',
+        'Ì': 'I', 'Í': 'I', 'Î': 'I', 'Ï': 'I',
+        'Ò': 'O', 'Ó': 'O', 'Ô': 'O', 'Õ': 'O',
+        'Ù': 'U', 'Ú': 'U', 'Û': 'U',
+        'Ñ': 'N', 'Ç': 'C',
+        // Other common characters
+        'ÿ': 'y', 'Ÿ': 'Y',
+        // Remove combining diacritical marks (fallback, should be handled by normalization)
+        '\u0300': '', '\u0301': '', '\u0302': '', '\u0303': '', '\u0304': '',
+        '\u0305': '', '\u0306': '', '\u0307': '', '\u0308': '', '\u0309': '',
+        '\u030A': '', '\u030B': '', '\u030C': '', '\u030D': '', '\u030E': '',
+        '\u030F': '', '\u0310': '', '\u0311': '', '\u0312': '', '\u0313': '',
+        '\u0314': '', '\u0315': '', '\u0316': '', '\u0317': '', '\u0318': '',
+        '\u0319': '', '\u031A': '', '\u031B': '', '\u031C': '', '\u031D': '',
+        '\u031E': '', '\u031F': '', '\u0320': '', '\u0321': '', '\u0322': '',
+        '\u0323': '', '\u0324': '', '\u0325': '', '\u0326': '', '\u0327': '',
+        '\u0328': '', '\u0329': '', '\u032A': '', '\u032B': '', '\u032C': '',
+        '\u032D': '', '\u032E': '', '\u032F': '', '\u0330': '', '\u0331': '',
+        '\u0332': '', '\u0333': '', '\u0334': '', '\u0335': '', '\u0336': '',
+    };
+    
+    return normalizedText.replace(/[\u0080-\uFFFF]/g, function(match) {
+        return charMap[match] || '?'; // Replace unmappable characters with '?'
+    });
+}
+
+// --- Filename Sanitization for Filesystem Compatibility ---
+function sanitizeFilename(filename) {
+    // First normalize Unicode to convert combining characters to composed forms
+    const normalizedFilename = filename.normalize('NFC');
+    console.log(`Sanitizing filename: "${filename}" -> normalized: "${normalizedFilename}"`);
+    
+    // Map common Unicode characters to their closest ASCII equivalents for filenames
+    const charMap = {
+        // German umlauts
+        'ä': 'ae', 'ö': 'oe', 'ü': 'ue', 'ß': 'ss',
+        'Ä': 'Ae', 'Ö': 'Oe', 'Ü': 'Ue',
+        // French accents
+        'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'å': 'a',
+        'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e',
+        'ì': 'i', 'í': 'i', 'î': 'i', 'ï': 'i',
+        'ò': 'o', 'ó': 'o', 'ô': 'o', 'õ': 'o',
+        'ù': 'u', 'ú': 'u', 'û': 'u',
+        'ñ': 'n', 'ç': 'c',
+        'À': 'A', 'Á': 'A', 'Â': 'A', 'Ã': 'A', 'Å': 'A',
+        'È': 'E', 'É': 'E', 'Ê': 'E', 'Ë': 'E',
+        'Ì': 'I', 'Í': 'I', 'Î': 'I', 'Ï': 'I',
+        'Ò': 'O', 'Ó': 'O', 'Ô': 'O', 'Õ': 'O',
+        'Ù': 'U', 'Ú': 'U', 'Û': 'U',
+        'Ñ': 'N', 'Ç': 'C',
+        'ÿ': 'y', 'Ÿ': 'Y',
+        // Combining diacritical marks (should be handled by normalization, but as fallback)
+        '\u0300': '', '\u0301': '', '\u0302': '', '\u0303': '', '\u0304': '',
+        '\u0305': '', '\u0306': '', '\u0307': '', '\u0308': '', '\u0309': '',
+        '\u030A': '', '\u030B': '', '\u030C': '', '\u030D': '', '\u030E': '',
+        '\u030F': '', '\u0310': '', '\u0311': '', '\u0312': '', '\u0313': '',
+        '\u0314': '', '\u0315': '', '\u0316': '', '\u0317': '', '\u0318': '',
+        '\u0319': '', '\u031A': '', '\u031B': '', '\u031C': '', '\u031D': '',
+        '\u031E': '', '\u031F': '', '\u0320': '', '\u0321': '', '\u0322': '',
+        '\u0323': '', '\u0324': '', '\u0325': '', '\u0326': '', '\u0327': '',
+        '\u0328': '', '\u0329': '', '\u032A': '', '\u032B': '', '\u032C': '',
+        '\u032D': '', '\u032E': '', '\u032F': '', '\u0330': '', '\u0331': '',
+        '\u0332': '', '\u0333': '', '\u0334': '', '\u0335': '', '\u0336': '',
+    };
+    
+    // Replace Unicode characters with ASCII equivalents
+    let sanitized = normalizedFilename;
+    // First, explicitly handle each character in the map
+    for (const [unicode, replacement] of Object.entries(charMap)) {
+        sanitized = sanitized.replace(new RegExp(unicode, 'g'), replacement);
+    }
+    
+    // Then handle any remaining Unicode characters
+    sanitized = sanitized.replace(/[\u0080-\uFFFF]/g, function(match) {
+        console.log(`Unmapped Unicode character found: "${match}" (U+${match.charCodeAt(0).toString(16).toUpperCase()})`);
+        return 'X'; // Use 'X' for unmapped characters
+    });
+    
+    console.log(`Sanitized result: "${sanitized}"`);
+    
+    // Remove or replace characters that are problematic in filenames
+    sanitized = sanitized
+        .replace(/[<>:"/\\|?*]/g, '') // Remove Windows-forbidden characters
+        .replace(/[\x00-\x1f]/g, '') // Remove control characters
+        .replace(/\s+/g, ' ') // Normalize whitespace
+        .trim() // Remove leading/trailing whitespace
+        .replace(/\.$/, ''); // Remove trailing periods (Windows issue)
+    
+    // Ensure filename isn't empty after sanitization
+    if (!sanitized) {
+        sanitized = 'sanitized_filename';
+    }
+    
+    return sanitized;
 }
 // ---------------------------------
 
@@ -32,15 +149,49 @@ Student: {{LAST_NAME}}, {{FIRST_NAME}}
 {{MISSING_PAGES_LIST}}`;
     }
 
-    // Extract info, providing defaults
-    const fullName = studentInfo?.fullName || 'Unknown Name';
-    const firstName = studentInfo?.firstName || '';
-    const lastName = studentInfo?.lastName || 'Unknown';
+    // Extract info, providing defaults and normalize Unicode
+    const rawFullName = studentInfo?.fullName || 'Unknown Name';
+    const rawFirstName = studentInfo?.firstName || '';
+    const rawLastName = studentInfo?.lastName || 'Unknown';
+    
+    // Normalize Unicode to convert combining characters to composed forms
+    const fullName = rawFullName.normalize('NFC');
+    const firstName = rawFirstName.normalize('NFC'); 
+    const lastName = rawLastName.normalize('NFC');
     const studentNumber = studentInfo?.studentNumber || '–'; // Use '–' if not available
+
+    // Debug Unicode characters in student info
+    console.log(`Cover sheet debug - Raw full name: "${rawFullName}"`);
+    console.log(`Cover sheet debug - Normalized full name: "${fullName}"`);
+    console.log(`Cover sheet debug - First name: "${firstName}"`);
+    console.log(`Cover sheet debug - Last name: "${lastName}"`);
+    
+    // Check for Unicode characters in both raw and normalized
+    console.log(`Raw fullName characters:`);
+    for (let i = 0; i < rawFullName.length; i++) {
+        const char = rawFullName.charAt(i);
+        const code = char.charCodeAt(0);
+        if (code > 127) {
+            console.log(`  "${char}" (U+${code.toString(16).toUpperCase()})`);
+        }
+    }
+    
+    console.log(`Normalized fullName characters:`);
+    for (let i = 0; i < fullName.length; i++) {
+        const char = fullName.charAt(i);
+        const code = char.charCodeAt(0);
+        if (code > 127) {
+            console.log(`  "${char}" (U+${code.toString(16).toUpperCase()})`);
+        }
+    }
 
     // Sort the missing pages list alphabetically
     const sortedMissingSeiten = [...missingSeiten].sort();
     const missingList = sortedMissingSeiten.length > 0 ? sortedMissingSeiten.join('\n') : 'None';
+
+    // Debug the lists being used in the cover sheet
+    console.log(`Cover sheet submitted list: "${submittedSeitenListString}"`);
+    console.log(`Cover sheet missing list: "${missingList}"`);
 
     // Replace template tags
     let processedContent = templateContent
@@ -50,11 +201,72 @@ Student: {{LAST_NAME}}, {{FIRST_NAME}}
         .replace(/\{\{\s*STUDENTNUMBER\s*\}\}/gi, studentNumber) // Replace student number
         .replace(/\{\{\s*SUBMITTED_PAGES_LIST\s*\}\}/gi, submittedSeitenListString) // This will be replaced *after* sorting the list
         .replace(/\{\{\s*MISSING_PAGES_LIST\s*\}\}/gi, missingList);
+        
+    console.log(`Cover sheet processed content preview: ${processedContent.substring(0, 200)}...`);
 
     const pdfDoc = await PDFDocument.create();
+    
+    // Register fontkit to enable custom font embedding
+    pdfDoc.registerFontkit(fontkit);
+    
     const page = pdfDoc.addPage([width, height]);
-    const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    
+    // Use Roboto fonts that support Unicode characters (including umlauts)
+    let helvetica, helveticaBold;
+    let usingCustomFonts = false;
+    
+    try {
+        // Try multiple possible paths for font files (dev vs production)
+        const possibleBasePaths = [
+            path.join(__dirname, '../assets/fonts'), // Development
+            path.join(__dirname, '../../src/assets/fonts'), // Alternative dev path
+            path.join(process.resourcesPath, 'app.asar.unpacked/src/assets/fonts'), // Production (asar unpacked)
+            path.join(process.resourcesPath, 'src/assets/fonts'), // Alternative production path
+        ];
+        
+        let robotoRegularPath, robotoBoldPath;
+        let fontsFound = false;
+        
+        for (const basePath of possibleBasePaths) {
+            const regularPath = path.join(basePath, 'Roboto-Regular.ttf');
+            const boldPath = path.join(basePath, 'Roboto-Bold.ttf');
+            
+            if (fs.existsSync(regularPath) && fs.existsSync(boldPath)) {
+                robotoRegularPath = regularPath;
+                robotoBoldPath = boldPath;
+                fontsFound = true;
+                console.log(`Found Roboto fonts at: ${basePath}`);
+                break;
+            }
+        }
+        
+        if (!fontsFound) {
+            throw new Error(`Roboto fonts not found in any of the expected locations: ${possibleBasePaths.join(', ')}`);
+        }
+        
+        const robotoRegularBytes = fs.readFileSync(robotoRegularPath);
+        const robotoBoldBytes = fs.readFileSync(robotoBoldPath);
+        
+        console.log(`Roboto Regular font size: ${robotoRegularBytes.length} bytes`);
+        console.log(`Roboto Bold font size: ${robotoBoldBytes.length} bytes`);
+        
+        helvetica = await pdfDoc.embedFont(robotoRegularBytes);
+        helveticaBold = await pdfDoc.embedFont(robotoBoldBytes);
+        
+        console.log('Successfully embedded Roboto fonts');
+        usingCustomFonts = true;
+        
+    } catch (fontError) {
+        console.warn('Could not load Roboto fonts, falling back to standard fonts with text sanitization:', fontError.message);
+        console.warn('Font error details:', fontError);
+        
+        helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+        
+        // Sanitize the processedContent to replace problematic characters
+        processedContent = sanitizeTextForWinAnsi(processedContent);
+        console.log('Applied text sanitization due to font fallback');
+    }
 
     // Settings for drawing
     const margin = 50;
@@ -232,13 +444,51 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent)
         const dirPath = path.join(pagesDirectory, dir);
         // Check if it's a directory AND not named 'pdfs' or 'booklets' (redundant check, but safe)
         return fs.statSync(dirPath).isDirectory() && dir !== 'pdfs' && dir !== 'booklets';
-    }).sort();
+    });
     console.log(`Found ${studentIdentifiers.length} student identifier directories in ${pagesDirectory}.`);
 
+    // Collect student info and sort by last name for numbering
+    const studentsWithInfo = [];
     for (const studentIdentifier of studentIdentifiers) {
-        console.log(`Processing student identifier: ${studentIdentifier}`);
-        // Construct path to student dir inside 'pages'
         const studentDirPath = path.join(pagesDirectory, studentIdentifier);
+        const infoFilePath = path.join(studentDirPath, 'processed_files.json');
+        let studentInfo = { primaryIdentifier: studentIdentifier, fullName: studentIdentifier, lastName: studentIdentifier };
+        
+        if (fs.existsSync(infoFilePath)) {
+            try {
+                const data = JSON.parse(fs.readFileSync(infoFilePath, 'utf-8'));
+                if (data && Array.isArray(data.processedFiles) && data.processedFiles.length > 0 && data.processedFiles[0].studentInfo) {
+                    studentInfo = data.processedFiles[0].studentInfo;
+                }
+            } catch (err) {
+                console.warn(`Could not read student info for ${studentIdentifier}, using fallback`);
+            }
+        }
+        
+        studentsWithInfo.push({
+            identifier: studentIdentifier,
+            info: studentInfo,
+            dirPath: studentDirPath
+        });
+    }
+
+    // Sort by last name for consistent numbering
+    studentsWithInfo.sort((a, b) => {
+        const lastNameA = a.info.lastName || a.identifier;
+        const lastNameB = b.info.lastName || b.identifier;
+        return lastNameA.localeCompare(lastNameB, 'de', { numeric: true });
+    });
+    
+    console.log(`Sorted ${studentsWithInfo.length} students by last name for processing.`);
+
+    for (let i = 0; i < studentsWithInfo.length; i++) {
+        const student = studentsWithInfo[i];
+        const studentIdentifier = student.identifier;
+        const studentNumber = String(i + 1).padStart(3, '0'); // 001, 002, 003, etc.
+        
+        console.log(`Processing student ${studentNumber}: ${studentIdentifier}`);
+        // Use the pre-determined path
+        const studentDirPath = student.dirPath;
 
         // --- Read Processed File Info --- 
         let processedFilesData = []; // Default to an empty array
@@ -313,7 +563,12 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent)
         });
 
         const submittedSeitenListString = sortedProcessedFiles.length > 0 
-            ? sortedProcessedFiles.map(info => `- ${info.pageName}: ${info.originalFileName}`).join('\n')
+            ? sortedProcessedFiles.map(info => {
+                // Normalize Unicode characters in page names and file names
+                const normalizedPageName = info.pageName.normalize('NFC');
+                const normalizedFileName = info.originalFileName.normalize('NFC');
+                return `- ${normalizedPageName}: ${normalizedFileName}`;
+            }).join('\n')
             : 'None';
         const pagesSuccessfullyMerged = []; // Track pages we actually add
         const pagesFailedToMerge = []; // Track pages that failed
@@ -352,11 +607,14 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent)
 	    const seiteFolders = fs.readdirSync(mainDirectory).filter(item => {
 	        const itemPath = path.join(mainDirectory, item);
 	        return fs.statSync(itemPath).isDirectory();
-	    });
-        const submittedPageNames = sortedProcessedFiles.map(info => info.pageName); // Use sorted list for accurate missing check
+	    }).map(folder => folder.normalize('NFC')); // Normalize Unicode in folder names
+        
+        const submittedPageNames = sortedProcessedFiles.map(info => info.pageName.normalize('NFC')); // Normalize and use sorted list for accurate missing check
         const missingSeiten = seiteFolders.filter(seite => !submittedPageNames.includes(seite));
-        // Add pages that failed to merge to the missing list as well
-        const finalMissingSeiten = [...new Set([...missingSeiten, ...pagesFailedToMerge])].sort();
+        
+        // Add pages that failed to merge to the missing list as well (normalize these too)
+        const normalizedFailedPages = pagesFailedToMerge.map(page => page.normalize('NFC'));
+        const finalMissingSeiten = [...new Set([...missingSeiten, ...normalizedFailedPages])].sort();
         console.log(`  Submitted based on processed info: ${submittedPageNames.length}, Merged successfully: ${pagesSuccessfullyMerged.length}, Failed/Missing: ${finalMissingSeiten.length}`);
 
         // Generate cover sheet using the studentInfo object and template CONTENT
@@ -366,7 +624,9 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent)
         mergedPdf.insertPage(0, coverPage);
         console.log(`  Generated and added cover sheet.`);
 
-        const outputPdfFileName = `${studentInfoForCover.primaryIdentifier || studentIdentifier}.pdf`; // Use primary ID if available
+        // Sanitize filename to prevent filesystem issues with non-ASCII characters
+        const sanitizedIdentifier = sanitizeFilename(studentInfoForCover.primaryIdentifier || studentIdentifier);
+        const outputPdfFileName = `${studentNumber}_${sanitizedIdentifier}.pdf`;
         const outputPath = path.join(pdfsSubDirectory, outputPdfFileName); // Output merged PDF to root 'pdfs' dir
         
         // Try saving the final merged PDF

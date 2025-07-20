@@ -6,6 +6,15 @@ All notable changes to this project will be documented in this file.
 
 - [FIXED] Folder name parsing bug where patterns starting with FULLNAMEWITHSPACES failed to detect underscore separator, causing incorrect student grouping and name splitting.
 - [FIXED] Added support for Moodle folder names ending with "assignsubmission_file" (without trailing underscore) in addition to the existing "_assignsubmission_file_" format.
+- [IMPROVED] Updated default Moodle pattern and settings dialog documentation to clarify that trailing underscore is optional.
+- [IMPROVED] Changed default Moodle format to use "FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file" (without trailing underscore) to match folder structures (apparently this was changed in a recent Moodle update).
+- [FIXED] Unicode character encoding error when generating cover sheets for students with non-ASCII characters (like umlauts) in their names. Now uses Roboto fonts with full Unicode support via fontkit library, with automatic fallback to character sanitization if fonts can't be loaded.
+- [FIXED] Added Roboto fonts to asarUnpack configuration to ensure they're available in built Electron applications and improved font path resolution for both development and production environments.
+- [IMPROVED] Added filename sanitization for output PDFs to prevent filesystem issues with non-ASCII characters while preserving readability (e.g., "ä" becomes "ae").
+- [IMPROVED] Added automatic numbering system for PDF filenames: students are sorted by last name and numbered sequentially (001, 002, 003, etc.) for easier organization.
+- [FIXED] Improved filename sanitization to properly handle German umlauts and other Unicode characters with correct ASCII replacements.
+- [FIXED] Added Unicode normalization (NFC) to convert combining diacritical marks (like U+308 combining diaeresis) to composed characters (like ä U+E4) for proper display in cover sheets and filename handling.
+- [FIXED] Applied Unicode normalization to page names and filenames in submitted/missing pages lists on cover sheets to fix display issues with non-ASCII characters in directory and file names.
 
 ## [1.0.1] - 2025-04-21
 

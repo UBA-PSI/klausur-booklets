@@ -32,6 +32,7 @@
     "bootstrap-icons": "^1.11.3",
     "csv-parse": "^5.5.6",
     "flatpickr": "^4.6.13",
+    "fontkit": "^2.0.4",
     "heic-decode": "^2.0.0",
     "marked": "^15.0.8",
     "pdf-lib": "^1.17.1",
@@ -63,7 +64,8 @@
       "**/node_modules/sharp/**/*",
       "**/node_modules/@img/sharp-libvips-*/**",
       "**/node_modules/@hyzyla/pdfium/dist/pdfium.wasm",
-      "src/assets/mbz-templates/**/*"
+      "src/assets/mbz-templates/**/*",
+      "src/assets/fonts/**/*"
     ],
     "mac": {
       "category": "public.app-category.developer-tools",

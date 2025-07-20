@@ -425,7 +425,7 @@
                                 </div>
                                 <div class="form-check">
                                     <input class="form-check-input" type="radio" id="pattern-moodle" name="pattern-preset"
-                                        value="FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file_">
+                                        value="FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file">
                                     <label class="form-check-label" for="pattern-moodle">Moodle Format</label>
                                 </div>
                                 <div class="form-check">
@@ -438,7 +438,7 @@
             <!-- Pattern Input -->
                             <div class="mb-3">
                                 <input type="text" id="foldername-pattern" class="form-control"
-                                    placeholder="e.g., FIRSTNAME-LASTNAME or FULLNAMEWITHSPACES_NUMBER_assignsubmission_file_">
+                                    placeholder="e.g., FIRSTNAME-LASTNAME or FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file">
                             </div>
             
             <!-- Compact Pattern Help -->
@@ -456,6 +456,10 @@
                                             Grading Worksheet CSV file inside each page's input subfolder (e.g., `Page
                                             1/worksheet.csv`). You will be prompted if collisions are detected and the CSV
                                             files are required.</p>
+                                        <p class="mb-2"><strong>Moodle Folder Names:</strong> The tool supports both 
+                                            <code>assignsubmission_file</code> and <code>assignsubmission_file_</code> 
+                                            (with or without trailing underscore) suffixes. Use the pattern that matches 
+                                            your actual folder structure.</p>
 
                                         <div class="row">
                                             <div class="col-md-6">
@@ -478,7 +482,7 @@
                                                 <ul class="ps-3 mb-2">
                                     <li>Ilias: <code>FIRSTNAME_LASTNAME_USERNAME_STUDENTNUMBER</code></li>
                                                     <li>Moodle:
-                                                        <code>FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file_</code>
+                                                        <code>FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file</code>
                                                     </li>
                                     <li>Simple: <code>LASTNAME-FIRSTNAME</code></li>
                                 </ul>

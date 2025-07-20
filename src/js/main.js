@@ -72,7 +72,7 @@ function createWindow() {
 
     // Check if config exists and send its content to renderer
     let configToSend = {}; // Initialize empty config object
-    const defaultMoodlePattern = 'FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file_';
+    const defaultMoodlePattern = 'FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file';
 
     if (fs.existsSync(CONFIG_PATH)) {
         try {
@@ -1025,7 +1025,7 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
         sendLogToRenderer("WARN: Could not load config for transformation, using defaults.");
     }
     // Apply default Moodle pattern if not found in config
-    const folderPattern = config.foldernamePattern || 'FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file_'; 
+    const folderPattern = config.foldernamePattern || 'FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file'; 
     const isMoodleMode = folderPattern?.startsWith('FULLNAMEWITHSPACES');
     sendLogToRenderer(`Using folder pattern: ${folderPattern}, Moodle Mode: ${isMoodleMode}`);
 
@@ -1104,7 +1104,7 @@ ipcMain.handle('resolve-ambiguity', async (event, selectedIdentifiers) => {
         // Potentially throw an error here if pattern is crucial?
     }
     // Apply default Moodle pattern if not found in config
-    const folderPattern = config.foldernamePattern || 'FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file_';
+    const folderPattern = config.foldernamePattern || 'FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file';
 
     // Start with the tasks that were already unambiguous
     const tasksToProcess = [...pendingTransformationData.unambiguousTasks];
