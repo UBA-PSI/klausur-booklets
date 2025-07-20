@@ -323,7 +323,7 @@ function parseFolderName(folderName, pattern) {
 
     // --- Detect Separator --- 
     let separator = null;
-    if (pattern.includes('_') && !pattern.startsWith('FULLNAMEWITHSPACES')) { // Prioritize _ unless it's the Moodle pattern
+    if (pattern.includes('_')) {
         separator = '_';
     } else if (pattern.includes('-')) {
         separator = '-';
@@ -331,10 +331,25 @@ function parseFolderName(folderName, pattern) {
     console.log(`Detected separator from pattern: '${separator}'`);
     // --- End Detect --- 
 
-    // Special Moodle case (still assumes _ before suffix, but less reliant on internal _)
-    const moodleSuffix = '_assignsubmission_file_';
-    if (pattern.startsWith('FULLNAMEWITHSPACES') && folderName.includes(moodleSuffix)) { 
-        const baseName = folderName.substring(0, folderName.lastIndexOf(moodleSuffix));
+    // Special Moodle case (handle both _assignsubmission_file_ and _assignsubmission_file)
+    const moodleSuffixWithUnderscore = '_assignsubmission_file_';
+    const moodleSuffixWithoutUnderscore = '_assignsubmission_file';
+    if (pattern.startsWith('FULLNAMEWITHSPACES') && 
+        (folderName.includes(moodleSuffixWithUnderscore) || folderName.endsWith(moodleSuffixWithoutUnderscore))) {
+        
+        // Determine which suffix is present
+        let actualSuffix;
+        if (folderName.includes(moodleSuffixWithUnderscore)) {
+            actualSuffix = moodleSuffixWithUnderscore;
+        } else {
+            actualSuffix = moodleSuffixWithoutUnderscore;
+        }
+        
+        const baseName = folderName.includes(moodleSuffixWithUnderscore) 
+            ? folderName.substring(0, folderName.lastIndexOf(moodleSuffixWithUnderscore))
+            : folderName.substring(0, folderName.lastIndexOf(moodleSuffixWithoutUnderscore));
+        console.log(`Detected Moodle pattern with suffix '${actualSuffix}', baseName: '${baseName}'`); 
+        
         const nameAndNumber = separator ? baseName.split(separator) : baseName.split('_'); 
         
         if (nameAndNumber.length >= 2) {
@@ -849,8 +864,9 @@ function performFinalCollisionCheck(tasks, isMoodleMode) {
         });
         
         if (isMoodleMode) {
-            const moodleSuffix = '_assignsubmission_file_';
-            if (folderName.includes(moodleSuffix)) {
+            const moodleSuffixWithUnderscore = '_assignsubmission_file_';
+            const moodleSuffixWithoutUnderscore = '_assignsubmission_file';
+            if (folderName.includes(moodleSuffixWithUnderscore) || folderName.endsWith(moodleSuffixWithoutUnderscore)) {
                 originKey = task.studentInfo.fullName;
             } else {
                 originKey = folderName;
