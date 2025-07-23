@@ -2,7 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.0.2] - 2025-01-XX
+## [1.0.3] - 2025-01-23
+
+- [FIXED] **Sorting issue**: Pages are now sorted numerically instead of lexicographically. This fixes the major issue where pages were incorrectly ordered as "1, 10, 11, 2" instead of "1, 2, 10, 11". The fix applies to PDF merging order, missing pages lists, and cover sheet displays. Supports all naming conventions including prefixed names like "Page 1", "Seite 2", etc.
+
+## [1.0.2] - 2025-01-20
 
 - [FIXED] Folder name parsing bug where patterns starting with FULLNAMEWITHSPACES failed to detect underscore separator, causing incorrect student grouping and name splitting.
 - [FIXED] Added support for Moodle folder names ending with "assignsubmission_file" (without trailing underscore) in addition to the existing "_assignsubmission_file_" format.

@@ -185,8 +185,11 @@ Student: {{LAST_NAME}}, {{FIRST_NAME}}
         }
     }
 
-    // Sort the missing pages list alphabetically
-    const sortedMissingSeiten = [...missingSeiten].sort();
+    // Sort the missing pages list numerically using natural sort
+    const sortedMissingSeiten = [...missingSeiten].sort((a, b) => {
+        // Natural sort to handle numeric ordering (1, 2, 10, 11)
+        return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+    });
     const missingList = sortedMissingSeiten.length > 0 ? sortedMissingSeiten.join('\n') : 'None';
 
     // Debug the lists being used in the cover sheet
@@ -543,7 +546,12 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent)
         // Find the generated PDFs for merging within the student's directory in 'pages'
         const studentPDFs = fs.readdirSync(studentDirPath)
                              .filter(file => file.endsWith('.pdf') && file !== 'processed_files.json') // Exclude json file
-                             .sort(); 
+                             .sort((a, b) => {
+                                 // Natural sort to handle numeric ordering (1.pdf, 2.pdf, 10.pdf, 11.pdf)
+                                 const nameA = path.basename(a, '.pdf');
+                                 const nameB = path.basename(b, '.pdf');
+                                 return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
+                             }); 
 
         if (studentPDFs.length === 0 && processedFilesData.length === 0) {
             console.log(`  No transformed PDFs or processed info found for ${studentIdentifier}, skipping merge.`);
@@ -614,7 +622,10 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent)
         
         // Add pages that failed to merge to the missing list as well (normalize these too)
         const normalizedFailedPages = pagesFailedToMerge.map(page => page.normalize('NFC'));
-        const finalMissingSeiten = [...new Set([...missingSeiten, ...normalizedFailedPages])].sort();
+        const finalMissingSeiten = [...new Set([...missingSeiten, ...normalizedFailedPages])].sort((a, b) => {
+            // Natural sort to handle numeric ordering (1, 2, 10, 11)
+            return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+        });
         console.log(`  Submitted based on processed info: ${submittedPageNames.length}, Merged successfully: ${pagesSuccessfullyMerged.length}, Failed/Missing: ${finalMissingSeiten.length}`);
 
         // Generate cover sheet using the studentInfo object and template CONTENT
