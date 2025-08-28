@@ -1,0 +1,138 @@
+name: Build Memory Management (1.0.5-dev)
+
+on:
+  workflow_dispatch: # Allows manual triggering
+    inputs:
+      run_native:
+        description: 'Run Native Builds (Win/Linux)?'
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read # Read permissions needed to checkout code
+
+jobs:
+  build-native:
+    # This job builds Windows exe, Linux deb, tar.gz, AppImage
+    name: Build Native (${{ matrix.os }} / ${{ matrix.arch }})
+    # Explicitly compare input string to 'true'
+    if: github.event.inputs.run_native == 'true'
+    strategy:
+      fail-fast: false # Keep running other builds if one fails
+      matrix:
+        include:
+          - os: windows-latest
+            arch: x64
+            runner: windows-latest
+            build_args: "--win --x64"
+          - os: ubuntu-22.04
+            arch: x64
+            runner: ubuntu-22.04
+            build_args: "--linux --x64"
+          - os: ubuntu-24.04-arm
+            arch: arm64
+            runner: ubuntu-24.04-arm
+            build_args: "--linux --arm64"
+
+    runs-on: ${{ matrix.runner }} # Use runner from matrix
+
+    steps:
+      - name: Checkout memory management branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/memory-management-1.0.5-dev # Build from memory management branch
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Clear npm cache
+        run: npm cache clean --force
+
+      - name: Install System Build Dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ruby ruby-dev build-essential rpm
+          sudo gem install fpm --no-document
+
+      - name: Install dependencies
+        run: npm install --verbose
+
+      # Windows build modifications
+      - name: Install Sharp for Windows
+        if: runner.os == 'Windows'
+        run: npm run sharp:win
+
+      # Linux x64 build modifications
+      - name: Install Sharp for Linux x64
+        if: matrix.os == 'ubuntu-22.04' && matrix.arch == 'x64'
+        run: npm run sharp:linux-x64
+
+      # Linux ARM64 build modifications
+      - name: Install Sharp for Linux ARM64
+        if: matrix.os == 'ubuntu-24.04-arm' && matrix.arch == 'arm64'
+        run: npm run sharp:linux-arm64
+
+      # Add this step after npm install for all platforms
+      - name: Rebuild native modules
+        run: npx electron-builder install-app-deps
+
+      - name: Check node_modules after install
+        if: runner.os == 'Linux'
+        run: |
+          echo "----"
+          echo Checking for Sharp platform package in node_modules/@img/
+          ls -l node_modules/@img/
+          echo "----"
+          echo "Checking for Sharp libs in node_modules/@img/sharp-libvips-linux-arm64*/lib/"
+          ls -lR node_modules/@img/sharp-libvips-linux-arm64*/lib/
+          echo "----"
+          echo "Finding all files containing 'vips' in node_modules/"
+          find node_modules/ -iname '*vips*'
+          echo "----"
+        continue-on-error: true
+
+      - name: Build application (Native)
+        # Run electron-builder directly, targeting specific arch
+        # Force using system FPM on Linux to avoid downloading incompatible binaries
+        run: npx electron-builder ${{ matrix.build_args }} --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          # Set USE_SYSTEM_FPM only for Linux builds
+          USE_SYSTEM_FPM: ${{ runner.os == 'Linux' }}
+
+      - name: List Sharp libs in unpacked dir
+        if: runner.os == 'Linux'
+        run: |
+          UNPACKED_DIR="dist/linux-arm64-unpacked/resources/app.asar.unpacked"
+          echo "----
+          echo "Checking specific path: ${UNPACKED_DIR}/node_modules/@img/sharp-libvips-linux-arm64*/lib/"
+          ls -lR "${UNPACKED_DIR}/node_modules/@img/sharp-libvips-linux-arm64*/lib/"
+          echo "----
+          echo "Finding all files containing 'vips' in ${UNPACKED_DIR}/"
+          find "${UNPACKED_DIR}/" -iname '*vips*'
+          echo "----"
+        continue-on-error: true # Don't fail the build if the path doesn't exist
+
+      - name: Upload Windows Artifact
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: booklet-tool-1.0.5-dev-windows-portable-${{ matrix.arch }}
+          path: dist/*.exe
+          retention-days: 7
+
+      - name: Upload Linux Native Artifacts
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: booklet-tool-1.0.5-dev-linux-native-${{ matrix.arch }}
+          path: |
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.tar.gz
+          retention-days: 7 
