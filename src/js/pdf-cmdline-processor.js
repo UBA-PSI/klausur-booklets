@@ -92,6 +92,10 @@ async function renderFirstPageToImage(pdfPath, dpi = 300) {
     if (pdfDocument) {
       pdfDocument.destroy();
     }
+    // Force garbage collection if available to help with Windows WASM memory issues
+    if (global.gc) {
+      global.gc();
+    }
     // We generally don't destroy the library itself here, keep it initialized.
   }
 }

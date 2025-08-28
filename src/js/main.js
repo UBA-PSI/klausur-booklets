@@ -6,6 +6,12 @@ const sharp = require('sharp'); // Add sharp for image validation
 const { PDFDocument } = require('pdf-lib'); // Add pdf-lib for PDF validation
 const decodeHeic = require('heic-decode'); // Needed for HEIC
 
+// Add V8 memory flags to help with WASM memory issues, especially on Windows
+app.commandLine.appendSwitch('--max-old-space-size', '8192'); // 8GB heap
+app.commandLine.appendSwitch('--js-flags', '--max-old-space-size=8192 --expose-gc');
+app.commandLine.appendSwitch('--expose-gc'); // Enable manual garbage collection
+console.log('[Memory Config] Applied V8 memory flags for WASM compatibility');
+
 // Function to send logs to the renderer process UI
 function sendLogToRenderer(message) {
     if (mainWindow && mainWindow.webContents) {
