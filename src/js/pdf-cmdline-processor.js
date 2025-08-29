@@ -4,6 +4,9 @@ const { PDFDocument, PageSizes } = require('pdf-lib');
 const { PDFiumLibrary } = require('@hyzyla/pdfium');
 const sharp = require('sharp');
 
+// External PDF renderer using Ghostscript binaries (experimental feature)
+const externalPdfRenderer = require('./pdf-renderer-external');
+
 // --- Initialize PDFium Library ---
 let pdfiumLibrary = null;
 let initializePdfiumPromise = null;
@@ -39,6 +42,26 @@ function initializePdfium() {
  * @returns {Promise<Buffer>} - Promise resolving to PNG image buffer
  */
 async function renderFirstPageToImage(pdfPath, dpi = 300) {
+  // Feature flag: Use external PDF renderer (Ghostscript) if enabled
+  if (process.env.EXTERNAL_PDF_RENDERER === '1') {
+    console.log('[PDF Processor] Using external PDF renderer (Ghostscript)');
+    try {
+      if (await externalPdfRenderer.isExternalRendererAvailable()) {
+        const result = await externalPdfRenderer.renderFirstPageToImage(pdfPath, dpi);
+        console.log('[PDF Processor] External Ghostscript rendering successful');
+        return result;
+      } else {
+        console.log('[PDF Processor] Ghostscript external renderer not available, falling back to WASM');
+      }
+    } catch (error) {
+      console.error('[PDF Processor] External Ghostscript renderer failed:', error.message);
+      console.log('[PDF Processor] Falling back to WASM PDFium');
+    }
+  }
+
+  // Fallback: Use WASM PDFium renderer
+  console.log('[PDF Processor] Using WASM PDFium renderer');
+  
   // Ensure PDFium is initialized
   await initializePdfium();
   if (!pdfiumLibrary) {

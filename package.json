@@ -65,7 +65,8 @@
       "**/node_modules/@img/sharp-libvips-*/**",
       "**/node_modules/@hyzyla/pdfium/dist/pdfium.wasm",
       "src/assets/mbz-templates/**/*",
-      "src/assets/fonts/**/*"
+      "src/assets/fonts/**/*",
+      "bin/**/*"
     ],
     "mac": {
       "category": "public.app-category.developer-tools",
