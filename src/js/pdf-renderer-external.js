@@ -23,10 +23,10 @@ const os = require('os');
  */
 
 /**
- * Get user-configured Ghostscript path from config file
- * @returns {string|null} Custom Ghostscript path or null if not configured
+ * Get user configuration for Ghostscript from config file
+ * @returns {Object} Config with ghostscriptPathType and ghostscriptPath
  */
-function getUserConfiguredGhostscriptPath() {
+function getUserGhostscriptConfig() {
     try {
         // Determine config path using same logic as main.js
         const { app } = require('electron');
@@ -55,15 +55,20 @@ function getUserConfiguredGhostscriptPath() {
         
         if (fs.existsSync(configPath)) {
             const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-            if (config.ghostscriptPath && config.ghostscriptPath.trim()) {
-                return config.ghostscriptPath.trim();
-            }
+            return {
+                ghostscriptPathType: config.ghostscriptPathType || 'bundled',
+                ghostscriptPath: config.ghostscriptPath || ''
+            };
         }
     } catch (error) {
         console.warn(`[External PDF Renderer] Error reading config for Ghostscript path: ${error.message}`);
     }
     
-    return null;
+    // Default to bundled
+    return {
+        ghostscriptPathType: 'bundled',
+        ghostscriptPath: ''
+    };
 }
 
 /**
@@ -71,9 +76,12 @@ function getUserConfiguredGhostscriptPath() {
  * @returns {string} Path to gs executable
  */
 function getGhostscriptPath() {
-    // First, check if user has configured a custom Ghostscript path
-    const customPath = getUserConfiguredGhostscriptPath();
-    if (customPath) {
+    // Get user Ghostscript configuration
+    const gsConfig = getUserGhostscriptConfig();
+    
+    // If user selected custom path and provided one, use it
+    if (gsConfig.ghostscriptPathType === 'custom' && gsConfig.ghostscriptPath && gsConfig.ghostscriptPath.trim()) {
+        const customPath = gsConfig.ghostscriptPath.trim();
         console.log(`[External PDF Renderer] Using custom Ghostscript path: ${customPath}`);
         return customPath;
     }

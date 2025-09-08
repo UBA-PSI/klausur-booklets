@@ -86,13 +86,15 @@ function createWindow() {
         } catch (err) {
             sendLogToRenderer(`Error loading config from ${CONFIG_PATH}: ${err.message}. Using default.`);
             // Fallback to default if loading fails
-            configToSend = { 
-                foldernamePattern: defaultMoodlePattern,
-                // Include other potential default settings here if necessary
-                dpi: 300, 
-                minFileSizeKB: 1, 
-                maxFileSizeMB: 20 
-            };
+        configToSend = { 
+            foldernamePattern: defaultMoodlePattern,
+            // Include other potential default settings here if necessary
+            dpi: 300, 
+            minFileSizeKB: 1, 
+            maxFileSizeMB: 20,
+            pdfRenderer: 'ghostscript', // Default to Ghostscript
+            ghostscriptPathType: 'bundled' // Default to bundled version
+        };
         }
     } else {
         // Config file doesn't exist, create default object
@@ -102,7 +104,9 @@ function createWindow() {
             // Include other default settings here
             dpi: 300, 
             minFileSizeKB: 1, 
-            maxFileSizeMB: 20 
+            maxFileSizeMB: 20,
+            pdfRenderer: 'ghostscript', // Default to Ghostscript
+            ghostscriptPathType: 'bundled' // Default to bundled version
         };
         // Optionally save this default config immediately? Let's not for now.
         // try { fs.writeFileSync(CONFIG_PATH, JSON.stringify(configToSend, null, 2)); } catch {} 

@@ -36,11 +36,65 @@ function initializePdfium() {
 // --- End Initialization ---
 
 /**
+ * Get user configuration for PDF renderer
+ * @returns {Object} User config with pdfRenderer and ghostscriptPathType settings
+ */
+function getUserConfig() {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const { app } = require('electron');
+    
+    let configDir;
+    if (process.platform === 'darwin') {
+      configDir = app.getPath('userData');
+    } else {
+      // For Windows/Linux, try portable config first
+      const appDir = path.dirname(process.execPath);
+      const potentialPortableConfigDir = path.join(appDir, 'config');
+      
+      if (fs.existsSync(potentialPortableConfigDir)) {
+        try {
+          fs.accessSync(potentialPortableConfigDir, fs.constants.R_OK);
+          configDir = potentialPortableConfigDir;
+        } catch {
+          configDir = app.getPath('userData');
+        }
+      } else {
+        configDir = app.getPath('userData');
+      }
+    }
+    
+    const configPath = path.join(configDir, 'config.json');
+    
+    if (fs.existsSync(configPath)) {
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      return {
+        pdfRenderer: config.pdfRenderer || 'ghostscript', // Default to Ghostscript
+        ghostscriptPathType: config.ghostscriptPathType || 'bundled',
+        ghostscriptPath: config.ghostscriptPath || ''
+      };
+    }
+  } catch (error) {
+    console.warn(`[PDF Processor] Error reading config: ${error.message}`);
+  }
+  
+  // Default configuration (Ghostscript as default)
+  return {
+    pdfRenderer: 'ghostscript',
+    ghostscriptPathType: 'bundled',
+    ghostscriptPath: ''
+  };
+}
+
+/**
  * Get information about the current PDF renderer being used
  * @returns {Promise<{renderer: string, path: string, version?: string}>} Renderer information
  */
 async function getRendererInfo() {
-  if (process.env.EXTERNAL_PDF_RENDERER === '1') {
+  const userConfig = getUserConfig();
+  
+  if (userConfig.pdfRenderer === 'ghostscript') {
     try {
       if (await externalPdfRenderer.isExternalRendererAvailable()) {
         const info = await externalPdfRenderer.getRendererInfo();
@@ -71,6 +125,9 @@ async function getRendererInfo() {
  * @returns {Promise<Buffer>} - Promise resolving to PNG image buffer
  */
 async function renderFirstPageToImage(pdfPath, dpi = 300, statusCallback = null) {
+  // Get user config to determine renderer choice
+  const userConfig = getUserConfig();
+  
   // Get renderer info for status reporting
   const rendererInfo = await getRendererInfo();
   
@@ -79,8 +136,8 @@ async function renderFirstPageToImage(pdfPath, dpi = 300, statusCallback = null)
     statusCallback(`Using ${rendererInfo.renderer} (v${rendererInfo.version}) from: ${rendererInfo.path}`);
   }
   
-  // Feature flag: Use external PDF renderer (Ghostscript) if enabled
-  if (process.env.EXTERNAL_PDF_RENDERER === '1') {
+  // Use external PDF renderer (Ghostscript) if configured
+  if (userConfig.pdfRenderer === 'ghostscript') {
     console.log(`[PDF Processor] Using external PDF renderer (Ghostscript) from: ${rendererInfo.path}`);
     try {
       if (await externalPdfRenderer.isExternalRendererAvailable()) {
@@ -105,7 +162,7 @@ async function renderFirstPageToImage(pdfPath, dpi = 300, statusCallback = null)
     }
   }
 
-  // Fallback: Use WASM PDFium renderer
+  // Use WASM PDFium renderer (either by choice or as fallback)
   console.log('[PDF Processor] Using WASM PDFium renderer');
   if (statusCallback) {
     statusCallback('Using PDFium WASM renderer (embedded WebAssembly)');

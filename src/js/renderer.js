@@ -115,12 +115,69 @@ window.electronAPI.onLoadConfig((loadedConfig) => {
     if (config.maxFileSizeMB !== undefined) {
         document.getElementById('maxFileSizeMB').value = config.maxFileSizeMB;
     }
-    // Load Ghostscript path
+    // Load PDF renderer selection
+    if (config.pdfRenderer) {
+        if (config.pdfRenderer === 'ghostscript') {
+            document.getElementById('renderer-ghostscript').checked = true;
+        } else if (config.pdfRenderer === 'pdfium') {
+            document.getElementById('renderer-pdfium').checked = true;
+        }
+    } else {
+        // Default to Ghostscript
+        document.getElementById('renderer-ghostscript').checked = true;
+        config.pdfRenderer = 'ghostscript';
+    }
+    
+    // Load Ghostscript path type
+    if (config.ghostscriptPathType) {
+        if (config.ghostscriptPathType === 'bundled') {
+            document.getElementById('gs-path-bundled').checked = true;
+        } else if (config.ghostscriptPathType === 'custom') {
+            document.getElementById('gs-path-custom').checked = true;
+        }
+    } else {
+        // Default to bundled
+        document.getElementById('gs-path-bundled').checked = true;
+        config.ghostscriptPathType = 'bundled';
+    }
+    
+    // Load Ghostscript path (only for custom)
     if (config.ghostscriptPath) {
         document.getElementById('ghostscriptPath').value = config.ghostscriptPath;
     }
+    
+    // Update UI visibility based on current selections
+    updateRendererUIVisibility();
 });
 
+
+/**
+ * Updates the visibility of renderer-specific UI sections based on current selections
+ */
+function updateRendererUIVisibility() {
+    const pdfRenderer = document.querySelector('input[name="pdfRenderer"]:checked')?.value;
+    const ghostscriptPathType = document.querySelector('input[name="ghostscriptPathType"]:checked')?.value;
+    
+    // Show/hide Ghostscript configuration based on renderer selection
+    const ghostscriptConfig = document.getElementById('ghostscriptConfig');
+    if (ghostscriptConfig) {
+        if (pdfRenderer === 'ghostscript') {
+            ghostscriptConfig.style.display = 'block';
+        } else {
+            ghostscriptConfig.style.display = 'none';
+        }
+    }
+    
+    // Show/hide custom path input based on Ghostscript path type
+    const customPathDiv = document.getElementById('customGhostscriptPath');
+    if (customPathDiv) {
+        if (pdfRenderer === 'ghostscript' && ghostscriptPathType === 'custom') {
+            customPathDiv.style.display = 'block';
+        } else {
+            customPathDiv.style.display = 'none';
+        }
+    }
+}
 
 function saveConfig() {
     console.log('[DEBUG] saveConfig() in renderer.js called.');
@@ -140,7 +197,13 @@ function saveConfig() {
         config.coverTemplateContent = coverTemplateTextarea.value;
     }
     
-    // Save Ghostscript path
+    // Save PDF renderer selection
+    config.pdfRenderer = document.querySelector('input[name="pdfRenderer"]:checked').value;
+    
+    // Save Ghostscript path type
+    config.ghostscriptPathType = document.querySelector('input[name="ghostscriptPathType"]:checked').value;
+    
+    // Save Ghostscript path (only relevant for custom type)
     config.ghostscriptPath = document.getElementById('ghostscriptPath').value;
 
     // Use the exposed function to save the updated config object
@@ -802,6 +865,24 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // PDF Renderer radio buttons
+    document.querySelectorAll('input[name="pdfRenderer"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            config.pdfRenderer = e.target.value;
+            updateRendererUIVisibility();
+            saveConfig();
+        });
+    });
+
+    // Ghostscript path type radio buttons
+    document.querySelectorAll('input[name="ghostscriptPathType"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            config.ghostscriptPathType = e.target.value;
+            updateRendererUIVisibility();
+            saveConfig();
+        });
+    });
+
     // Cover template edit button
     const editCoverBtn = document.getElementById('editCoverTemplateBtn');
     if (editCoverBtn) {
@@ -915,6 +996,28 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     if (config.minFileSizeKB !== undefined) document.getElementById('minFileSizeKB').value = config.minFileSizeKB;
                     if (config.maxFileSizeMB !== undefined) document.getElementById('maxFileSizeMB').value = config.maxFileSizeMB;
+                    
+                    // Update PDF renderer selection
+                    if (config.pdfRenderer === 'pdfium') {
+                        document.getElementById('renderer-pdfium').checked = true;
+                    } else {
+                        document.getElementById('renderer-ghostscript').checked = true;
+                    }
+                    
+                    // Update Ghostscript path type
+                    if (config.ghostscriptPathType === 'custom') {
+                        document.getElementById('gs-path-custom').checked = true;
+                    } else {
+                        document.getElementById('gs-path-bundled').checked = true;
+                    }
+                    
+                    // Update Ghostscript path if provided
+                    if (config.ghostscriptPath) {
+                        document.getElementById('ghostscriptPath').value = config.ghostscriptPath;
+                    }
+                    
+                    // Update UI visibility based on imported config
+                    updateRendererUIVisibility();
 
                     // Optionally, save the newly imported config back to the default location immediately
                     // saveConfig(); // Decide if this is desired behavior
