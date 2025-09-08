@@ -191,10 +191,12 @@ async function renderFirstPageToImage(pdfPath, dpi = 300) {
         ];
         
         console.log(`[External PDF Renderer] Executing: ${gsPath} ${args.join(' ')}`);
+        console.log(`[External PDF Renderer] Input PDF: ${path.basename(pdfPath)}`);
+        console.log(`[External PDF Renderer] Requested DPI: ${dpi}`);
         
         const { stdout, stderr } = await execFileAsync(gsPath, args, { 
-            timeout: 30000,  // 30 second timeout
-            maxBuffer: 10 * 1024 * 1024  // 10MB buffer
+            timeout: 60000,  // 60 second timeout for large images
+            maxBuffer: 50 * 1024 * 1024  // 50MB buffer for large images
         });
         
         if (stderr && stderr.trim()) {
@@ -209,6 +211,34 @@ async function renderFirstPageToImage(pdfPath, dpi = 300) {
         // Read the generated PNG file
         const pngBuffer = fs.readFileSync(tempOutputPath);
         console.log(`[External PDF Renderer] PNG rendered successfully (${pngBuffer.length} bytes)`);
+        
+        // Debug: Check actual image dimensions to understand pixel limit issues
+        try {
+            const sharp = require('sharp');
+            const imageMetadata = await sharp(pngBuffer).metadata();
+            console.log(`[External PDF Renderer] Actual image dimensions: ${imageMetadata.width}x${imageMetadata.height} pixels`);
+            console.log(`[External PDF Renderer] Total pixels: ${(imageMetadata.width * imageMetadata.height).toLocaleString()}`);
+            console.log(`[External PDF Renderer] Effective DPI check - Width: ${imageMetadata.width} pixels = ${(imageMetadata.width/dpi).toFixed(2)} inches`);
+            console.log(`[External PDF Renderer] Effective DPI check - Height: ${imageMetadata.height} pixels = ${(imageMetadata.height/dpi).toFixed(2)} inches`);
+            
+            // Check if this exceeds Sharp's default limit
+            const defaultSharpLimit = 268402689; // ~268M pixels (16384x16384)
+            const actualPixels = imageMetadata.width * imageMetadata.height;
+            if (actualPixels > defaultSharpLimit) {
+                console.log(`[External PDF Renderer] ⚠️  WARNING: Image exceeds Sharp's default pixel limit!`);
+                console.log(`[External PDF Renderer] Actual: ${actualPixels.toLocaleString()} pixels`);
+                console.log(`[External PDF Renderer] Default limit: ${defaultSharpLimit.toLocaleString()} pixels`);
+                console.log(`[External PDF Renderer] Ratio: ${(actualPixels/defaultSharpLimit).toFixed(2)}x over limit`);
+                
+                // Calculate what the page size actually is
+                const widthInches = imageMetadata.width / dpi;
+                const heightInches = imageMetadata.height / dpi;
+                console.log(`[External PDF Renderer] PDF page appears to be: ${widthInches.toFixed(2)}" x ${heightInches.toFixed(2)}" at ${dpi} DPI`);
+                console.log(`[External PDF Renderer] That's ${(widthInches * 2.54).toFixed(1)}cm x ${(heightInches * 2.54).toFixed(1)}cm`);
+            }
+        } catch (metadataError) {
+            console.log(`[External PDF Renderer] Could not read image metadata: ${metadataError.message}`);
+        }
         
         // Clean up temporary file
         try {

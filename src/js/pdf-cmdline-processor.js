@@ -201,6 +201,12 @@ async function renderFirstPageToImage(pdfPath, dpi = 300, statusCallback = null)
     if (!renderResult || !renderResult.data || !renderResult.width || !renderResult.height) {
       throw new Error('Failed to get valid bitmap data from page.render().');
     }
+    
+    // Debug PDFium render dimensions
+    console.log(`[PDF Processor] PDFium render dimensions: ${renderResult.width}x${renderResult.height} pixels`);
+    console.log(`[PDF Processor] PDFium total pixels: ${(renderResult.width * renderResult.height).toLocaleString()}`);
+    console.log(`[PDF Processor] PDFium DPI check - Width: ${renderResult.width} pixels = ${(renderResult.width/dpi).toFixed(2)} inches`);
+    console.log(`[PDF Processor] PDFium DPI check - Height: ${renderResult.height} pixels = ${(renderResult.height/dpi).toFixed(2)} inches`);
 
     // Convert the raw BGRA bitmap data to a PNG buffer using Sharp
     // Assuming the output from renderResult.data is BGRA
