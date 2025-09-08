@@ -688,10 +688,15 @@ async function prepareTransformations(mainDirectory, outputDirectory, folderPatt
                     } else if (ext === '.heic') {
                         const { data, width, height } = await decodeHeic({ buffer: fileBuffer });
                         // Check metadata of the decoded PNG buffer
-                        await sharp(data, { raw: { width, height, channels: 4 } }).metadata(); 
+                        await sharp(data, { 
+                            raw: { width, height, channels: 4 },
+                            limitInputPixels: 268402689 * 4 // 4x default limit for validation
+                        }).metadata(); 
                         isValid = true;
                     } else { // Other images (png, jpg, jpeg)
-                        await sharp(fileBuffer).metadata(); // Throws on error
+                        await sharp(fileBuffer, {
+                            limitInputPixels: 268402689 * 4 // 4x default limit for validation
+                        }).metadata(); // Throws on error
                         isValid = true;
                     }
                 } catch (validationError) {

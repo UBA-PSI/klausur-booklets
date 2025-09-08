@@ -209,7 +209,8 @@ async function renderFirstPageToImage(pdfPath, dpi = 300, statusCallback = null)
         width: renderResult.width,
         height: renderResult.height,
         channels: 4 // BGRA or RGBA
-      }
+      },
+      limitInputPixels: 268402689 * 4 // 4x default limit for large PDF renders
     })
     .png() // Specify PNG output
     .toBuffer();
