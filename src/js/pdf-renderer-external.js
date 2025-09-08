@@ -176,7 +176,16 @@ async function renderFirstPageToImage(pdfPath, dpi = 300) {
         // Create temporary output file
         const tempOutputPath = path.join(os.tmpdir(), `gs_render_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.png`);
         
-        // Execute Ghostscript: gs -sDEVICE=png16m -r300 -dFirstPage=1 -dLastPage=1 -o output.png input.pdf
+        // Calculate target dimensions for A4 at specified DPI
+        // A4 = 8.27" x 11.69" = 210mm x 297mm
+        const targetWidthInches = 8.27;
+        const targetHeightInches = 11.69;
+        const targetWidthPixels = Math.round(targetWidthInches * dpi);
+        const targetHeightPixels = Math.round(targetHeightInches * dpi);
+        
+        console.log(`[External PDF Renderer] Target A4 dimensions: ${targetWidthPixels}x${targetHeightPixels} pixels (${targetWidthInches}" x ${targetHeightInches}" at ${dpi} DPI)`);
+        
+        // Execute Ghostscript with fixed output size to handle oversized PDFs
         const args = [
             '-sDEVICE=png16m',          // PNG device with 16M colors
             `-r${dpi}`,                 // Resolution (DPI)
@@ -186,6 +195,10 @@ async function renderFirstPageToImage(pdfPath, dpi = 300) {
             '-dBATCH',                  // Batch mode (no user interaction)
             '-dNOPAUSE',                // Don't pause between pages
             '-dQUIET',                  // Reduce console output
+            '-dFIXEDMEDIA',             // Use fixed media size instead of PDF page size
+            '-dPDFFitPage',             // Scale PDF to fit the media size
+            `-dDEVICEWIDTHPOINTS=${targetWidthPixels * 72 / dpi}`,   // Target width in points (72 points = 1 inch)
+            `-dDEVICEHEIGHTPOINTS=${targetHeightPixels * 72 / dpi}`, // Target height in points
             `-sOutputFile=${tempOutputPath}`,  // Output file
             pdfPath                     // Input PDF
         ];
@@ -212,32 +225,29 @@ async function renderFirstPageToImage(pdfPath, dpi = 300) {
         const pngBuffer = fs.readFileSync(tempOutputPath);
         console.log(`[External PDF Renderer] PNG rendered successfully (${pngBuffer.length} bytes)`);
         
-        // Debug: Check actual image dimensions to understand pixel limit issues
+        // Debug: Check actual output dimensions and verify scaling worked
         try {
             const sharp = require('sharp');
             const imageMetadata = await sharp(pngBuffer).metadata();
-            console.log(`[External PDF Renderer] Actual image dimensions: ${imageMetadata.width}x${imageMetadata.height} pixels`);
+            console.log(`[External PDF Renderer] ✅ Output image dimensions: ${imageMetadata.width}x${imageMetadata.height} pixels`);
             console.log(`[External PDF Renderer] Total pixels: ${(imageMetadata.width * imageMetadata.height).toLocaleString()}`);
-            console.log(`[External PDF Renderer] Effective DPI check - Width: ${imageMetadata.width} pixels = ${(imageMetadata.width/dpi).toFixed(2)} inches`);
-            console.log(`[External PDF Renderer] Effective DPI check - Height: ${imageMetadata.height} pixels = ${(imageMetadata.height/dpi).toFixed(2)} inches`);
+            console.log(`[External PDF Renderer] Actual size: ${(imageMetadata.width/dpi).toFixed(2)}" x ${(imageMetadata.height/dpi).toFixed(2)}" at ${dpi} DPI`);
+            console.log(`[External PDF Renderer] File size: ${(pngBuffer.length / (1024*1024)).toFixed(1)} MB`);
             
-            // Check if this exceeds Sharp's default limit
-            const defaultSharpLimit = 268402689; // ~268M pixels (16384x16384)
+            // Verify we're close to target A4 dimensions
+            const expectedPixels = targetWidthPixels * targetHeightPixels;
             const actualPixels = imageMetadata.width * imageMetadata.height;
-            if (actualPixels > defaultSharpLimit) {
-                console.log(`[External PDF Renderer] ⚠️  WARNING: Image exceeds Sharp's default pixel limit!`);
+            const scalingEffective = Math.abs(actualPixels - expectedPixels) / expectedPixels < 0.1; // Within 10%
+            
+            if (scalingEffective) {
+                console.log(`[External PDF Renderer] ✅ Scaling successful - output matches A4 target dimensions`);
+            } else {
+                console.log(`[External PDF Renderer] ⚠️  Scaling may not have worked as expected`);
+                console.log(`[External PDF Renderer] Expected: ${expectedPixels.toLocaleString()} pixels`);
                 console.log(`[External PDF Renderer] Actual: ${actualPixels.toLocaleString()} pixels`);
-                console.log(`[External PDF Renderer] Default limit: ${defaultSharpLimit.toLocaleString()} pixels`);
-                console.log(`[External PDF Renderer] Ratio: ${(actualPixels/defaultSharpLimit).toFixed(2)}x over limit`);
-                
-                // Calculate what the page size actually is
-                const widthInches = imageMetadata.width / dpi;
-                const heightInches = imageMetadata.height / dpi;
-                console.log(`[External PDF Renderer] PDF page appears to be: ${widthInches.toFixed(2)}" x ${heightInches.toFixed(2)}" at ${dpi} DPI`);
-                console.log(`[External PDF Renderer] That's ${(widthInches * 2.54).toFixed(1)}cm x ${(heightInches * 2.54).toFixed(1)}cm`);
             }
         } catch (metadataError) {
-            console.log(`[External PDF Renderer] Could not read image metadata: ${metadataError.message}`);
+            console.log(`[External PDF Renderer] Could not read output image metadata: ${metadataError.message}`);
         }
         
         // Clean up temporary file

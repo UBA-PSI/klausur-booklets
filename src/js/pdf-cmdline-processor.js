@@ -190,23 +190,61 @@ async function renderFirstPageToImage(pdfPath, dpi = 300, statusCallback = null)
     const pageIndex = 0;
     const page = await pdfDocument.getPage(pageIndex);
 
-    // Calculate scale based on DPI (PDF uses 72 DPI internally)
-    const scale = dpi / 72;
+    // Get page dimensions in points (72 points = 1 inch)
+    const pageWidth = page.width;
+    const pageHeight = page.height;
+    const pageWidthInches = pageWidth / 72;
+    const pageHeightInches = pageHeight / 72;
+    
+    console.log(`[PDF Processor] Original PDF page size: ${pageWidthInches.toFixed(2)}" x ${pageHeightInches.toFixed(2)}" (${pageWidth} x ${pageHeight} points)`);
+    
+    // Calculate scale to fit A4 dimensions at target DPI, handling oversized PDFs
+    // A4 = 8.27" x 11.69"
+    const targetWidthInches = 8.27;
+    const targetHeightInches = 11.69;
+    
+    // Calculate scale factors to fit within A4
+    const scaleToFitWidth = targetWidthInches / pageWidthInches;
+    const scaleToFitHeight = targetHeightInches / pageHeightInches;
+    
+    // Use the smaller scale factor to ensure the page fits within A4
+    const scaleToFit = Math.min(scaleToFitWidth, scaleToFitHeight, 1.0); // Never scale up beyond original
+    
+    // Final scale combines A4 fitting with DPI requirements
+    const dpiScale = dpi / 72;
+    const finalScale = scaleToFit * dpiScale;
+    
+    console.log(`[PDF Processor] Scale to fit A4: ${scaleToFit.toFixed(3)}`);
+    console.log(`[PDF Processor] DPI scale: ${dpiScale.toFixed(3)}`);  
+    console.log(`[PDF Processor] Final scale: ${finalScale.toFixed(3)}`);
+    
+    const finalWidthPixels = Math.round(pageWidth * finalScale);
+    const finalHeightPixels = Math.round(pageHeight * finalScale);
+    console.log(`[PDF Processor] Target render dimensions: ${finalWidthPixels}x${finalHeightPixels} pixels`);
 
     // Render the page to a raw bitmap (BGRA format based on hyzyla/pdfium docs)
     // Note: hyzyla/pdfium might render BGRA by default. Check its docs if colors are swapped.
     // If it renders RGBA, use { raw: { width, height, channels: 4 } } in sharp.
-    const renderResult = await page.render({ scale, render: 'bitmap' });
+    const renderResult = await page.render({ scale: finalScale, render: 'bitmap' });
 
     if (!renderResult || !renderResult.data || !renderResult.width || !renderResult.height) {
       throw new Error('Failed to get valid bitmap data from page.render().');
     }
     
-    // Debug PDFium render dimensions
-    console.log(`[PDF Processor] PDFium render dimensions: ${renderResult.width}x${renderResult.height} pixels`);
-    console.log(`[PDF Processor] PDFium total pixels: ${(renderResult.width * renderResult.height).toLocaleString()}`);
-    console.log(`[PDF Processor] PDFium DPI check - Width: ${renderResult.width} pixels = ${(renderResult.width/dpi).toFixed(2)} inches`);
-    console.log(`[PDF Processor] PDFium DPI check - Height: ${renderResult.height} pixels = ${(renderResult.height/dpi).toFixed(2)} inches`);
+    // Debug PDFium render dimensions - verify scaling worked correctly
+    console.log(`[PDF Processor] ✅ PDFium render dimensions: ${renderResult.width}x${renderResult.height} pixels`);
+    console.log(`[PDF Processor] Total pixels: ${(renderResult.width * renderResult.height).toLocaleString()}`);
+    console.log(`[PDF Processor] Output size: ${(renderResult.width/dpi).toFixed(2)}" x ${(renderResult.height/dpi).toFixed(2)}" at ${dpi} DPI`);
+    
+    // Verify the scaling worked as expected
+    const expectedMatchesActual = Math.abs(renderResult.width - finalWidthPixels) <= 2 && Math.abs(renderResult.height - finalHeightPixels) <= 2;
+    if (expectedMatchesActual) {
+        console.log(`[PDF Processor] ✅ PDFium scaling successful - dimensions match expectations`);
+    } else {
+        console.log(`[PDF Processor] ⚠️  PDFium scaling mismatch:`);
+        console.log(`[PDF Processor] Expected: ${finalWidthPixels}x${finalHeightPixels} pixels`);
+        console.log(`[PDF Processor] Actual: ${renderResult.width}x${renderResult.height} pixels`);
+    }
 
     // Convert the raw BGRA bitmap data to a PNG buffer using Sharp
     // Assuming the output from renderResult.data is BGRA
