@@ -115,6 +115,10 @@ window.electronAPI.onLoadConfig((loadedConfig) => {
     if (config.maxFileSizeMB !== undefined) {
         document.getElementById('maxFileSizeMB').value = config.maxFileSizeMB;
     }
+    // Load Ghostscript path
+    if (config.ghostscriptPath) {
+        document.getElementById('ghostscriptPath').value = config.ghostscriptPath;
+    }
 });
 
 
@@ -135,6 +139,9 @@ function saveConfig() {
     if (coverTemplateTextarea) {
         config.coverTemplateContent = coverTemplateTextarea.value;
     }
+    
+    // Save Ghostscript path
+    config.ghostscriptPath = document.getElementById('ghostscriptPath').value;
 
     // Use the exposed function to save the updated config object
     window.electronAPI.saveConfig(config);
@@ -925,6 +932,64 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- End Import/Export Config Button Listeners ---
+    
+    // --- Ghostscript Path Button Listeners ---
+    const browseGhostscriptBtn = document.getElementById('browseGhostscriptPath');
+    const clearGhostscriptBtn = document.getElementById('clearGhostscriptPath');
+    const ghostscriptPathInput = document.getElementById('ghostscriptPath');
+    const ghostscriptStatus = document.getElementById('ghostscriptStatus');
+    const ghostscriptStatusText = document.getElementById('ghostscriptStatusText');
+    
+    if (browseGhostscriptBtn && ghostscriptPathInput) {
+        browseGhostscriptBtn.addEventListener('click', async () => {
+            console.log('Browse Ghostscript path button clicked.');
+            try {
+                const result = await window.electronAPI.selectGhostscriptExecutable();
+                if (result.success) {
+                    ghostscriptPathInput.value = result.path;
+                    config.ghostscriptPath = result.path;
+                    saveConfig();
+                    
+                    // Show success status
+                    if (ghostscriptStatus && ghostscriptStatusText) {
+                        ghostscriptStatusText.textContent = `Selected: ${result.path}`;
+                        ghostscriptStatus.className = 'alert alert-success py-2';
+                        ghostscriptStatus.style.display = 'block';
+                        setTimeout(() => {
+                            ghostscriptStatus.style.display = 'none';
+                        }, 3000);
+                    }
+                    
+                    updateStatus('success', 'Ghostscript executable selected');
+                }
+            } catch (error) {
+                console.error('Error selecting Ghostscript executable:', error);
+                updateStatus('error', `Error selecting Ghostscript: ${error.message}`);
+            }
+        });
+    }
+    
+    if (clearGhostscriptBtn && ghostscriptPathInput) {
+        clearGhostscriptBtn.addEventListener('click', () => {
+            console.log('Clear Ghostscript path button clicked.');
+            ghostscriptPathInput.value = '';
+            config.ghostscriptPath = '';
+            saveConfig();
+            
+            // Show cleared status
+            if (ghostscriptStatus && ghostscriptStatusText) {
+                ghostscriptStatusText.textContent = 'Using bundled/system Ghostscript';
+                ghostscriptStatus.className = 'alert alert-info py-2';
+                ghostscriptStatus.style.display = 'block';
+                setTimeout(() => {
+                    ghostscriptStatus.style.display = 'none';
+                }, 3000);
+            }
+            
+            updateStatus('info', 'Ghostscript path cleared - using default');
+        });
+    }
+    // --- End Ghostscript Path Button Listeners ---
 
     // --- Initialize version display ---
     const appVersionDisplay = document.getElementById('appVersionDisplay');

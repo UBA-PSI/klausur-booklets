@@ -23,10 +23,61 @@ const os = require('os');
  */
 
 /**
+ * Get user-configured Ghostscript path from config file
+ * @returns {string|null} Custom Ghostscript path or null if not configured
+ */
+function getUserConfiguredGhostscriptPath() {
+    try {
+        // Determine config path using same logic as main.js
+        const { app } = require('electron');
+        let configDir;
+        
+        if (process.platform === 'darwin') {
+            configDir = app.getPath('userData');
+        } else {
+            // For Windows/Linux, try portable config first
+            const appDir = path.dirname(process.execPath);
+            const potentialPortableConfigDir = path.join(appDir, 'config');
+            
+            if (fs.existsSync(potentialPortableConfigDir)) {
+                try {
+                    fs.accessSync(potentialPortableConfigDir, fs.constants.R_OK);
+                    configDir = potentialPortableConfigDir;
+                } catch {
+                    configDir = app.getPath('userData');
+                }
+            } else {
+                configDir = app.getPath('userData');
+            }
+        }
+        
+        const configPath = path.join(configDir, 'config.json');
+        
+        if (fs.existsSync(configPath)) {
+            const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+            if (config.ghostscriptPath && config.ghostscriptPath.trim()) {
+                return config.ghostscriptPath.trim();
+            }
+        }
+    } catch (error) {
+        console.warn(`[External PDF Renderer] Error reading config for Ghostscript path: ${error.message}`);
+    }
+    
+    return null;
+}
+
+/**
  * Get the path to the Ghostscript executable for the current platform
  * @returns {string} Path to gs executable
  */
 function getGhostscriptPath() {
+    // First, check if user has configured a custom Ghostscript path
+    const customPath = getUserConfiguredGhostscriptPath();
+    if (customPath) {
+        console.log(`[External PDF Renderer] Using custom Ghostscript path: ${customPath}`);
+        return customPath;
+    }
+    
     // More reliable detection of development vs production
     // Check if we're running from the project directory (npm start) vs packaged app
     const isDev = process.env.NODE_ENV === 'development' || 
@@ -47,8 +98,8 @@ function getGhostscriptPath() {
     let executableName;
     switch (process.platform) {
         case 'win32':
-            // Windows: Bundle gs executable
-            executableName = 'gs.exe';
+            // Windows: Bundle gswin64c.exe (64-bit console version)
+            executableName = 'gswin64c.exe';
             break;
         case 'darwin':
             // macOS: Bundle gs executable (universal or architecture-specific)

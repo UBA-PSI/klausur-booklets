@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getDefaultMbzTemplatePath: () => ipcRenderer.invoke('get-default-mbz-template-path'),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getAppHomepage: () => ipcRenderer.invoke('get-app-homepage'),
+  selectGhostscriptExecutable: () => ipcRenderer.invoke('ghostscript:selectExecutable'),
   // --- End New APIs ---
 
   // Main -> Renderer (receive)

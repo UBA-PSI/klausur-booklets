@@ -1915,6 +1915,39 @@ ipcMain.handle('dialog:showMessageBox', async (event, options) => {
     return dialog.showMessageBox(mainWindow, options);
 });
 
+// Ghostscript executable file picker
+ipcMain.handle('ghostscript:selectExecutable', async (event) => {
+    const filters = [];
+    
+    // Platform-specific file filters
+    if (process.platform === 'win32') {
+        filters.push(
+            { name: 'Ghostscript Executable', extensions: ['exe'] },
+            { name: 'All Files', extensions: ['*'] }
+        );
+    } else {
+        // macOS and Linux - no extension filter needed
+        filters.push(
+            { name: 'All Files', extensions: ['*'] }
+        );
+    }
+    
+    const result = await dialog.showOpenDialog(mainWindow, {
+        title: 'Select Ghostscript Executable',
+        properties: ['openFile'],
+        filters: filters,
+        defaultPath: process.platform === 'darwin' ? '/usr/local/bin' : 
+                    process.platform === 'win32' ? 'C:\\Program Files\\gs' : 
+                    '/usr/bin'
+    });
+    
+    if (!result.canceled && result.filePaths.length > 0) {
+        return { success: true, path: result.filePaths[0] };
+    }
+    
+    return { success: false };
+});
+
 ipcMain.handle('path-basename', async (event, filePath) => { // Corrected channel name
     return path.basename(filePath);
 });
