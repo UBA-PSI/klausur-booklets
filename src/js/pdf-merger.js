@@ -684,7 +684,9 @@ async function processSingleTransformation(inputPath, outputPath, dpiValue, send
 
         if (ext === '.pdf') {
             sendLog(`[Transform Single] Processing as PDF: ${logInputPath}`);
-            initialBuffer = await renderFirstPageToImage(inputPath, dpiValue); // Renders first page to PNG buffer
+            // Create status callback to show renderer info in UI
+            const statusCallback = (message) => sendLog(`[PDF Renderer] ${message}`);
+            initialBuffer = await renderFirstPageToImage(inputPath, dpiValue, statusCallback); // Renders first page to PNG buffer
         } else if (ext === '.png') {
             sendLog(`[Transform Single] Processing as PNG: ${logInputPath}`);
             initialBuffer = fs.readFileSync(inputPath);

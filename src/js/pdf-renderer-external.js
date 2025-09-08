@@ -236,8 +236,17 @@ async function getRendererInfo() {
     }
 }
 
+/**
+ * Get the current Ghostscript path being used
+ * @returns {string} Current Ghostscript executable path
+ */
+function getCurrentGhostscriptPath() {
+    return getGhostscriptPath();
+}
+
 module.exports = {
     isExternalRendererAvailable,
     renderFirstPageToImage,
-    getRendererInfo
+    getRendererInfo,
+    getCurrentGhostscriptPath,
 };

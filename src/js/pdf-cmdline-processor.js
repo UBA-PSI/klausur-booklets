@@ -36,31 +36,80 @@ function initializePdfium() {
 // --- End Initialization ---
 
 /**
+ * Get information about the current PDF renderer being used
+ * @returns {Promise<{renderer: string, path: string, version?: string}>} Renderer information
+ */
+async function getRendererInfo() {
+  if (process.env.EXTERNAL_PDF_RENDERER === '1') {
+    try {
+      if (await externalPdfRenderer.isExternalRendererAvailable()) {
+        const info = await externalPdfRenderer.getRendererInfo();
+        const path = externalPdfRenderer.getCurrentGhostscriptPath();
+        return {
+          renderer: 'Ghostscript',
+          path: path,
+          version: info.replace(/^Ghostscript v/, '').replace(/ - .*$/, '')
+        };
+      }
+    } catch (error) {
+      // Fall through to WASM info
+    }
+  }
+  
+  return {
+    renderer: 'PDFium WASM',
+    path: 'embedded WebAssembly',
+    version: 'built-in'
+  };
+}
+
+/**
  * Renders the first page of a PDF to a PNG image buffer using PDFium and Sharp
  * @param {string} pdfPath - Path to the input PDF file
  * @param {number} dpi - DPI for rendering (default: 300)
+ * @param {Function} statusCallback - Optional callback to receive status updates
  * @returns {Promise<Buffer>} - Promise resolving to PNG image buffer
  */
-async function renderFirstPageToImage(pdfPath, dpi = 300) {
+async function renderFirstPageToImage(pdfPath, dpi = 300, statusCallback = null) {
+  // Get renderer info for status reporting
+  const rendererInfo = await getRendererInfo();
+  
+  // Report renderer info to status callback
+  if (statusCallback) {
+    statusCallback(`Using ${rendererInfo.renderer} (v${rendererInfo.version}) from: ${rendererInfo.path}`);
+  }
+  
   // Feature flag: Use external PDF renderer (Ghostscript) if enabled
   if (process.env.EXTERNAL_PDF_RENDERER === '1') {
-    console.log('[PDF Processor] Using external PDF renderer (Ghostscript)');
+    console.log(`[PDF Processor] Using external PDF renderer (Ghostscript) from: ${rendererInfo.path}`);
     try {
       if (await externalPdfRenderer.isExternalRendererAvailable()) {
         const result = await externalPdfRenderer.renderFirstPageToImage(pdfPath, dpi);
         console.log('[PDF Processor] External Ghostscript rendering successful');
+        if (statusCallback) {
+          statusCallback(`Ghostscript rendering completed successfully`);
+        }
         return result;
       } else {
         console.log('[PDF Processor] Ghostscript external renderer not available, falling back to WASM');
+        if (statusCallback) {
+          statusCallback('Ghostscript not available, using PDFium WASM fallback');
+        }
       }
     } catch (error) {
       console.error('[PDF Processor] External Ghostscript renderer failed:', error.message);
       console.log('[PDF Processor] Falling back to WASM PDFium');
+      if (statusCallback) {
+        statusCallback(`Ghostscript failed (${error.message}), using PDFium WASM fallback`);
+      }
     }
   }
 
   // Fallback: Use WASM PDFium renderer
   console.log('[PDF Processor] Using WASM PDFium renderer');
+  if (statusCallback) {
+    statusCallback('Using PDFium WASM renderer (embedded WebAssembly)');
+  }
   
   // Ensure PDFium is initialized
   await initializePdfium();
@@ -167,4 +216,5 @@ async function imageToPdf(imageBuffer, outputPath) {
 module.exports = {
   renderFirstPageToImage,
   imageToPdf,
+  getRendererInfo,
 };

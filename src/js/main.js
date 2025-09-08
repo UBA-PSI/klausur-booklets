@@ -1010,6 +1010,16 @@ async function processTasksDirectly(tasks, outputDirectory, dpi) {
 
 ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirectory, dpi) => {
     sendLogToRenderer("IPC: Received start-transformation");
+    
+    // Show renderer info upfront
+    try {
+        const { getRendererInfo } = require('./pdf-cmdline-processor');
+        const rendererInfo = await getRendererInfo();
+        sendLogToRenderer(`PDF Renderer: ${rendererInfo.renderer} v${rendererInfo.version} (${rendererInfo.path})`);
+    } catch (error) {
+        sendLogToRenderer(`PDF Renderer: Unable to determine renderer info (${error.message})`);
+    }
+    
     // Reset global state
     pendingTransformationData = null; 
     currentTransformationDpi = dpi;   
