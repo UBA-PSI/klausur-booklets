@@ -1,0 +1,75 @@
+name: Build Feature Branch (Windows)
+
+on:
+  workflow_dispatch: # Allows manual triggering
+    inputs:
+      branch:
+        description: 'Branch to build'
+        required: true
+        type: string
+        default: 'feature/external-pdf-renderer'
+
+permissions:
+  contents: read # Read permissions needed to checkout code
+
+jobs:
+  build-windows:
+    name: Build Feature Branch for Windows x64
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Clear npm cache
+        run: npm cache clean --force
+
+      - name: Install dependencies
+        run: npm install --verbose
+
+      - name: Install Sharp for Windows
+        run: npm run sharp:win
+
+      - name: Rebuild native modules
+        run: npx electron-builder install-app-deps
+
+      - name: Build Windows application
+        run: npx electron-builder --win --x64 --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Get branch name for artifact
+        shell: bash
+        run: |
+          BRANCH_NAME="${{ github.event.inputs.branch }}"
+          # Replace forward slashes with dashes for artifact name
+          SAFE_BRANCH_NAME=${BRANCH_NAME//\//-}
+          echo "SAFE_BRANCH_NAME=${SAFE_BRANCH_NAME}" >> $GITHUB_ENV
+
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: booklet-tool-${{ env.SAFE_BRANCH_NAME }}-windows-x64
+          path: dist/*.exe
+          retention-days: 30
+
+      - name: Upload Windows Zip Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: booklet-tool-${{ env.SAFE_BRANCH_NAME }}-windows-zip
+          path: dist/*.zip
+          retention-days: 30
+
+      - name: Display build info
+        run: |
+          echo "Built branch: ${{ github.event.inputs.branch }}"
+          echo "Commit SHA: ${{ github.sha }}"
+          ls -la dist/
