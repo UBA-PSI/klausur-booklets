@@ -64,9 +64,9 @@ function getUserGhostscriptConfig() {
         console.warn(`[External PDF Renderer] Error reading config for Ghostscript path: ${error.message}`);
     }
     
-    // Default to bundled
+    // Default to bundled (except Linux which uses system)
     return {
-        ghostscriptPathType: 'bundled',
+        ghostscriptPathType: process.platform === 'linux' ? 'system' : 'bundled',
         ghostscriptPath: ''
     };
 }
@@ -82,8 +82,12 @@ function getGhostscriptPath() {
     // If user selected custom path and provided one, use it
     if (gsConfig.ghostscriptPathType === 'custom' && gsConfig.ghostscriptPath && gsConfig.ghostscriptPath.trim()) {
         const customPath = gsConfig.ghostscriptPath.trim();
-        console.log(`[External PDF Renderer] Using custom Ghostscript path: ${customPath}`);
         return customPath;
+    }
+    
+    // If on Linux and using system GS, return 'gs' for PATH lookup
+    if (process.platform === 'linux' && gsConfig.ghostscriptPathType === 'system') {
+        return 'gs';
     }
     
     // More reliable detection of development vs production
@@ -96,11 +100,9 @@ function getGhostscriptPath() {
     if (isDev) {
         // In development, look in project root/bin
         binDir = path.join(__dirname, '../../bin');
-        console.log(`[External PDF Renderer] Development mode - looking in: ${binDir}`);
     } else {
         // In production, look in unpacked resources
         binDir = path.join(process.resourcesPath, 'bin');
-        console.log(`[External PDF Renderer] Production mode - looking in: ${binDir}`);
     }
     
     let executableName;
@@ -127,14 +129,11 @@ function getGhostscriptPath() {
     }
     
     const fullPath = path.join(binDir, executableName);
-    console.log(`[External PDF Renderer] Resolved Ghostscript path: ${fullPath}`);
     
     // Check if file exists, if not try development path as fallback
     if (!fs.existsSync(fullPath) && !isDev) {
-        console.log(`[External PDF Renderer] Binary not found in production path, trying development fallback...`);
         const devBinDir = path.join(__dirname, '../../bin');
         const devPath = path.join(devBinDir, executableName);
-        console.log(`[External PDF Renderer] Trying fallback path: ${devPath}`);
         if (fs.existsSync(devPath)) {
             return devPath;
         }
@@ -153,10 +152,10 @@ async function isExternalRendererAvailable() {
         
         // Test gs with version command
         const { stdout } = await execFileAsync(gsPath, ['--version'], { timeout: 5000 });
-        console.log(`[External PDF Renderer] Ghostscript available: ${stdout.trim()}`);
+        // Only log on first successful detection to reduce verbosity
         return true;
     } catch (error) {
-        console.error('[External PDF Renderer] Ghostscript not available:', error.message);
+        console.log('[External PDF Renderer] Ghostscript not available, using PDFium fallback');
         return false;
     }
 }

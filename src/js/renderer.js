@@ -132,13 +132,20 @@ window.electronAPI.onLoadConfig((loadedConfig) => {
     if (config.ghostscriptPathType) {
         if (config.ghostscriptPathType === 'bundled') {
             document.getElementById('gs-path-bundled').checked = true;
+        } else if (config.ghostscriptPathType === 'system') {
+            document.getElementById('gs-path-system').checked = true;
         } else if (config.ghostscriptPathType === 'custom') {
             document.getElementById('gs-path-custom').checked = true;
         }
     } else {
-        // Default to bundled
-        document.getElementById('gs-path-bundled').checked = true;
-        config.ghostscriptPathType = 'bundled';
+        // Default based on platform
+        const defaultType = window.electronAPI.getPlatform && window.electronAPI.getPlatform() === 'linux' ? 'system' : 'bundled';
+        if (defaultType === 'system') {
+            document.getElementById('gs-path-system').checked = true;
+        } else {
+            document.getElementById('gs-path-bundled').checked = true;
+        }
+        config.ghostscriptPathType = defaultType;
     }
     
     // Load Ghostscript path (only for custom)
@@ -166,6 +173,29 @@ function updateRendererUIVisibility() {
         } else {
             ghostscriptConfig.style.display = 'none';
         }
+    }
+    
+    // Platform-specific UI visibility
+    const isLinux = window.electronAPI && window.electronAPI.getPlatform && window.electronAPI.getPlatform() === 'linux';
+    
+    // Show/hide bundled vs system options based on platform
+    const bundledOption = document.getElementById('gs-bundled-option');
+    const bundledDesc = document.getElementById('gs-bundled-desc');
+    const systemOption = document.getElementById('gs-system-option');
+    const systemDesc = document.getElementById('gs-system-desc');
+    
+    if (isLinux) {
+        // On Linux, hide bundled option and show system option
+        if (bundledOption) bundledOption.style.display = 'none';
+        if (bundledDesc) bundledDesc.style.display = 'none';
+        if (systemOption) systemOption.style.display = 'block';
+        if (systemDesc) systemDesc.style.display = 'block';
+    } else {
+        // On other platforms, show bundled option and hide system option
+        if (bundledOption) bundledOption.style.display = 'block';
+        if (bundledDesc) bundledDesc.style.display = 'block';
+        if (systemOption) systemOption.style.display = 'none';
+        if (systemDesc) systemDesc.style.display = 'none';
     }
     
     // Show/hide custom path input based on Ghostscript path type
@@ -733,6 +763,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const startTransformationBtn = document.getElementById('startTransformationBtn');
     if (startTransformationBtn) {
         startTransformationBtn.addEventListener('click', async () => {
+            // Clear previous log containers when starting new conversion
+            const processLogContainer = document.getElementById('processLogContainer');
+            const errorLogContainer = document.getElementById('errorLogContainer');
+            const processLogOutput = document.getElementById('processLogOutput');
+            const errorLogOutput = document.getElementById('errorLogOutput');
+            
+            if (processLogContainer) {
+                processLogContainer.style.display = 'none';
+            }
+            if (errorLogContainer) {
+                errorLogContainer.style.display = 'none';
+            }
+            if (processLogOutput) {
+                processLogOutput.value = '';
+            }
+            if (errorLogOutput) {
+                errorLogOutput.value = '';
+            }
+            
             if (!validateDirectoryInputs()) {
                 updateStatus('error', 'Please set both input and output directories.');
                 return;
@@ -1108,6 +1157,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     }
 
+    // --- Handle open settings for Ghostscript ---
+    window.electronAPI.onOpenSettingsGhostscript(() => {
+        console.log('Received request to open settings with Ghostscript focus');
+        openModal(); // Open the settings modal
+    });
+    
     // --- More Info Button Listener ---
     const moreInfoBtn = document.getElementById('moreInfoBtn');
     if (moreInfoBtn) {

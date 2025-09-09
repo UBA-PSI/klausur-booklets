@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getAppHomepage: () => ipcRenderer.invoke('get-app-homepage'),
   selectGhostscriptExecutable: () => ipcRenderer.invoke('ghostscript:selectExecutable'),
+  getPlatform: () => ipcRenderer.invoke('get-platform'),
   // --- End New APIs ---
 
   // Main -> Renderer (receive)
@@ -44,6 +45,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onLogError: (callback) => ipcRenderer.on('error-log', (_event, message) => callback(message)),
   // Listener for general process logs from main process
   onProcessLog: (callback) => ipcRenderer.on('process-log', (_event, message) => callback(message)),
+  
+  // Listener for opening settings with Ghostscript focus
+  onOpenSettingsGhostscript: (callback) => ipcRenderer.on('open-settings-ghostscript', (_event) => callback()),
 
   // Function to remove listeners if needed (optional but good practice)
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
