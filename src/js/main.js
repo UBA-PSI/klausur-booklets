@@ -702,13 +702,23 @@ async function prepareTransformations(mainDirectory, outputDirectory, folderPatt
     // Iterate through page directories to find student folders and create tasks
     for (const pageDir of pageDirs) {
         const pageDirPath = path.join(mainDirectory, pageDir);
-        const studentFolders = fs.readdirSync(pageDirPath).filter(item => {
-            const itemPath = path.join(pageDirPath, item);
+        // Support ILIAS structure: nested "Abgaben" subfolder contains the student folders
+        let submissionsRootDir = pageDirPath;
+        const abgabenPathCandidate = path.join(pageDirPath, 'Abgaben');
+        try {
+            if (fs.existsSync(abgabenPathCandidate) && fs.statSync(abgabenPathCandidate).isDirectory()) {
+                submissionsRootDir = abgabenPathCandidate;
+                sendLogToRenderer(`Detected ILIAS 'Abgaben' subfolder in ${pageDir}. Using nested folder structure.`);
+            }
+        } catch (_) {}
+
+        const studentFolders = fs.readdirSync(submissionsRootDir).filter(item => {
+            const itemPath = path.join(submissionsRootDir, item);
             return fs.statSync(itemPath).isDirectory();
         });
         
         for (const studentFolder of studentFolders) {
-            const studentFolderPath = path.join(pageDirPath, studentFolder);
+            const studentFolderPath = path.join(submissionsRootDir, studentFolder);
             const potentialFiles = fs.readdirSync(studentFolderPath);
             let validatedFiles = []; // Store files that pass all checks
             const allowedExtensions = ['.pdf', '.png', '.jpg', '.jpeg', '.heic'];
@@ -934,7 +944,11 @@ function performFinalCollisionCheck(tasks, isMoodleMode) {
         
         let originKey;
         const folderName = path.basename(path.dirname(task.inputPath));
-        const pageFolder = path.basename(path.dirname(path.dirname(task.inputPath)));
+        // Derive page folder robustly even when an intermediate 'Abgaben' exists (ILIAS)
+        let pageFolder = path.basename(path.dirname(path.dirname(task.inputPath)));
+        if (pageFolder === 'Abgaben') {
+            pageFolder = path.basename(path.dirname(path.dirname(path.dirname(task.inputPath))));
+        }
         acc[finalId].pageFolders.add(pageFolder);
         
         // Track tasks by page folder to detect duplicates within the same page folder
@@ -1218,7 +1232,11 @@ ipcMain.handle('resolve-ambiguity', async (event, selectedIdentifiers) => {
         try {
             // Reconstruct necessary info to create the task
             const studentFolder = path.basename(folderPath); // e.g., Max_Mustermann_12345...
-            const pageDir = path.basename(path.dirname(folderPath)); // e.g., Seite 1
+            // Derive page directory robustly in presence of ILIAS 'Abgaben'
+            let pageDir = path.basename(path.dirname(folderPath)); // e.g., Seite 1 or 'Abgaben'
+            if (pageDir === 'Abgaben') {
+                pageDir = path.basename(path.dirname(path.dirname(folderPath)));
+            }
             
             // Parse student info from the original ambiguous folder name
             const parsedStudentInfo = parseFolderName(studentFolder, folderPattern); 
@@ -1789,8 +1807,18 @@ ipcMain.handle('precheck-collisions', async (event, mainDirectory, folderPattern
         // Check each page directory independently
         for (const pageDir of pageDirs) {
             const pageDirPath = path.join(mainDirectory, pageDir);
-            const studentFolders = fs.readdirSync(pageDirPath).filter(item => {
-                const itemPath = path.join(pageDirPath, item);
+            // Support ILIAS structure: nested "Abgaben" subfolder contains the student folders
+            let submissionsRootDir = pageDirPath;
+            const abgabenPathCandidate = path.join(pageDirPath, 'Abgaben');
+            try {
+                if (fs.existsSync(abgabenPathCandidate) && fs.statSync(abgabenPathCandidate).isDirectory()) {
+                    submissionsRootDir = abgabenPathCandidate;
+                    sendLogToRenderer(`Precheck: Detected ILIAS 'Abgaben' subfolder in ${pageDir}. Using nested folder structure.`);
+                }
+            } catch (_) {}
+
+            const studentFolders = fs.readdirSync(submissionsRootDir).filter(item => {
+                const itemPath = path.join(submissionsRootDir, item);
                 return fs.statSync(itemPath).isDirectory();
             });
 
