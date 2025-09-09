@@ -168,8 +168,6 @@ async function isExternalRendererAvailable() {
  * @returns {Promise<Buffer>} Promise resolving to PNG image buffer
  */
 async function renderFirstPageToImage(pdfPath, dpi = 300) {
-    console.log(`[External PDF Renderer] Starting Ghostscript render: ${path.basename(pdfPath)} at ${dpi} DPI`);
-    
     try {
         const gsPath = getGhostscriptPath();
         
@@ -182,8 +180,6 @@ async function renderFirstPageToImage(pdfPath, dpi = 300) {
         const targetHeightInches = 11.69;
         const targetWidthPixels = Math.round(targetWidthInches * dpi);
         const targetHeightPixels = Math.round(targetHeightInches * dpi);
-        
-        console.log(`[External PDF Renderer] Target A4 dimensions: ${targetWidthPixels}x${targetHeightPixels} pixels (${targetWidthInches}" x ${targetHeightInches}" at ${dpi} DPI)`);
         
         // Execute Ghostscript with fixed output size to handle oversized PDFs
         const args = [
@@ -203,10 +199,6 @@ async function renderFirstPageToImage(pdfPath, dpi = 300) {
             pdfPath                     // Input PDF
         ];
         
-        console.log(`[External PDF Renderer] Executing: ${gsPath} ${args.join(' ')}`);
-        console.log(`[External PDF Renderer] Input PDF: ${path.basename(pdfPath)}`);
-        console.log(`[External PDF Renderer] Requested DPI: ${dpi}`);
-        
         const { stdout, stderr } = await execFileAsync(gsPath, args, { 
             timeout: 60000,  // 60 second timeout for large images
             maxBuffer: 50 * 1024 * 1024  // 50MB buffer for large images
@@ -223,31 +215,22 @@ async function renderFirstPageToImage(pdfPath, dpi = 300) {
         
         // Read the generated PNG file
         const pngBuffer = fs.readFileSync(tempOutputPath);
-        console.log(`[External PDF Renderer] PNG rendered successfully (${pngBuffer.length} bytes)`);
         
-        // Debug: Check actual output dimensions and verify scaling worked
+        // Check if scaling was applied (for user feedback on oversized PDFs)
         try {
             const sharp = require('sharp');
             const imageMetadata = await sharp(pngBuffer).metadata();
-            console.log(`[External PDF Renderer] ✅ Output image dimensions: ${imageMetadata.width}x${imageMetadata.height} pixels`);
-            console.log(`[External PDF Renderer] Total pixels: ${(imageMetadata.width * imageMetadata.height).toLocaleString()}`);
-            console.log(`[External PDF Renderer] Actual size: ${(imageMetadata.width/dpi).toFixed(2)}" x ${(imageMetadata.height/dpi).toFixed(2)}" at ${dpi} DPI`);
-            console.log(`[External PDF Renderer] File size: ${(pngBuffer.length / (1024*1024)).toFixed(1)} MB`);
             
-            // Verify we're close to target A4 dimensions
+            // Only log scaling info if dimensions don't match original PDF size
             const expectedPixels = targetWidthPixels * targetHeightPixels;
             const actualPixels = imageMetadata.width * imageMetadata.height;
-            const scalingEffective = Math.abs(actualPixels - expectedPixels) / expectedPixels < 0.1; // Within 10%
+            const wasScaled = Math.abs(actualPixels - expectedPixels) / expectedPixels < 0.1;
             
-            if (scalingEffective) {
-                console.log(`[External PDF Renderer] ✅ Scaling successful - output matches A4 target dimensions`);
-            } else {
-                console.log(`[External PDF Renderer] ⚠️  Scaling may not have worked as expected`);
-                console.log(`[External PDF Renderer] Expected: ${expectedPixels.toLocaleString()} pixels`);
-                console.log(`[External PDF Renderer] Actual: ${actualPixels.toLocaleString()} pixels`);
+            if (wasScaled && (imageMetadata.width !== targetWidthPixels || imageMetadata.height !== targetHeightPixels)) {
+                console.log(`[External PDF Renderer] PDF scaled to A4 size: ${imageMetadata.width}x${imageMetadata.height} pixels (${(pngBuffer.length / (1024*1024)).toFixed(1)} MB)`);
             }
         } catch (metadataError) {
-            console.log(`[External PDF Renderer] Could not read output image metadata: ${metadataError.message}`);
+            // Ignore metadata errors - not critical
         }
         
         // Clean up temporary file

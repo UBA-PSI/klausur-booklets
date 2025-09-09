@@ -196,8 +196,6 @@ async function renderFirstPageToImage(pdfPath, dpi = 300, statusCallback = null)
     const pageWidthInches = pageWidth / 72;
     const pageHeightInches = pageHeight / 72;
     
-    console.log(`[PDF Processor] Original PDF page size: ${pageWidthInches.toFixed(2)}" x ${pageHeightInches.toFixed(2)}" (${pageWidth} x ${pageHeight} points)`);
-    
     // Calculate scale to fit A4 dimensions at target DPI, handling oversized PDFs
     // A4 = 8.27" x 11.69"
     const targetWidthInches = 8.27;
@@ -214,13 +212,13 @@ async function renderFirstPageToImage(pdfPath, dpi = 300, statusCallback = null)
     const dpiScale = dpi / 72;
     const finalScale = scaleToFit * dpiScale;
     
-    console.log(`[PDF Processor] Scale to fit A4: ${scaleToFit.toFixed(3)}`);
-    console.log(`[PDF Processor] DPI scale: ${dpiScale.toFixed(3)}`);  
-    console.log(`[PDF Processor] Final scale: ${finalScale.toFixed(3)}`);
-    
     const finalWidthPixels = Math.round(pageWidth * finalScale);
     const finalHeightPixels = Math.round(pageHeight * finalScale);
-    console.log(`[PDF Processor] Target render dimensions: ${finalWidthPixels}x${finalHeightPixels} pixels`);
+    
+    // Log scaling info if PDF is oversized
+    if (scaleToFit < 1.0) {
+        console.log(`[PDF Processor] Oversized PDF (${pageWidthInches.toFixed(1)}" x ${pageHeightInches.toFixed(1)}") scaled to A4 size`);
+    }
 
     // Render the page to a raw bitmap (BGRA format based on hyzyla/pdfium docs)
     // Note: hyzyla/pdfium might render BGRA by default. Check its docs if colors are swapped.
@@ -231,19 +229,9 @@ async function renderFirstPageToImage(pdfPath, dpi = 300, statusCallback = null)
       throw new Error('Failed to get valid bitmap data from page.render().');
     }
     
-    // Debug PDFium render dimensions - verify scaling worked correctly
-    console.log(`[PDF Processor] ✅ PDFium render dimensions: ${renderResult.width}x${renderResult.height} pixels`);
-    console.log(`[PDF Processor] Total pixels: ${(renderResult.width * renderResult.height).toLocaleString()}`);
-    console.log(`[PDF Processor] Output size: ${(renderResult.width/dpi).toFixed(2)}" x ${(renderResult.height/dpi).toFixed(2)}" at ${dpi} DPI`);
-    
-    // Verify the scaling worked as expected
-    const expectedMatchesActual = Math.abs(renderResult.width - finalWidthPixels) <= 2 && Math.abs(renderResult.height - finalHeightPixels) <= 2;
-    if (expectedMatchesActual) {
-        console.log(`[PDF Processor] ✅ PDFium scaling successful - dimensions match expectations`);
-    } else {
-        console.log(`[PDF Processor] ⚠️  PDFium scaling mismatch:`);
-        console.log(`[PDF Processor] Expected: ${finalWidthPixels}x${finalHeightPixels} pixels`);
-        console.log(`[PDF Processor] Actual: ${renderResult.width}x${renderResult.height} pixels`);
+    // Log scaling success for oversized PDFs (user feedback)
+    if (scaleToFit < 1.0) {
+        console.log(`[PDF Processor] PDFium scaled to: ${renderResult.width}x${renderResult.height} pixels`);
     }
 
     // Convert the raw BGRA bitmap data to a PNG buffer using Sharp
