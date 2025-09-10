@@ -2,11 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.0.3] - 2025-01-23
+## [1.1.0] - 2025-09-10
+
+- [NEW] **External PDF renderer support**: Added configurable PDF rendering system with support for both bundled Ghostscript and system-installed Ghostscript. Users can now specify custom Ghostscript paths for better compatibility across different environments. By default, Ghostscript replaces the PDFium-based renderer that could not parse some esoterical files.
+- [NEW] **Linux compatibility**: Enhanced Ghostscript detection and configuration on Linux systems with automatic fallback options and clear user guidance when Ghostscript is not found.
+- [NEW] Added renderer information display during PDF processing to show which rendering engine and version is being used.
+- [NEW] Settings interface for configuring PDF renderer preferences including bundled vs system Ghostscript selection.
+- [IMPROVED] PDF renderer handles incorrectly built oversized PDFs (larger than A4) when rendering pages.
+- [IMPROVED] Better error handling and user feedback for PDF rendering issues with detailed troubleshooting information.
+
+## [1.0.3]
 
 - [FIXED] **Sorting issue**: Pages are now sorted numerically instead of lexicographically. This fixes the major issue where pages were incorrectly ordered as "1, 10, 11, 2" instead of "1, 2, 10, 11". The fix applies to PDF merging order, missing pages lists, and cover sheet displays. Supports all naming conventions including prefixed names like "Page 1", "Seite 2", etc.
 
-## [1.0.2] - 2025-01-20
+## [1.0.2]
 
 - [FIXED] Folder name parsing bug where patterns starting with FULLNAMEWITHSPACES failed to detect underscore separator, causing incorrect student grouping and name splitting.
 - [FIXED] Added support for Moodle folder names ending with "assignsubmission_file" (without trailing underscore) in addition to the existing "_assignsubmission_file_" format.

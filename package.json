@@ -1,6 +1,6 @@
 {
   "name": "booklet-tool",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "description": "The Booklet Tool is used by teachers to create booklet-style PDFs from a collection of student PDFs. Students are asked to submit pages with their notes regularly and get them back as printed booklets that are authorized aids during the exam. The tool supports the creation of these booklet PDFs and also allows you to create Moodle Backups (MBZ files) that allow you to create the required assignment activities in Moodle with minimal manual work.",
   "main": "src/js/main.js",
   "homepage": "https://github.com/UBA-PSI/klausur-booklets/",
@@ -65,7 +65,8 @@
       "**/node_modules/@img/sharp-libvips-*/**",
       "**/node_modules/@hyzyla/pdfium/dist/pdfium.wasm",
       "src/assets/mbz-templates/**/*",
-      "src/assets/fonts/**/*"
+      "src/assets/fonts/**/*",
+      "bin/**/*"
     ],
     "mac": {
       "category": "public.app-category.developer-tools",

@@ -115,8 +115,99 @@ window.electronAPI.onLoadConfig((loadedConfig) => {
     if (config.maxFileSizeMB !== undefined) {
         document.getElementById('maxFileSizeMB').value = config.maxFileSizeMB;
     }
+    // Load PDF renderer selection
+    if (config.pdfRenderer) {
+        if (config.pdfRenderer === 'ghostscript') {
+            document.getElementById('renderer-ghostscript').checked = true;
+        } else if (config.pdfRenderer === 'pdfium') {
+            document.getElementById('renderer-pdfium').checked = true;
+        }
+    } else {
+        // Default to Ghostscript
+        document.getElementById('renderer-ghostscript').checked = true;
+        config.pdfRenderer = 'ghostscript';
+    }
+    
+    // Load Ghostscript path type
+    if (config.ghostscriptPathType) {
+        if (config.ghostscriptPathType === 'bundled') {
+            document.getElementById('gs-path-bundled').checked = true;
+        } else if (config.ghostscriptPathType === 'system') {
+            document.getElementById('gs-path-system').checked = true;
+        } else if (config.ghostscriptPathType === 'custom') {
+            document.getElementById('gs-path-custom').checked = true;
+        }
+    } else {
+        // Default based on platform
+        const defaultType = window.electronAPI.getPlatform && window.electronAPI.getPlatform() === 'linux' ? 'system' : 'bundled';
+        if (defaultType === 'system') {
+            document.getElementById('gs-path-system').checked = true;
+        } else {
+            document.getElementById('gs-path-bundled').checked = true;
+        }
+        config.ghostscriptPathType = defaultType;
+    }
+    
+    // Load Ghostscript path (only for custom)
+    if (config.ghostscriptPath) {
+        document.getElementById('ghostscriptPath').value = config.ghostscriptPath;
+    }
+    
+    // Update UI visibility based on current selections
+    updateRendererUIVisibility();
 });
 
+
+/**
+ * Updates the visibility of renderer-specific UI sections based on current selections
+ */
+function updateRendererUIVisibility() {
+    const pdfRenderer = document.querySelector('input[name="pdfRenderer"]:checked')?.value;
+    const ghostscriptPathType = document.querySelector('input[name="ghostscriptPathType"]:checked')?.value;
+    
+    // Show/hide Ghostscript configuration based on renderer selection
+    const ghostscriptConfig = document.getElementById('ghostscriptConfig');
+    if (ghostscriptConfig) {
+        if (pdfRenderer === 'ghostscript') {
+            ghostscriptConfig.style.display = 'block';
+        } else {
+            ghostscriptConfig.style.display = 'none';
+        }
+    }
+    
+    // Platform-specific UI visibility
+    const isLinux = window.electronAPI && window.electronAPI.getPlatform && window.electronAPI.getPlatform() === 'linux';
+    
+    // Show/hide bundled vs system options based on platform
+    const bundledOption = document.getElementById('gs-bundled-option');
+    const bundledDesc = document.getElementById('gs-bundled-desc');
+    const systemOption = document.getElementById('gs-system-option');
+    const systemDesc = document.getElementById('gs-system-desc');
+    
+    if (isLinux) {
+        // On Linux, hide bundled option and show system option
+        if (bundledOption) bundledOption.style.display = 'none';
+        if (bundledDesc) bundledDesc.style.display = 'none';
+        if (systemOption) systemOption.style.display = 'block';
+        if (systemDesc) systemDesc.style.display = 'block';
+    } else {
+        // On other platforms, show bundled option and hide system option
+        if (bundledOption) bundledOption.style.display = 'block';
+        if (bundledDesc) bundledDesc.style.display = 'block';
+        if (systemOption) systemOption.style.display = 'none';
+        if (systemDesc) systemDesc.style.display = 'none';
+    }
+    
+    // Show/hide custom path input based on Ghostscript path type
+    const customPathDiv = document.getElementById('customGhostscriptPath');
+    if (customPathDiv) {
+        if (pdfRenderer === 'ghostscript' && ghostscriptPathType === 'custom') {
+            customPathDiv.style.display = 'block';
+        } else {
+            customPathDiv.style.display = 'none';
+        }
+    }
+}
 
 function saveConfig() {
     console.log('[DEBUG] saveConfig() in renderer.js called.');
@@ -135,6 +226,15 @@ function saveConfig() {
     if (coverTemplateTextarea) {
         config.coverTemplateContent = coverTemplateTextarea.value;
     }
+    
+    // Save PDF renderer selection
+    config.pdfRenderer = document.querySelector('input[name="pdfRenderer"]:checked').value;
+    
+    // Save Ghostscript path type
+    config.ghostscriptPathType = document.querySelector('input[name="ghostscriptPathType"]:checked').value;
+    
+    // Save Ghostscript path (only relevant for custom type)
+    config.ghostscriptPath = document.getElementById('ghostscriptPath').value;
 
     // Use the exposed function to save the updated config object
     window.electronAPI.saveConfig(config);
@@ -663,6 +763,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const startTransformationBtn = document.getElementById('startTransformationBtn');
     if (startTransformationBtn) {
         startTransformationBtn.addEventListener('click', async () => {
+            // Clear previous log containers when starting new conversion
+            const processLogContainer = document.getElementById('processLogContainer');
+            const errorLogContainer = document.getElementById('errorLogContainer');
+            const processLogOutput = document.getElementById('processLogOutput');
+            const errorLogOutput = document.getElementById('errorLogOutput');
+            
+            if (processLogContainer) {
+                processLogContainer.style.display = 'none';
+            }
+            if (errorLogContainer) {
+                errorLogContainer.style.display = 'none';
+            }
+            if (processLogOutput) {
+                processLogOutput.value = '';
+            }
+            if (errorLogOutput) {
+                errorLogOutput.value = '';
+            }
+            
             if (!validateDirectoryInputs()) {
                 updateStatus('error', 'Please set both input and output directories.');
                 return;
@@ -795,6 +914,24 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // PDF Renderer radio buttons
+    document.querySelectorAll('input[name="pdfRenderer"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            config.pdfRenderer = e.target.value;
+            updateRendererUIVisibility();
+            saveConfig();
+        });
+    });
+
+    // Ghostscript path type radio buttons
+    document.querySelectorAll('input[name="ghostscriptPathType"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            config.ghostscriptPathType = e.target.value;
+            updateRendererUIVisibility();
+            saveConfig();
+        });
+    });
+
     // Cover template edit button
     const editCoverBtn = document.getElementById('editCoverTemplateBtn');
     if (editCoverBtn) {
@@ -908,6 +1045,28 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     if (config.minFileSizeKB !== undefined) document.getElementById('minFileSizeKB').value = config.minFileSizeKB;
                     if (config.maxFileSizeMB !== undefined) document.getElementById('maxFileSizeMB').value = config.maxFileSizeMB;
+                    
+                    // Update PDF renderer selection
+                    if (config.pdfRenderer === 'pdfium') {
+                        document.getElementById('renderer-pdfium').checked = true;
+                    } else {
+                        document.getElementById('renderer-ghostscript').checked = true;
+                    }
+                    
+                    // Update Ghostscript path type
+                    if (config.ghostscriptPathType === 'custom') {
+                        document.getElementById('gs-path-custom').checked = true;
+                    } else {
+                        document.getElementById('gs-path-bundled').checked = true;
+                    }
+                    
+                    // Update Ghostscript path if provided
+                    if (config.ghostscriptPath) {
+                        document.getElementById('ghostscriptPath').value = config.ghostscriptPath;
+                    }
+                    
+                    // Update UI visibility based on imported config
+                    updateRendererUIVisibility();
 
                     // Optionally, save the newly imported config back to the default location immediately
                     // saveConfig(); // Decide if this is desired behavior
@@ -925,6 +1084,64 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- End Import/Export Config Button Listeners ---
+    
+    // --- Ghostscript Path Button Listeners ---
+    const browseGhostscriptBtn = document.getElementById('browseGhostscriptPath');
+    const clearGhostscriptBtn = document.getElementById('clearGhostscriptPath');
+    const ghostscriptPathInput = document.getElementById('ghostscriptPath');
+    const ghostscriptStatus = document.getElementById('ghostscriptStatus');
+    const ghostscriptStatusText = document.getElementById('ghostscriptStatusText');
+    
+    if (browseGhostscriptBtn && ghostscriptPathInput) {
+        browseGhostscriptBtn.addEventListener('click', async () => {
+            console.log('Browse Ghostscript path button clicked.');
+            try {
+                const result = await window.electronAPI.selectGhostscriptExecutable();
+                if (result.success) {
+                    ghostscriptPathInput.value = result.path;
+                    config.ghostscriptPath = result.path;
+                    saveConfig();
+                    
+                    // Show success status
+                    if (ghostscriptStatus && ghostscriptStatusText) {
+                        ghostscriptStatusText.textContent = `Selected: ${result.path}`;
+                        ghostscriptStatus.className = 'alert alert-success py-2';
+                        ghostscriptStatus.style.display = 'block';
+                        setTimeout(() => {
+                            ghostscriptStatus.style.display = 'none';
+                        }, 3000);
+                    }
+                    
+                    updateStatus('success', 'Ghostscript executable selected');
+                }
+            } catch (error) {
+                console.error('Error selecting Ghostscript executable:', error);
+                updateStatus('error', `Error selecting Ghostscript: ${error.message}`);
+            }
+        });
+    }
+    
+    if (clearGhostscriptBtn && ghostscriptPathInput) {
+        clearGhostscriptBtn.addEventListener('click', () => {
+            console.log('Clear Ghostscript path button clicked.');
+            ghostscriptPathInput.value = '';
+            config.ghostscriptPath = '';
+            saveConfig();
+            
+            // Show cleared status
+            if (ghostscriptStatus && ghostscriptStatusText) {
+                ghostscriptStatusText.textContent = 'Using bundled/system Ghostscript';
+                ghostscriptStatus.className = 'alert alert-info py-2';
+                ghostscriptStatus.style.display = 'block';
+                setTimeout(() => {
+                    ghostscriptStatus.style.display = 'none';
+                }, 3000);
+            }
+            
+            updateStatus('info', 'Ghostscript path cleared - using default');
+        });
+    }
+    // --- End Ghostscript Path Button Listeners ---
 
     // --- Initialize version display ---
     const appVersionDisplay = document.getElementById('appVersionDisplay');
@@ -940,6 +1157,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     }
 
+    // --- Handle open settings for Ghostscript ---
+    window.electronAPI.onOpenSettingsGhostscript(() => {
+        console.log('Received request to open settings with Ghostscript focus');
+        openModal(); // Open the settings modal
+    });
+    
     // --- More Info Button Listener ---
     const moreInfoBtn = document.getElementById('moreInfoBtn');
     if (moreInfoBtn) {
@@ -947,6 +1170,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const modalEl = document.getElementById('moreInfoModal');
             const versionSpan = document.getElementById('appVersionSpan');
             const repoLink = document.getElementById('repoLink');
+            const changelogLink = document.getElementById('changelogLink');
 
             if (modalEl && versionSpan) {
                 try {
@@ -961,6 +1185,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         repoLink.href = homepage;
                         repoLink.textContent = homepage + ' ';
                         repoLink.innerHTML += '<i class="bi bi-box-arrow-up-right ms-1"></i>';
+                    }
+                    
+                    // Update the changelog link
+                    if (changelogLink && homepage) {
+                        changelogLink.href = homepage + '/blob/main/CHANGELOG.md';
+                        changelogLink.innerHTML = 'View Changelog <i class="bi bi-box-arrow-up-right ms-1"></i>';
                     }
 
                     const modal = new bootstrap.Modal(modalEl);

@@ -674,6 +674,8 @@ async function processSingleTransformation(inputPath, outputPath, dpiValue, send
     // Get last 3 path parts for logging (e.g., PageDir/StudentDir/file.ext)
     const logInputPath = inputPath.split(path.sep).slice(-3).join(path.sep);
     const logOutputPath = outputPath.split(path.sep).slice(-3).join(path.sep);
+    // Keep full path for detailed error reporting
+    const fullInputPath = inputPath;
     let imageBufferForPdfLib; // Buffer ready to be embedded (always PNG format)
     let needsRotation = false;
 
@@ -684,7 +686,9 @@ async function processSingleTransformation(inputPath, outputPath, dpiValue, send
 
         if (ext === '.pdf') {
             sendLog(`[Transform Single] Processing as PDF: ${logInputPath}`);
-            initialBuffer = await renderFirstPageToImage(inputPath, dpiValue); // Renders first page to PNG buffer
+            // Create status callback to show renderer info in UI
+            const statusCallback = (message) => sendLog(`[PDF Renderer] ${message}`);
+            initialBuffer = await renderFirstPageToImage(inputPath, dpiValue, statusCallback); // Renders first page to PNG buffer
         } else if (ext === '.png') {
             sendLog(`[Transform Single] Processing as PNG: ${logInputPath}`);
             initialBuffer = fs.readFileSync(inputPath);
@@ -703,7 +707,8 @@ async function processSingleTransformation(inputPath, outputPath, dpiValue, send
                     width: width,
                     height: height,
                     channels: 4
-                }
+                },
+                limitInputPixels: 268402689 * 4 // 4x default limit for large HEIC images
             }).png().toBuffer();
             sendLog(`[Transform Single] Converted HEIC raw data to PNG buffer: ${logInputPath}`);
         } else {
@@ -717,7 +722,11 @@ async function processSingleTransformation(inputPath, outputPath, dpiValue, send
         }
 
         // Check dimensions and determine rotation need using Sharp
-        const metadata = await sharp(initialBuffer).metadata();
+        // Configure Sharp with increased pixel limits to handle large images
+        const metadata = await sharp(initialBuffer, {
+            limitInputPixels: 268402689 * 4 // 4x default limit (default is ~268M pixels for 16384x16384 image)
+        }).metadata();
+        
         sendLog(`[Transform Single] Image dimensions: ${metadata.width}x${metadata.height} for ${logInputPath}`);
         if (metadata.width > metadata.height) {
             sendLog(`[Transform Single] Image is landscape (width > height), rotation needed: ${logInputPath}`);
@@ -725,7 +734,9 @@ async function processSingleTransformation(inputPath, outputPath, dpiValue, send
         }
 
         // Prepare the final buffer for pdf-lib (ensure PNG, apply rotation if needed)
-        let sharpInstance = sharp(initialBuffer);
+        let sharpInstance = sharp(initialBuffer, {
+            limitInputPixels: 268402689 * 4 // 4x default limit for processing
+        });
         if (needsRotation) {
             sharpInstance = sharpInstance.rotate(90);
         }
@@ -744,7 +755,29 @@ async function processSingleTransformation(inputPath, outputPath, dpiValue, send
         }
 
     } catch (error) {
-        sendLog(`[Transform Single] ERROR processing file ${logInputPath}: ${error.message}`);
+        // Enhanced error reporting with full path and specific error handling
+        const isPixelLimitError = error.message && error.message.includes('exceeds pixel limit');
+        const isSharpError = error.message && (
+            error.message.includes('Input file contains unsupported image format') ||
+            error.message.includes('Input buffer contains unsupported image format') ||
+            isPixelLimitError
+        );
+        
+        let detailedError = `[Transform Single] ERROR processing file ${logInputPath}: ${error.message}`;
+        
+        if (isPixelLimitError) {
+            detailedError += `\n[Transform Single] FULL PATH: ${fullInputPath}`;
+            detailedError += `\n[Transform Single] This image exceeds Sharp's pixel limits. The image is too large to process safely.`;
+            detailedError += `\n[Transform Single] Consider reducing the image resolution or DPI setting (current: ${dpiValue}).`;
+            detailedError += `\n[Transform Single] Maximum recommended dimensions: ~32,000 x ~32,000 pixels.`;
+        } else if (isSharpError) {
+            detailedError += `\n[Transform Single] FULL PATH: ${fullInputPath}`;
+            detailedError += `\n[Transform Single] This appears to be an image processing error. Check if the file is corrupted or in an unsupported format.`;
+        } else {
+            detailedError += `\n[Transform Single] FULL PATH: ${fullInputPath}`;
+        }
+        
+        sendLog(detailedError);
         throw error; 
     }
 }

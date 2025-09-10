@@ -2,9 +2,13 @@ const { app, BrowserWindow, ipcMain, dialog, Menu, shell } = require('electron')
 const fs = require('fs');
 const path = require('path');
 const { parse } = require('csv-parse/sync'); // Import sync parser
+const { spawn, execFile } = require('child_process');
+const { promisify } = require('util');
 const sharp = require('sharp'); // Add sharp for image validation
 const { PDFDocument } = require('pdf-lib'); // Add pdf-lib for PDF validation
 const decodeHeic = require('heic-decode'); // Needed for HEIC
+
+const execFileAsync = promisify(execFile);
 
 // Function to send logs to the renderer process UI
 function sendLogToRenderer(message) {
@@ -52,6 +56,54 @@ let currentTransformationDpi = 300;
 let currentOutputDirectory = null;
 let someNumberToEmailMap = {}; // Global map for CSV lookup
 
+/**
+ * Check if Ghostscript binary is available in system PATH (Linux only)
+ * @returns {Promise<boolean>} True if gs binary is found and working
+ */
+async function checkGhostscriptAvailability() {
+    if (process.platform !== 'linux') {
+        return true; // Not applicable for non-Linux platforms
+    }
+
+    try {
+        // Test gs with version command
+        await execFileAsync('gs', ['--version'], { timeout: 5000 });
+        return true;
+    } catch (error) {
+        console.log('[Linux] Ghostscript binary (gs) not found in PATH:', error.message);
+        return false;
+    }
+}
+
+/**
+ * Show Ghostscript installation notice for Linux users
+ */
+async function showGhostscriptNotice() {
+    if (!mainWindow) return;
+    
+    const options = {
+        type: 'warning',
+        title: 'Ghostscript Required',
+        message: 'Ghostscript Not Found',
+        detail: 'This application requires Ghostscript for PDF processing on Linux. ' +
+               'Please install Ghostscript using your package manager:\n\n' +
+               'Ubuntu/Debian: sudo apt install ghostscript\n' +
+               'Fedora/CentOS: sudo dnf install ghostscript\n' +
+               'Arch Linux: sudo pacman -S ghostscript\n\n' +
+               'Alternatively, you can specify a custom path to the Ghostscript binary in Settings.',
+        buttons: ['Open Settings', 'Continue Anyway'],
+        defaultId: 0,
+        cancelId: 1
+    };
+
+    const result = await dialog.showMessageBox(mainWindow, options);
+    
+    if (result.response === 0) {
+        // User chose to open settings - send message to renderer
+        mainWindow.webContents.send('open-settings-ghostscript');
+    }
+}
+
 function createWindow() {
 
 
@@ -83,16 +135,29 @@ function createWindow() {
                 sendLogToRenderer(`Config loaded, but foldernamePattern missing. Setting default: ${defaultMoodlePattern}`);
                 configToSend.foldernamePattern = defaultMoodlePattern;
             }
+            // Ensure the default renderer is set if missing (for upgrades from old versions)
+            if (!configToSend.pdfRenderer) {
+                sendLogToRenderer('Config loaded, but pdfRenderer missing. Setting default: ghostscript');
+                configToSend.pdfRenderer = 'ghostscript';
+            }
+            // Ensure the default ghostscript path type is set if missing
+            if (!configToSend.ghostscriptPathType) {
+                const defaultPathType = process.platform === 'linux' ? 'system' : 'bundled';
+                sendLogToRenderer(`Config loaded, but ghostscriptPathType missing. Setting default: ${defaultPathType}`);
+                configToSend.ghostscriptPathType = defaultPathType;
+            }
         } catch (err) {
             sendLogToRenderer(`Error loading config from ${CONFIG_PATH}: ${err.message}. Using default.`);
             // Fallback to default if loading fails
-            configToSend = { 
-                foldernamePattern: defaultMoodlePattern,
-                // Include other potential default settings here if necessary
-                dpi: 300, 
-                minFileSizeKB: 1, 
-                maxFileSizeMB: 20 
-            };
+        configToSend = { 
+            foldernamePattern: defaultMoodlePattern,
+            // Include other potential default settings here if necessary
+            dpi: 300, 
+            minFileSizeKB: 1, 
+            maxFileSizeMB: 20,
+            pdfRenderer: 'ghostscript', // Default to Ghostscript
+            ghostscriptPathType: 'bundled' // Default to bundled version
+        };
         }
     } else {
         // Config file doesn't exist, create default object
@@ -102,15 +167,28 @@ function createWindow() {
             // Include other default settings here
             dpi: 300, 
             minFileSizeKB: 1, 
-            maxFileSizeMB: 20 
+            maxFileSizeMB: 20,
+            pdfRenderer: 'ghostscript', // Default to Ghostscript
+            ghostscriptPathType: process.platform === 'linux' ? 'system' : 'bundled' // Default to system on Linux, bundled elsewhere
         };
         // Optionally save this default config immediately? Let's not for now.
         // try { fs.writeFileSync(CONFIG_PATH, JSON.stringify(configToSend, null, 2)); } catch {} 
     }
 
     // Send the potentially modified config object once the window is ready
-    win.webContents.on('did-finish-load', () => {
-        if(mainWindow) mainWindow.webContents.send('load-config', configToSend);
+    win.webContents.on('did-finish-load', async () => {
+        if(mainWindow) {
+            mainWindow.webContents.send('load-config', configToSend);
+            
+            // Check Ghostscript availability on Linux after loading
+            if (process.platform === 'linux' && configToSend.pdfRenderer === 'ghostscript') {
+                const gsAvailable = await checkGhostscriptAvailability();
+                if (!gsAvailable) {
+                    // Delay the notice slightly to ensure UI is fully loaded
+                    setTimeout(() => showGhostscriptNotice(), 1000);
+                }
+            }
+        }
     });
 
     win.on('closed', () => {
@@ -684,10 +762,15 @@ async function prepareTransformations(mainDirectory, outputDirectory, folderPatt
                     } else if (ext === '.heic') {
                         const { data, width, height } = await decodeHeic({ buffer: fileBuffer });
                         // Check metadata of the decoded PNG buffer
-                        await sharp(data, { raw: { width, height, channels: 4 } }).metadata(); 
+                        await sharp(data, { 
+                            raw: { width, height, channels: 4 },
+                            limitInputPixels: 268402689 * 4 // 4x default limit for validation
+                        }).metadata(); 
                         isValid = true;
                     } else { // Other images (png, jpg, jpeg)
-                        await sharp(fileBuffer).metadata(); // Throws on error
+                        await sharp(fileBuffer, {
+                            limitInputPixels: 268402689 * 4 // 4x default limit for validation
+                        }).metadata(); // Throws on error
                         isValid = true;
                     }
                 } catch (validationError) {
@@ -1010,6 +1093,16 @@ async function processTasksDirectly(tasks, outputDirectory, dpi) {
 
 ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirectory, dpi) => {
     sendLogToRenderer("IPC: Received start-transformation");
+    
+    // Show renderer info upfront
+    try {
+        const { getRendererInfo } = require('./pdf-cmdline-processor');
+        const rendererInfo = await getRendererInfo();
+        sendLogToRenderer(`PDF Renderer: ${rendererInfo.renderer} v${rendererInfo.version} (${rendererInfo.path})`);
+    } catch (error) {
+        sendLogToRenderer(`PDF Renderer: Unable to determine renderer info (${error.message})`);
+    }
+    
     // Reset global state
     pendingTransformationData = null; 
     currentTransformationDpi = dpi;   
@@ -1915,6 +2008,39 @@ ipcMain.handle('dialog:showMessageBox', async (event, options) => {
     return dialog.showMessageBox(mainWindow, options);
 });
 
+// Ghostscript executable file picker
+ipcMain.handle('ghostscript:selectExecutable', async (event) => {
+    const filters = [];
+    
+    // Platform-specific file filters
+    if (process.platform === 'win32') {
+        filters.push(
+            { name: 'Ghostscript Executable', extensions: ['exe'] },
+            { name: 'All Files', extensions: ['*'] }
+        );
+    } else {
+        // macOS and Linux - no extension filter needed
+        filters.push(
+            { name: 'All Files', extensions: ['*'] }
+        );
+    }
+    
+    const result = await dialog.showOpenDialog(mainWindow, {
+        title: 'Select Ghostscript Executable',
+        properties: ['openFile'],
+        filters: filters,
+        defaultPath: process.platform === 'darwin' ? '/usr/local/bin' : 
+                    process.platform === 'win32' ? 'C:\\Program Files\\gs' : 
+                    '/usr/bin'
+    });
+    
+    if (!result.canceled && result.filePaths.length > 0) {
+        return { success: true, path: result.filePaths[0] };
+    }
+    
+    return { success: false };
+});
+
 ipcMain.handle('path-basename', async (event, filePath) => { // Corrected channel name
     return path.basename(filePath);
 });
@@ -2067,4 +2193,9 @@ ipcMain.handle('get-app-homepage', () => { // New handler for homepage
         console.error('Error reading package.json:', error);
         return 'https://github.com/UBA-PSI/klausur-booklets/';
     }
+});
+
+// Platform detection handler
+ipcMain.handle('get-platform', () => {
+    return process.platform;
 });
