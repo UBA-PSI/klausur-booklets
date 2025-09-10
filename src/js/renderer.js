@@ -1170,6 +1170,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const modalEl = document.getElementById('moreInfoModal');
             const versionSpan = document.getElementById('appVersionSpan');
             const repoLink = document.getElementById('repoLink');
+            const changelogLink = document.getElementById('changelogLink');
 
             if (modalEl && versionSpan) {
                 try {
@@ -1184,6 +1185,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         repoLink.href = homepage;
                         repoLink.textContent = homepage + ' ';
                         repoLink.innerHTML += '<i class="bi bi-box-arrow-up-right ms-1"></i>';
+                    }
+                    
+                    // Update the changelog link
+                    if (changelogLink && homepage) {
+                        changelogLink.href = homepage + '/blob/main/CHANGELOG.md';
+                        changelogLink.innerHTML = 'View Changelog <i class="bi bi-box-arrow-up-right ms-1"></i>';
                     }
 
                     const modal = new bootstrap.Modal(modalEl);
