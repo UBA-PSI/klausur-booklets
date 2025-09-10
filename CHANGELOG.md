@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.0.5] - 2025-01-XX
+## [1.0.4] - 2025-01-XX
 
 - [NEW] **External PDF renderer support**: Added configurable PDF rendering system with support for both bundled Ghostscript and system-installed Ghostscript. Users can now specify custom Ghostscript paths for better compatibility across different environments.
 - [IMPROVED] **Linux compatibility**: Enhanced Ghostscript detection and configuration on Linux systems with automatic fallback options and clear user guidance when Ghostscript is not found.
