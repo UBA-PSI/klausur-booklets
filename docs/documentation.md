@@ -21,7 +21,7 @@
 
 **Important Note:** This guide describes the workflow specifically for the Moodle instance as configured at the **University of Bamberg**. While the general principles might apply elsewhere, details may differ significantly in other Moodle installations. **Tested with:** Moodle 4.5.
 
-For the **Ilias** learning platform, the overall process of collecting pages and generating booklets is similar, but currently lacks the automated assignment creation workflow described here.
+For the **ILIAS** learning platform, the overall process of collecting pages and generating booklets is similar, but currently lacks the automated assignment creation workflow described here. However, the Booklet Tool now supports automatic preprocessing of ILIAS ZIP exports—simply download your submissions from ILIAS (either per-assignment or per-student format) and place the ZIP files in the input directory. The tool will automatically detect and process them.
 
 ## 1. Purpose and Overview
 

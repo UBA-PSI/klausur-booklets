@@ -3,24 +3,28 @@
 <details>
 <summary>Inhaltsverzeichnis</summary>
 
-* [Zweck und Überblick](#1-zweck-und-überblick)
-* [Voraussetzungen](#2-voraussetzungen)
-* [Schritt-für-Schritt Workflow](#3-schritt-für-schritt-workflow)
-  * [Ansätze zur Einrichtung von Aufgaben](#schritt-30-verständnis-der-zwei-ansätze-zur-einrichtung-von-booklet-aufgaben)
-  * [Erste Moodle-Kurs-Einrichtung](#schritt-31-erste-moodle-kurs-einrichtung-einmal-pro-kurs)
-  * [Moodle-Aufgaben generieren](#schritt-32-moodle-aufgaben-mit-dem-booklet-tool-generieren)
-  * [Aufgaben importieren](#schritt-33-aufgaben-in-moodle-importieren)
-  * [Studierende anleiten](#schritt-34-ihre-studierenden-anleiten)
-  * [Studentische Abgaben herunterladen](#schritt-35-studentische-abgaben-herunterladen)
-  * [Finale Booklets erstellen](#schritt-36-die-finalen-booklets-erstellen)
-* [Wichtige Hinweise](#4-wichtige-hinweise)
-* [Umgang mit identischen Studierendennamen](#5-umgang-mit-identischen-studierendennamen)
+- [Booklet Tool: Anleitung für Lehrende](#booklet-tool-anleitung-für-lehrende)
+  - [1. Zweck und Überblick](#1-zweck-und-überblick)
+  - [2. Voraussetzungen](#2-voraussetzungen)
+  - [3. Schritt-für-Schritt Workflow](#3-schritt-für-schritt-workflow)
+    - [Vorab: Überblick über die zwei Ansätze zur Einrichtung von Booklet-Aufgaben](#vorab-überblick-über-die-zwei-ansätze-zur-einrichtung-von-booklet-aufgaben)
+      - [Manueller Ansatz](#manueller-ansatz)
+      - [Automatisierter Ansatz (Empfohlen)](#automatisierter-ansatz-empfohlen)
+    - [Schritt 3.1: Erste Moodle-Kurs-Einrichtung (Einmal pro Kurs)](#schritt-31-erste-moodle-kurs-einrichtung-einmal-pro-kurs)
+    - [Schritt 3.2: Moodle-Aufgaben mit dem Booklet Tool generieren](#schritt-32-moodle-aufgaben-mit-dem-booklet-tool-generieren)
+    - [Schritt 3.3: Aufgaben in Moodle importieren](#schritt-33-aufgaben-in-moodle-importieren)
+    - [Schritt 3.4: Ihre Studierenden anleiten](#schritt-34-ihre-studierenden-anleiten)
+    - [Schritt 3.5: Studentische Abgaben herunterladen](#schritt-35-studentische-abgaben-herunterladen)
+    - [Schritt 3.6: Die finalen Booklets erstellen](#schritt-36-die-finalen-booklets-erstellen)
+  - [4. Wichtige Hinweise](#4-wichtige-hinweise)
+  - [5. Umgang mit identischen Studierendennamen](#5-umgang-mit-identischen-studierendennamen)
+  - [Schlussbemerkung](#schlussbemerkung)
 
 </details>
 
 **Wichtiger Hinweis:** Diese Anleitung beschreibt den Workflow speziell für die Moodle-Installation, wie sie an der **Universität Bamberg** konfiguriert ist. Während die allgemeinen Prinzipien auch anderswo anwendbar sein könnten, können Details in anderen Moodle-Installationen erheblich abweichen. **Getestet mit:** Moodle 4.5.
 
-Für die **Ilias**-Lernplattform ist der gesamte Prozess zum Sammeln von Seiten und Generieren von Booklets ähnlich, es fehlt jedoch derzeit der hier beschriebene automatisierte Workflow zur Erstellung von Aufgaben.
+Für die **ILIAS**-Lernplattform ist der gesamte Prozess zum Sammeln von Seiten und Generieren von Booklets ähnlich, es fehlt jedoch derzeit der hier beschriebene automatisierte Workflow zur Erstellung von Aufgaben. Das Booklet Tool unterstützt nun jedoch die automatische Vorverarbeitung von ILIAS-ZIP-Exporten: Laden Sie einfach Ihre Abgaben von ILIAS herunter ("Alle Abgaben herunterladen", entweder "je Übungseinheit" oder "je Teilnehmer") und legen Sie die ZIP-Dateien in das Eingabeverzeichnis. Das Tool erkennt und verarbeitet sie automatisch.
 
 ## 1. Zweck und Überblick
 

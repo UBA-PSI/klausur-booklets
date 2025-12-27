@@ -71,7 +71,10 @@ _That's it  – no command line required._
 ### Supported Learning Management Systems
 
 - Built for **Moodle**: automatically matches students' uploads stored in FULLNAMEWITHSPACES_SOMENUMBER_assignment_file_ folders.
-- Should also work with **Ilias**: submission activities having folder names like FIRSTNAME_LASTNAME_USERNAME_STUDENTNUMBER are supported
+- **ILIAS ZIP Export Support**: Automatically detects and processes ILIAS ZIP exports in two formats:
+  - **Per-assignment format**: One ZIP file per exercise containing all students' submissions (e.g., `Seite 2.zip`)
+  - **Per-student format**: One ZIP file per student containing all their assignments (e.g., `Lastname_Firstname_username_studentnumber.zip`)
+  - Simply place all downloaded ZIP files in the input directory—the tool automatically detects the format and preprocesses the submissions into a compatible structure.
 - Works with custom folder structures.
 
 
