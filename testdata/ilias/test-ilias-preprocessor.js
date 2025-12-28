@@ -89,7 +89,7 @@ async function testPerAssignmentFormat() {
         try {
             // Run preprocessing
             const logs = [];
-            await iliasPreprocessor.preprocessIliasZips(
+            iliasPreprocessor.preprocessIliasZips(
                 inputDir,
                 tempDir,
                 (msg) => logs.push(msg),
@@ -146,7 +146,7 @@ async function testPerStudentFormat() {
         try {
             // Run preprocessing
             const logs = [];
-            await iliasPreprocessor.preprocessIliasZips(
+            iliasPreprocessor.preprocessIliasZips(
                 inputDir,
                 tempDir,
                 (msg) => logs.push(msg),
@@ -201,7 +201,7 @@ async function testAlternativePageNames() {
 
         try {
             // Run preprocessing
-            await iliasPreprocessor.preprocessIliasZips(
+            iliasPreprocessor.preprocessIliasZips(
                 inputDir,
                 tempDir,
                 () => {},
@@ -246,7 +246,7 @@ async function testEdgeCases() {
 
         try {
             const logs = [];
-            await iliasPreprocessor.preprocessIliasZips(
+            iliasPreprocessor.preprocessIliasZips(
                 inputDir,
                 tempDir,
                 (msg) => logs.push(msg),
@@ -291,7 +291,7 @@ async function testEdgeCases() {
             const logs = [];
             let errorThrown = false;
             try {
-                await iliasPreprocessor.preprocessIliasZips(
+                iliasPreprocessor.preprocessIliasZips(
                     testInputDir,
                     tempDir,
                     (msg) => logs.push(msg),
@@ -328,7 +328,7 @@ async function testEdgeCases() {
             const logs = [];
             let errorThrown = false;
             try {
-                await iliasPreprocessor.preprocessIliasZips(
+                iliasPreprocessor.preprocessIliasZips(
                     testInputDir,
                     tempDir,
                     (msg) => logs.push(msg),
@@ -361,7 +361,7 @@ async function testEdgeCases() {
                 path.join(testInputDir, 'Seite 1 - Special Files.zip')
             );
 
-            await iliasPreprocessor.preprocessIliasZips(
+            iliasPreprocessor.preprocessIliasZips(
                 testInputDir,
                 tempDir,
                 () => {},
@@ -407,7 +407,7 @@ async function testEdgeCases() {
             let errorThrown = false;
             let errorMessage = '';
             try {
-                await iliasPreprocessor.preprocessIliasZips(
+                iliasPreprocessor.preprocessIliasZips(
                     testInputDir,
                     tempDir,
                     (msg) => logs.push(msg),
