@@ -24,8 +24,6 @@
 
 **Wichtiger Hinweis:** Diese Anleitung beschreibt den Workflow speziell für die Moodle-Installation, wie sie an der **Universität Bamberg** konfiguriert ist. Während die allgemeinen Prinzipien auch anderswo anwendbar sein könnten, können Details in anderen Moodle-Installationen erheblich abweichen. **Getestet mit:** Moodle 4.5.
 
-Für die **ILIAS**-Lernplattform ist der gesamte Prozess zum Sammeln von Seiten und Generieren von Booklets ähnlich, es fehlt jedoch derzeit der hier beschriebene automatisierte Workflow zur Erstellung von Aufgaben. Das Booklet Tool unterstützt nun jedoch die automatische Vorverarbeitung von ILIAS-ZIP-Exporten: Laden Sie einfach Ihre Abgaben von ILIAS herunter ("Alle Abgaben herunterladen", entweder "je Übungseinheit" oder "je Teilnehmer") und legen Sie die ZIP-Dateien in das Eingabeverzeichnis. Das Tool erkennt und verarbeitet sie automatisch.
-
 ## 1. Zweck und Überblick
 
 Diese Anleitung erklärt, wie man Studierendenabgaben für mehrseitige "Booklets" mit Moodle einrichtet und verwaltet. Das *Booklet Tool* unterstützt Lehrende dabei, das "Klausur-Booklet"-Anreizsystem umzusetzen, wie es unter [www.uni-bamberg.de/psi/teaching/booklet-tool/](https://www.uni-bamberg.de/psi/teaching/booklet-tool/) beschrieben wird.
@@ -143,6 +141,8 @@ Die im Studierendenleitfaden genannten Formatanforderungen entsprechen den Regel
 
 ### Schritt 3.5: Studentische Abgaben herunterladen
 
+#### Für Moodle-Nutzer
+
 Nach Ablauf der Fristen (oder jederzeit während des Semesters für eine Vorschau):
 
 * Navigieren Sie zur ersten Booklet-Seitenaufgabe in Moodle (z.B. "Booklet Seite 1").
@@ -173,6 +173,22 @@ booklet-submissions/
     └── Clara Clever_55553_assignsubmission_file_/
         └── dummy.png
 ```
+
+#### Für ILIAS-Nutzer
+
+Der Download-Prozess ist ähnlich, mit einem wichtigen Unterschied: **Entpacken Sie die ZIP-Dateien nicht**.
+
+ILIAS bietet zwei Download-Formate:
+
+1. **Download je Übungseinheit** (empfohlen bei weniger Übungseinheiten als Studierenden)
+   - Laden Sie eine ZIP-Datei pro Übungseinheit mit allen Studierendenabgaben herunter
+   - Beispiel: 3 Übungseinheiten mit 50 Studierenden → 3 ZIP-Dateien herunterladen
+
+2. **Download je Teilnehmer** (empfohlen bei weniger Studierenden als Übungseinheiten)
+   - Laden Sie eine ZIP-Datei pro Studierendem mit allen Übungseinheiten herunter
+   - Beispiel: 10 Studierende mit 20 Übungseinheiten → 10 ZIP-Dateien herunterladen
+
+**Verwendung:** Erstellen Sie einen dedizierten Ordner (z.B. `booklet-submissions`) und legen Sie alle heruntergeladenen ZIP-Dateien dort ab, **ohne sie zu entpacken**. Das Booklet Tool erkennt das ILIAS-Format automatisch und verarbeitet die Dateien.
 
 ### Schritt 3.6: Die finalen Booklets erstellen
 
