@@ -258,6 +258,25 @@ async function preprocessIliasZips(inputDir, tempDir, logCallback = console.log,
             throw new Error('All ILIAS ZIP files failed to process');
         }
 
+        // 5. Ensure all page/assignment directories exist (for missing pages detection)
+        // Even if a student didn't submit for a particular page, the page directory should exist
+        // This makes the structure truly Moodle-compatible where all page folders always exist
+        if (format === 'per-assignment') {
+            // In per-assignment mode, each ZIP represents a page/assignment
+            // Create empty directories for all ZIP files, even if extraction failed or was skipped
+            for (const zipPath of zipFiles) {
+                const pageName = path.basename(zipPath, '.zip');
+                const pageDir = path.join(tempDir, pageName);
+
+                if (!fs.existsSync(pageDir)) {
+                    fs.mkdirSync(pageDir, { recursive: true });
+                    logCallback(`  Created empty directory for page: ${pageName}`);
+                }
+            }
+        }
+        // Note: In per-student mode, all page directories are automatically created
+        // during extraction since each student ZIP contains all assignment folders (even empty ones)
+
     } catch (error) {
         throw new Error(`ILIAS preprocessing failed: ${error.message}`);
     }
@@ -430,15 +449,22 @@ async function extractAndRestructurePerStudentZip(zipPath, tempDir, logCallback 
 
         // 2. Find all assignment directories (e.g., "Seite 1", "Seite 2", ...)
         // Structure: Student_Name/Seite X/Abgaben/Student_Name/files
+        // IMPORTANT: We need to capture ALL assignment directories, even empty ones
+        // (when student didn't submit anything for that assignment)
         const assignmentDirs = new Set();
 
         for (const entry of zipEntries) {
             const entryPath = entry.entryName;
             const parts = entryPath.split('/');
 
-            // Look for pattern: [StudentName]/[AssignmentName]/Abgaben/...
-            if (parts.length >= 3 && parts[2] === 'Abgaben') {
-                assignmentDirs.add(parts[1]); // e.g., "Seite 2"
+            // Look for pattern: [StudentName]/[AssignmentName]/...
+            // parts[0] = student name folder, parts[1] = assignment folder
+            if (parts.length >= 2 && parts[1]) {
+                // Check if this is an assignment directory (has "Abgaben" or other subdirs)
+                // We look for any second-level directory that's not empty
+                if (parts.length >= 3) {
+                    assignmentDirs.add(parts[1]); // e.g., "Seite 2", "Exercise 1", etc.
+                }
             }
         }
 

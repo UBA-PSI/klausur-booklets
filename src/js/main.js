@@ -60,6 +60,7 @@ let currentTransformationDpi = 300;
 let currentOutputDirectory = null;
 let someNumberToEmailMap = {}; // Global map for CSV lookup
 let iliasPreprocessingTempDir = null; // Track ILIAS temp directory for cleanup
+let effectiveInputDirectoryForMerging = null; // Track the effective input directory for missing pages detection
 
 /**
  * Check if Ghostscript binary is available in system PATH (Linux only)
@@ -1139,7 +1140,11 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
 
             await iliasPreprocessor.preprocessIliasZips(mainDirectory, tempDir, sendLogToRenderer, folderPattern);
             effectiveInputDirectory = tempDir;
+            effectiveInputDirectoryForMerging = tempDir; // Store for merging phase (missing pages detection)
             sendLogToRenderer("✓ ILIAS preprocessing complete. Using temporary directory for processing.");
+        } else {
+            // For non-ILIAS mode (Moodle), use the original directory
+            effectiveInputDirectoryForMerging = mainDirectory;
         }
     } catch (preprocessError) {
         sendLogToRenderer(`ERROR: ILIAS preprocessing failed: ${preprocessError.message}`);
@@ -1147,6 +1152,7 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
         if (iliasPreprocessingTempDir) {
             iliasPreprocessor.cleanupTempDirectory(iliasPreprocessingTempDir);
             iliasPreprocessingTempDir = null;
+            effectiveInputDirectoryForMerging = null;
         }
         throw preprocessError;
     }
@@ -1186,16 +1192,9 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
             // Generate HTML summary report
             await generateSummaryHtml(outputDirectory);
 
-            // Cleanup ILIAS temp directory after successful processing
-            if (iliasPreprocessingTempDir) {
-                try {
-                    iliasPreprocessor.cleanupTempDirectory(iliasPreprocessingTempDir);
-                    sendLogToRenderer("✓ ILIAS temporary directory cleaned up.");
-                    iliasPreprocessingTempDir = null;
-                } catch (cleanupErr) {
-                    sendLogToRenderer(`WARN: Could not cleanup ILIAS temp directory: ${cleanupErr.message}`);
-                }
-            }
+            // NOTE: Do NOT cleanup ILIAS temp directory here!
+            // The temp directory is needed during the merging phase to detect missing pages.
+            // It will be cleaned up after merging in the 'start-merging' handler.
 
             // Clear global state after successful direct processing
             pendingTransformationData = null;
@@ -1212,6 +1211,7 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
                 iliasPreprocessor.cleanupTempDirectory(iliasPreprocessingTempDir);
                 sendLogToRenderer("ILIAS temporary directory cleaned up after error.");
                 iliasPreprocessingTempDir = null;
+                effectiveInputDirectoryForMerging = null;
             } catch (cleanupErr) {
                 console.error("Failed to cleanup ILIAS temp dir after error:", cleanupErr);
             }
@@ -1337,6 +1337,7 @@ ipcMain.handle('resolve-ambiguity', async (event, selectedIdentifiers) => {
                 iliasPreprocessor.cleanupTempDirectory(iliasPreprocessingTempDir);
                 sendLogToRenderer("ILIAS temporary directory cleaned up after error.");
                 iliasPreprocessingTempDir = null;
+                effectiveInputDirectoryForMerging = null;
             } catch (cleanupErr) {
                 console.error("Failed to cleanup ILIAS temp dir after error:", cleanupErr);
             }
@@ -1596,6 +1597,14 @@ async function generateSummaryHtml(outputDirectory) {
 ipcMain.handle('start-merging', async (event, mainDirectory, outputDirectory) => {
     sendLogToRenderer(`IPC: Received start-merging for outputDir: ${outputDirectory}`);
     try {
+        // Determine which directory to use for missing pages detection
+        // If ILIAS preprocessing was done, use the temp directory; otherwise use the original mainDirectory
+        const directoryForMissingPagesDetection = effectiveInputDirectoryForMerging || mainDirectory;
+
+        if (effectiveInputDirectoryForMerging && effectiveInputDirectoryForMerging !== mainDirectory) {
+            sendLogToRenderer(`Using ILIAS temp directory for missing pages detection: ${effectiveInputDirectoryForMerging}`);
+        }
+
         // Load config to get cover template content
         let config = {};
         let coverTemplateContent = `# Default Cover Template
@@ -1625,9 +1634,22 @@ Missing:
         }
 
         sendLogToRenderer("Main: Starting mergeStudentPDFs function..."); // Log before starting
-        // Pass the template CONTENT string to mergeStudentPDFs
-        await mergeStudentPDFs(mainDirectory, outputDirectory, coverTemplateContent);
+        // Pass the effective directory for missing pages detection
+        await mergeStudentPDFs(directoryForMissingPagesDetection, outputDirectory, coverTemplateContent);
         sendLogToRenderer("Main: mergeStudentPDFs completed successfully."); // Log on success
+
+        // Cleanup ILIAS temp directory after successful merging
+        if (iliasPreprocessingTempDir) {
+            try {
+                iliasPreprocessor.cleanupTempDirectory(iliasPreprocessingTempDir);
+                sendLogToRenderer("✓ ILIAS temporary directory cleaned up after merging.");
+                iliasPreprocessingTempDir = null;
+                effectiveInputDirectoryForMerging = null;
+            } catch (cleanupErr) {
+                sendLogToRenderer(`WARN: Could not cleanup ILIAS temp directory: ${cleanupErr.message}`);
+            }
+        }
+
         return "Success"; // Indicate success to renderer
     } catch (error) {
         sendLogToRenderer(`Main: Error during PDF merging: ${error.message}`); // Log error
