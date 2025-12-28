@@ -485,15 +485,25 @@ async function extractAndRestructurePerStudentZip(zipPath, tempDir, logCallback 
                 fs.mkdirSync(targetAssignmentDir, { recursive: true });
             }
 
+            // 4. Extract files for this assignment
+            // Look for: Student_Name/Assignment_Name/Abgaben/Student_Name/file.pdf
+            const abgabenPrefix = `${zipName}/${assignmentName}/Abgaben/${zipName}/`;
+
+            // First, check if there are any files to extract for this assignment
+            const hasFiles = zipEntries.some(entry =>
+                entry.entryName.startsWith(abgabenPrefix) && !entry.isDirectory
+            );
+
+            // Only create student folder if there are actually files to extract
+            if (!hasFiles) {
+                continue; // Skip this assignment - student has no submission
+            }
+
             // Create student folder inside assignment: tempDir/Seite X/Student_Name/
             const targetStudentDir = path.join(targetAssignmentDir, zipName);
             if (!fs.existsSync(targetStudentDir)) {
                 fs.mkdirSync(targetStudentDir, { recursive: true });
             }
-
-            // 4. Extract files for this assignment
-            // Look for: Student_Name/Assignment_Name/Abgaben/Student_Name/file.pdf
-            const abgabenPrefix = `${zipName}/${assignmentName}/Abgaben/${zipName}/`;
 
             for (const entry of zipEntries) {
                 const entryPath = entry.entryName;
