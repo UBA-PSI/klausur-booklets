@@ -237,6 +237,161 @@ async function testAlternativePageNames() {
 }
 
 /**
+ * Test 5: Edge Cases (Umlauts, Empty ZIPs, Corrupt ZIPs, Mixed File Types)
+ */
+async function testEdgeCases() {
+    await test('Edge Case: Umlauts in Student Names', async () => {
+        const inputDir = path.join(__dirname, 'edge-cases', 'umlauts');
+        const tempDir = path.join(os.tmpdir(), `ilias-test-umlauts-${Date.now()}`);
+
+        try {
+            const logs = [];
+            await iliasPreprocessor.preprocessIliasZips(
+                inputDir,
+                tempDir,
+                (msg) => logs.push(msg),
+                'LASTNAME_FIRSTNAME_USERNAME_STUDENTNUMBER'
+            );
+
+            // Check that umlauts work correctly
+            const seite1Dir = path.join(tempDir, 'Seite 1');
+            const students = fs.readdirSync(seite1Dir).filter(item =>
+                fs.statSync(path.join(seite1Dir, item)).isDirectory()
+            );
+
+            assert(students.includes('Müller_Anna_amueller_801234'), 'Anna Müller present in Seite 1');
+            assert(students.includes('Schäfer_Max_mschaefer_802345'), 'Max Schäfer present in Seite 1');
+            assert(students.includes('Löwe_Lisa_lloewe_803456'), 'Lisa Löwe present in Seite 1');
+
+            // Check Seite 2 - Anna Müller should be missing
+            const seite2Dir = path.join(tempDir, 'Seite 2');
+            const seite2Students = fs.readdirSync(seite2Dir).filter(item =>
+                fs.statSync(path.join(seite2Dir, item)).isDirectory()
+            );
+            assert(!seite2Students.includes('Müller_Anna_amueller_801234'), 'Anna Müller missing from Seite 2 (as expected)');
+
+        } finally {
+            iliasPreprocessor.cleanupTempDirectory(tempDir);
+        }
+    });
+
+    await test('Edge Case: Empty ZIP File', async () => {
+        const inputDir = path.join(__dirname, 'edge-cases');
+        const tempDir = path.join(os.tmpdir(), `ilias-test-empty-${Date.now()}`);
+
+        try {
+            // Create temp dir with only the empty.zip
+            const testInputDir = path.join(os.tmpdir(), `ilias-input-empty-${Date.now()}`);
+            fs.mkdirSync(testInputDir, { recursive: true });
+            fs.copyFileSync(
+                path.join(inputDir, 'empty.zip'),
+                path.join(testInputDir, 'Seite 1.zip')
+            );
+
+            const logs = [];
+            let errorThrown = false;
+            try {
+                await iliasPreprocessor.preprocessIliasZips(
+                    testInputDir,
+                    tempDir,
+                    (msg) => logs.push(msg),
+                    'LASTNAME_FIRSTNAME_USERNAME_STUDENTNUMBER'
+                );
+            } catch (error) {
+                errorThrown = true;
+            }
+
+            // Empty ZIP should either be skipped gracefully or cause expected error
+            assert(errorThrown || logs.some(l => l.includes('WARNING') || l.includes('skipping')),
+                'Empty ZIP handled gracefully (error or warning)');
+
+            // Cleanup
+            fs.rmSync(testInputDir, { recursive: true, force: true });
+        } finally {
+            iliasPreprocessor.cleanupTempDirectory(tempDir);
+        }
+    });
+
+    await test('Edge Case: Corrupt ZIP File', async () => {
+        const inputDir = path.join(__dirname, 'edge-cases');
+        const tempDir = path.join(os.tmpdir(), `ilias-test-corrupt-${Date.now()}`);
+
+        try {
+            // Create temp dir with only the corrupt.zip
+            const testInputDir = path.join(os.tmpdir(), `ilias-input-corrupt-${Date.now()}`);
+            fs.mkdirSync(testInputDir, { recursive: true });
+            fs.copyFileSync(
+                path.join(inputDir, 'corrupt.zip'),
+                path.join(testInputDir, 'Seite 1.zip')
+            );
+
+            const logs = [];
+            let errorThrown = false;
+            try {
+                await iliasPreprocessor.preprocessIliasZips(
+                    testInputDir,
+                    tempDir,
+                    (msg) => logs.push(msg),
+                    'LASTNAME_FIRSTNAME_USERNAME_STUDENTNUMBER'
+                );
+            } catch (error) {
+                errorThrown = true;
+            }
+
+            // Corrupt ZIP should cause an error
+            assert(errorThrown, 'Corrupt ZIP throws error as expected');
+
+            // Cleanup
+            fs.rmSync(testInputDir, { recursive: true, force: true });
+        } finally {
+            iliasPreprocessor.cleanupTempDirectory(tempDir);
+        }
+    });
+
+    await test('Edge Case: Mixed File Types (PDF, PNG, JPEG) and Special Characters', async () => {
+        const inputDir = path.join(__dirname, 'edge-cases');
+        const tempDir = path.join(os.tmpdir(), `ilias-test-mixed-${Date.now()}`);
+
+        try {
+            // Create temp dir with only the mixed files ZIP
+            const testInputDir = path.join(os.tmpdir(), `ilias-input-mixed-${Date.now()}`);
+            fs.mkdirSync(testInputDir, { recursive: true });
+            fs.copyFileSync(
+                path.join(inputDir, 'Seite 1 - Special Files.zip'),
+                path.join(testInputDir, 'Seite 1 - Special Files.zip')
+            );
+
+            await iliasPreprocessor.preprocessIliasZips(
+                testInputDir,
+                tempDir,
+                () => {},
+                'LASTNAME_FIRSTNAME_USERNAME_STUDENTNUMBER'
+            );
+
+            // Check that the page directory exists
+            const pageDir = path.join(tempDir, 'Seite 1 - Special Files');
+            assert(fs.existsSync(pageDir), 'Page directory with special characters created');
+
+            // Check that student folder exists
+            const studentDir = path.join(pageDir, 'Müller_Anna_amueller_801234');
+            assert(fs.existsSync(studentDir), 'Student folder created');
+
+            // Check that all file types were extracted
+            const files = fs.readdirSync(studentDir);
+            assert(files.some(f => f.endsWith('.pdf')), 'PDF file extracted');
+            assert(files.some(f => f.endsWith('.png')), 'PNG file extracted');
+            assert(files.some(f => f.endsWith('.jpg')), 'JPEG file extracted');
+            assert(files.some(f => f.includes('übung')), 'File with umlaut in name extracted');
+
+            // Cleanup
+            fs.rmSync(testInputDir, { recursive: true, force: true });
+        } finally {
+            iliasPreprocessor.cleanupTempDirectory(tempDir);
+        }
+    });
+}
+
+/**
  * Main test runner
  */
 async function main() {
@@ -245,7 +400,7 @@ async function main() {
     console.log(`${colors.blue}═══════════════════════════════════════════════════${colors.reset}`);
 
     // Check if test data exists
-    const testDirs = ['per-assignment', 'per-student', 'per-assignment-alt-names'];
+    const testDirs = ['per-assignment', 'per-student', 'per-assignment-alt-names', 'edge-cases'];
     const missingDirs = testDirs.filter(dir => !fs.existsSync(path.join(__dirname, dir)));
 
     if (missingDirs.length > 0) {
@@ -260,6 +415,7 @@ async function main() {
     await testPerAssignmentFormat();
     await testPerStudentFormat();
     await testAlternativePageNames();
+    await testEdgeCases();
 
     // Summary
     console.log(`\n${colors.blue}═══════════════════════════════════════════════════${colors.reset}`);

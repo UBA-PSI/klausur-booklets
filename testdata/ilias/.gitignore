@@ -2,8 +2,10 @@
 per-assignment/
 per-assignment-alt-names/
 per-student/
+edge-cases/
 
-# Keep the generator script and documentation
+# Keep the generator script, tests, and documentation
 !generate-test-zips.js
+!test-ilias-preprocessor.js
 !README.md
 !.gitignore
