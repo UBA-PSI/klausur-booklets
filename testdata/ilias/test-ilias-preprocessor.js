@@ -389,6 +389,55 @@ async function testEdgeCases() {
             iliasPreprocessor.cleanupTempDirectory(tempDir);
         }
     });
+
+    await test('Edge Case: Invalid ZIP Structure (No Abgaben Directory)', async () => {
+        const inputDir = path.join(__dirname, 'edge-cases');
+        const tempDir = path.join(os.tmpdir(), `ilias-test-invalid-${Date.now()}`);
+
+        try {
+            // Create temp dir with only the invalid structure ZIP
+            const testInputDir = path.join(os.tmpdir(), `ilias-input-invalid-${Date.now()}`);
+            fs.mkdirSync(testInputDir, { recursive: true });
+            fs.copyFileSync(
+                path.join(inputDir, 'Seite 2 - Invalid Structure.zip'),
+                path.join(testInputDir, 'Seite 2 - Invalid Structure.zip')
+            );
+
+            const logs = [];
+            let errorThrown = false;
+            let errorMessage = '';
+            try {
+                await iliasPreprocessor.preprocessIliasZips(
+                    testInputDir,
+                    tempDir,
+                    (msg) => logs.push(msg),
+                    'LASTNAME_FIRSTNAME_USERNAME_STUDENTNUMBER'
+                );
+            } catch (error) {
+                errorThrown = true;
+                errorMessage = error.message;
+            }
+
+            // Invalid structure should either throw error or log warning
+            assert(
+                errorThrown || logs.some(l => l.includes('WARNING') || l.includes('No "Abgaben"')),
+                'Invalid ZIP structure handled (error or warning about missing Abgaben)'
+            );
+
+            // If error was thrown, it should mention the issue
+            if (errorThrown) {
+                assert(
+                    errorMessage.includes('Abgaben') || errorMessage.includes('failed'),
+                    'Error message mentions the structural issue'
+                );
+            }
+
+            // Cleanup
+            fs.rmSync(testInputDir, { recursive: true, force: true });
+        } finally {
+            iliasPreprocessor.cleanupTempDirectory(tempDir);
+        }
+    });
 }
 
 /**

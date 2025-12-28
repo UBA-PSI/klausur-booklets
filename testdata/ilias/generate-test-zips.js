@@ -267,6 +267,19 @@ async function generateEdgeCaseZips(outputDir) {
 
     mixedZip.writeZip(path.join(outputDir, 'Seite 1 - Special Files.zip'));
 
+    // 5. Invalid structure ZIP (wrong format - no "Abgaben" directory)
+    console.log('  Creating Seite 2 - Invalid Structure.zip (missing Abgaben directory)');
+    const invalidZip = new AdmZip();
+    const pdf2Bytes = await createPagePDF('Seite 2');
+
+    // Wrong structure: direct files without "Abgaben" subdirectory
+    invalidZip.addFile(
+        'Seite 2/Müller_Anna_amueller_801234/submission.pdf',
+        Buffer.from(pdf2Bytes)
+    );
+
+    invalidZip.writeZip(path.join(outputDir, 'Seite 2 - Invalid Structure.zip'));
+
     console.log(`✓ Created edge case test files in ${outputDir}`);
 }
 
@@ -324,6 +337,7 @@ async function main() {
         console.log('  - Empty ZIP should be handled gracefully');
         console.log('  - Corrupt ZIP should be handled gracefully');
         console.log('  - Mixed file types (PDF, PNG, JPEG) should all be extracted');
+        console.log('  - Invalid structure (missing Abgaben directory) should be detected');
 
     } catch (error) {
         console.error('Error generating test ZIPs:', error);
