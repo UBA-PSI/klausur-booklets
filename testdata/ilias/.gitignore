@@ -1,0 +1,9 @@
+# Ignore generated test ZIP files
+per-assignment/
+per-assignment-alt-names/
+per-student/
+
+# Keep the generator script and documentation
+!generate-test-zips.js
+!README.md
+!.gitignore
