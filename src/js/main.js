@@ -1309,16 +1309,9 @@ ipcMain.handle('resolve-ambiguity', async (event, selectedIdentifiers) => {
         // Generate HTML summary report
         await generateSummaryHtml(pendingTransformationData.outputDirectory);
 
-        // Cleanup ILIAS temp directory after successful processing
-        if (iliasPreprocessingTempDir) {
-            try {
-                iliasPreprocessor.cleanupTempDirectory(iliasPreprocessingTempDir);
-                sendLogToRenderer("✓ ILIAS temporary directory cleaned up.");
-                iliasPreprocessingTempDir = null;
-            } catch (cleanupErr) {
-                sendLogToRenderer(`WARN: Could not cleanup ILIAS temp directory: ${cleanupErr.message}`);
-            }
-        }
+        // NOTE: Do NOT cleanup ILIAS temp directory here!
+        // The temp directory is needed during the merging phase to detect missing pages.
+        // It will be cleaned up after merging in the 'start-merging' handler.
 
         // Clear global state
         pendingTransformationData = null;

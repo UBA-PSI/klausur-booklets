@@ -68,6 +68,7 @@ const AdmZip = require('adm-zip');
 // Security limits for ZIP bomb protection
 const MAX_FILES_PER_ZIP = 10000;
 const MAX_TOTAL_SIZE_PER_ZIP = 1024 * 1024 * 1024; // 1GB
+const MAX_COMPRESSION_RATIO = 100; // Abort if compression ratio exceeds this
 
 /**
  * Helper function to ensure a directory exists.
@@ -112,17 +113,26 @@ function validateZipEntries(zipEntries, zipName) {
                 throw new Error(`ZIP contains too many files (>${MAX_FILES_PER_ZIP}), possible ZIP bomb: ${zipName}`);
             }
 
-            // Check total uncompressed size
-            totalSize += entry.getData().length;
+            // Check total uncompressed size using header metadata (no decompression needed)
+            totalSize += entry.header.size;
             if (totalSize > MAX_TOTAL_SIZE_PER_ZIP) {
                 throw new Error(`ZIP total size exceeds ${MAX_TOTAL_SIZE_PER_ZIP} bytes, possible ZIP bomb: ${zipName}`);
             }
+
+            // Check compression ratio for suspicious entries
+            if (entry.header.compressedSize > 0 && entry.header.size / entry.header.compressedSize > MAX_COMPRESSION_RATIO) {
+                throw new Error(`Suspicious compression ratio (${Math.round(entry.header.size / entry.header.compressedSize)}:1) in ${zipName}: ${entry.entryName}`);
+            }
         }
 
-        // Check for path traversal attacks
+        // Check for path traversal attacks (resolve-based, platform-safe)
         const normalizedPath = path.normalize(entry.entryName);
-        if (normalizedPath.includes('..') || path.isAbsolute(normalizedPath)) {
-            throw new Error(`Dangerous path detected in ${zipName}: ${entry.entryName}`);
+        if (path.isAbsolute(normalizedPath)) {
+            throw new Error(`Absolute path in ${zipName}: ${entry.entryName}`);
+        }
+        const simulatedTarget = path.resolve('/safe', normalizedPath);
+        if (!simulatedTarget.startsWith(path.resolve('/safe') + path.sep) && simulatedTarget !== path.resolve('/safe')) {
+            throw new Error(`Path traversal detected in ${zipName}: ${entry.entryName}`);
         }
     }
 }
@@ -315,8 +325,8 @@ function preprocessIliasZips(inputDir, tempDir, logCallback = console.log, folde
 
         logCallback(`ILIAS preprocessing complete: ${successCount} successful, ${errorCount} errors`);
 
-        if (errorCount > 0 && successCount === 0) {
-            throw new Error('All ILIAS ZIP files failed to process');
+        if (errorCount > 0) {
+            throw new Error(`ILIAS preprocessing incomplete: ${errorCount} of ${zipFiles.length} ZIP files failed to process. Please check the files and retry.`);
         }
 
         // 5. Ensure all page/assignment directories exist (for missing pages detection)
@@ -432,8 +442,11 @@ function extractAndRestructurePerAssignmentZip(zipPath, tempDir, logCallback = c
                     continue;
                 }
 
-                // Build target path
-                const targetPath = path.join(targetPageDir, relativePath);
+                // Build target path and verify containment
+                const targetPath = path.resolve(targetPageDir, relativePath);
+                if (!targetPath.startsWith(targetPageDir + path.sep) && targetPath !== targetPageDir) {
+                    throw new Error(`Path traversal during extraction: ${relativePath}`);
+                }
                 const targetDirPath = path.dirname(targetPath);
 
                 // Create directory structure
@@ -565,7 +578,10 @@ function extractAndRestructurePerStudentZip(zipPath, tempDir, logCallback = cons
                     }
 
                     // Write file to: tempDir/Seite X/Student_Name/file.pdf
-                    const targetPath = path.join(targetStudentDir, fileName);
+                    const targetPath = path.resolve(targetStudentDir, fileName);
+                    if (!targetPath.startsWith(targetStudentDir + path.sep) && targetPath !== targetStudentDir) {
+                        throw new Error(`Path traversal during extraction: ${fileName}`);
+                    }
                     fs.writeFileSync(targetPath, entry.getData());
                     fileCount++;
                 }
