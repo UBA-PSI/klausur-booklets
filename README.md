@@ -38,7 +38,7 @@ The built-in PDF renderer (PDFium WASM) works out of the box but may fail with c
 
 | Platform | Installation |
 |---|---|
-| macOS | `brew install ghostscript` |
+| macOS | `brew install ghostscript` (requires [Homebrew](https://brew.sh/)) |
 | Windows | Download from [ghostscript.com](https://ghostscript.com/releases/gsdnld.html) and add to system PATH |
 | Linux | `sudo apt install ghostscript` (Debian/Ubuntu) or `sudo dnf install ghostscript` (Fedora) |
 
