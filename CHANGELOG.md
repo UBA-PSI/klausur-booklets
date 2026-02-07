@@ -4,9 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-02-07
+
 - [NEW] **ILIAS ZIP Export Support**: Added automatic detection and preprocessing of ILIAS ZIP exports. Supports both per-assignment format (one ZIP per exercise with all students) and per-student format (one ZIP per student with all assignments). Simply place downloaded ZIP files in the input directory—the tool automatically detects the format and restructures submissions for processing.
 - [NEW] Settings UI documentation explaining ILIAS download options and workflow.
 - [FIXED] **ILIAS missing pages detection**: Fixed missing pages detection for ILIAS ZIP exports. The preprocessor now ensures all page/assignment directories are created (including empty ones), and the temporary directory is preserved until after the merging phase completes. This enables accurate detection of missing student submissions on booklet cover sheets.
+- [SECURITY] **ZIP bomb protection**: Size validation now uses ZIP header metadata instead of decompressing files, preventing memory exhaustion from malicious archives. Added compression ratio check.
+- [SECURITY] **Path traversal hardening**: Replaced string-based path traversal check with resolve-based containment verification, including checks at all file extraction points.
+- [FIXED] **Partial ZIP failure handling**: ILIAS preprocessing now fails explicitly when any ZIP file cannot be processed, instead of silently continuing with incomplete data.
+- [FIXED] **Race condition in ambiguity resolution**: Fixed premature cleanup of ILIAS temp directory during ambiguity resolution that could cause missing pages detection to fail during merging.
 
 ## [1.1.0] - 2025-09-10
 
