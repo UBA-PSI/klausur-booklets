@@ -4,7 +4,7 @@ const { PDFDocument, PageSizes } = require('pdf-lib');
 const { PDFiumLibrary } = require('@hyzyla/pdfium');
 const sharp = require('sharp');
 
-// External PDF renderer using Ghostscript binaries (experimental feature)
+// External PDF renderer using Ghostscript (system-installed)
 const externalPdfRenderer = require('./pdf-renderer-external');
 
 // --- Initialize PDFium Library ---

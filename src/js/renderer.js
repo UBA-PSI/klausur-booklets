@@ -129,20 +129,14 @@ window.electronAPI.onLoadConfig((loadedConfig) => {
     }
 
     // Load Ghostscript path type — migrate 'bundled' to 'system' (bundled no longer exists)
-    if (config.ghostscriptPathType === 'bundled') {
+    if (config.ghostscriptPathType === 'bundled' || !config.ghostscriptPathType) {
         config.ghostscriptPathType = 'system';
-        saveConfig(); // Persist migration immediately
+        saveConfig();
     }
-    if (config.ghostscriptPathType) {
-        if (config.ghostscriptPathType === 'system') {
-            document.getElementById('gs-path-system').checked = true;
-        } else if (config.ghostscriptPathType === 'custom') {
-            document.getElementById('gs-path-custom').checked = true;
-        }
+    if (config.ghostscriptPathType === 'custom') {
+        document.getElementById('gs-path-custom').checked = true;
     } else {
-        // Default to system PATH on all platforms
         document.getElementById('gs-path-system').checked = true;
-        config.ghostscriptPathType = 'system';
     }
     
     // Load Ghostscript path (only for custom)
@@ -167,12 +161,8 @@ function showGsRecommendationBanner() {
     const banner = document.getElementById('gsRecommendationBanner');
     if (!banner) return;
 
-    const pdfRenderer = config.pdfRenderer || 'pdfium';
-    if (pdfRenderer !== 'ghostscript') {
-        banner.classList.remove('d-none');
-    } else {
-        banner.classList.add('d-none');
-    }
+    const isUsingGhostscript = config.pdfRenderer === 'ghostscript';
+    banner.classList.toggle('d-none', isUsingGhostscript);
 }
 
 /**
@@ -1185,7 +1175,7 @@ document.addEventListener('DOMContentLoaded', () => {
             config.ghostscriptPath = '';
             saveConfig();
 
-            // Re-validate with bundled/system Ghostscript
+            // Re-validate with system/default Ghostscript
             validateGhostscriptInSettings();
 
             updateStatus('info', 'Ghostscript path cleared - using default');

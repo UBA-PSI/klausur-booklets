@@ -129,19 +129,27 @@ function createWindow() {
     mainWindow = win;
 
     // Check if config exists and send its content to renderer
-    let configToSend = {}; // Initialize empty config object
     const defaultMoodlePattern = 'FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file';
+    const defaultConfig = {
+        foldernamePattern: defaultMoodlePattern,
+        dpi: 300,
+        minFileSizeKB: 1,
+        maxFileSizeMB: 20,
+        pdfRenderer: 'pdfium',
+        ghostscriptPathType: 'system'
+    };
+
+    let configToSend = { ...defaultConfig };
 
     if (fs.existsSync(CONFIG_PATH)) {
         try {
             const loadedConfig = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
-            configToSend = loadedConfig; // Start with loaded config
-            // Ensure the default pattern is set if missing or empty
+            configToSend = loadedConfig;
+            // Ensure defaults for missing fields (upgrades from old versions)
             if (!configToSend.foldernamePattern) {
                 sendLogToRenderer(`Config loaded, but foldernamePattern missing. Setting default: ${defaultMoodlePattern}`);
                 configToSend.foldernamePattern = defaultMoodlePattern;
             }
-            // Ensure the default renderer is set if missing (for upgrades from old versions)
             if (!configToSend.pdfRenderer) {
                 sendLogToRenderer('Config loaded, but pdfRenderer missing. Setting default: pdfium');
                 configToSend.pdfRenderer = 'pdfium';
@@ -151,38 +159,16 @@ function createWindow() {
                 sendLogToRenderer('Migrating ghostscriptPathType from bundled to system');
                 configToSend.ghostscriptPathType = 'system';
             }
-            // Ensure the default ghostscript path type is set if missing
             if (!configToSend.ghostscriptPathType) {
                 sendLogToRenderer('Config loaded, but ghostscriptPathType missing. Setting default: system');
                 configToSend.ghostscriptPathType = 'system';
             }
         } catch (err) {
             sendLogToRenderer(`Error loading config from ${CONFIG_PATH}: ${err.message}. Using default.`);
-            // Fallback to default if loading fails
-        configToSend = {
-            foldernamePattern: defaultMoodlePattern,
-            // Include other potential default settings here if necessary
-            dpi: 300,
-            minFileSizeKB: 1,
-            maxFileSizeMB: 20,
-            pdfRenderer: 'pdfium',
-            ghostscriptPathType: 'system'
-        };
+            configToSend = { ...defaultConfig };
         }
     } else {
-        // Config file doesn't exist, create default object
         sendLogToRenderer(`Config file not found at ${CONFIG_PATH}. Using default.`);
-        configToSend = {
-            foldernamePattern: defaultMoodlePattern,
-            // Include other default settings here
-            dpi: 300,
-            minFileSizeKB: 1,
-            maxFileSizeMB: 20,
-            pdfRenderer: 'pdfium',
-            ghostscriptPathType: 'system'
-        };
-        // Optionally save this default config immediately? Let's not for now.
-        // try { fs.writeFileSync(CONFIG_PATH, JSON.stringify(configToSend, null, 2)); } catch {} 
     }
 
     // Send the potentially modified config object once the window is ready
