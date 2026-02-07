@@ -143,39 +143,43 @@ function createWindow() {
             }
             // Ensure the default renderer is set if missing (for upgrades from old versions)
             if (!configToSend.pdfRenderer) {
-                sendLogToRenderer('Config loaded, but pdfRenderer missing. Setting default: ghostscript');
-                configToSend.pdfRenderer = 'ghostscript';
+                sendLogToRenderer('Config loaded, but pdfRenderer missing. Setting default: pdfium');
+                configToSend.pdfRenderer = 'pdfium';
+            }
+            // Migrate 'bundled' to 'system' (bundled GS binaries no longer exist)
+            if (configToSend.ghostscriptPathType === 'bundled') {
+                sendLogToRenderer('Migrating ghostscriptPathType from bundled to system');
+                configToSend.ghostscriptPathType = 'system';
             }
             // Ensure the default ghostscript path type is set if missing
             if (!configToSend.ghostscriptPathType) {
-                const defaultPathType = process.platform === 'linux' ? 'system' : 'bundled';
-                sendLogToRenderer(`Config loaded, but ghostscriptPathType missing. Setting default: ${defaultPathType}`);
-                configToSend.ghostscriptPathType = defaultPathType;
+                sendLogToRenderer('Config loaded, but ghostscriptPathType missing. Setting default: system');
+                configToSend.ghostscriptPathType = 'system';
             }
         } catch (err) {
             sendLogToRenderer(`Error loading config from ${CONFIG_PATH}: ${err.message}. Using default.`);
             // Fallback to default if loading fails
-        configToSend = { 
+        configToSend = {
             foldernamePattern: defaultMoodlePattern,
             // Include other potential default settings here if necessary
-            dpi: 300, 
-            minFileSizeKB: 1, 
+            dpi: 300,
+            minFileSizeKB: 1,
             maxFileSizeMB: 20,
-            pdfRenderer: 'ghostscript', // Default to Ghostscript
-            ghostscriptPathType: 'bundled' // Default to bundled version
+            pdfRenderer: 'pdfium',
+            ghostscriptPathType: 'system'
         };
         }
     } else {
         // Config file doesn't exist, create default object
         sendLogToRenderer(`Config file not found at ${CONFIG_PATH}. Using default.`);
-        configToSend = { 
-            foldernamePattern: defaultMoodlePattern, 
+        configToSend = {
+            foldernamePattern: defaultMoodlePattern,
             // Include other default settings here
-            dpi: 300, 
-            minFileSizeKB: 1, 
+            dpi: 300,
+            minFileSizeKB: 1,
             maxFileSizeMB: 20,
-            pdfRenderer: 'ghostscript', // Default to Ghostscript
-            ghostscriptPathType: process.platform === 'linux' ? 'system' : 'bundled' // Default to system on Linux, bundled elsewhere
+            pdfRenderer: 'pdfium',
+            ghostscriptPathType: 'system'
         };
         // Optionally save this default config immediately? Let's not for now.
         // try { fs.writeFileSync(CONFIG_PATH, JSON.stringify(configToSend, null, 2)); } catch {} 
@@ -2306,4 +2310,11 @@ ipcMain.handle('get-app-homepage', () => { // New handler for homepage
 // Platform detection handler
 ipcMain.handle('get-platform', () => {
     return process.platform;
+});
+
+ipcMain.handle('open-external-url', async (_event, url) => {
+    // Only allow http/https URLs to prevent shell command injection
+    if (typeof url === 'string' && /^https?:\/\//.test(url)) {
+        await shell.openExternal(url);
+    }
 });

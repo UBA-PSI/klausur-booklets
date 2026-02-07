@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectGhostscriptExecutable: () => ipcRenderer.invoke('ghostscript:selectExecutable'),
   validateGhostscript: () => ipcRenderer.invoke('ghostscript:validate'),
   getPlatform: () => ipcRenderer.invoke('get-platform'),
+  openExternal: (url) => ipcRenderer.invoke('open-external-url', url),
   // --- End New APIs ---
 
   // Main -> Renderer (receive)

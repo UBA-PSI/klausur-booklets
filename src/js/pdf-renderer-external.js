@@ -6,20 +6,9 @@ const execFileAsync = promisify(execFile);
 const os = require('os');
 
 /**
- * External PDF renderer using Ghostscript binaries
- * This replaces the WASM-based PDFium implementation to resolve
- * out-of-bounds read issues on Windows with large PDF files.
- * 
- * Approach:
- * - Bundle gs binaries for macOS/Windows
- * - Require gs installation on Linux (via package manager)
- * - Direct command-line execution: gs -sDEVICE=png16m -r300 -o output.png input.pdf
- * 
- * Advantages:
- * - No Node.js library dependencies
- * - Proven, stable PDF rendering
- * - Simple command-line interface
- * - Excellent cross-platform support
+ * External PDF renderer using Ghostscript
+ * Ghostscript must be installed separately on all platforms.
+ * Direct command-line execution: gs -sDEVICE=png16m -r300 -o output.png input.pdf
  */
 
 /**
@@ -56,7 +45,7 @@ function getUserGhostscriptConfig() {
         if (fs.existsSync(configPath)) {
             const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
             return {
-                ghostscriptPathType: config.ghostscriptPathType || 'bundled',
+                ghostscriptPathType: config.ghostscriptPathType || 'system',
                 ghostscriptPath: config.ghostscriptPath || ''
             };
         }
@@ -64,82 +53,28 @@ function getUserGhostscriptConfig() {
         console.warn(`[External PDF Renderer] Error reading config for Ghostscript path: ${error.message}`);
     }
     
-    // Default to bundled (except Linux which uses system)
+    // Default to system PATH on all platforms
     return {
-        ghostscriptPathType: process.platform === 'linux' ? 'system' : 'bundled',
+        ghostscriptPathType: 'system',
         ghostscriptPath: ''
     };
 }
 
 /**
- * Get the path to the Ghostscript executable for the current platform
+ * Get the path to the Ghostscript executable for the current platform.
+ * Ghostscript must be installed separately on all platforms.
  * @returns {string} Path to gs executable
  */
 function getGhostscriptPath() {
-    // Get user Ghostscript configuration
     const gsConfig = getUserGhostscriptConfig();
-    
+
     // If user selected custom path and provided one, use it
     if (gsConfig.ghostscriptPathType === 'custom' && gsConfig.ghostscriptPath && gsConfig.ghostscriptPath.trim()) {
-        const customPath = gsConfig.ghostscriptPath.trim();
-        return customPath;
+        return gsConfig.ghostscriptPath.trim();
     }
-    
-    // If on Linux and using system GS, return 'gs' for PATH lookup
-    if (process.platform === 'linux' && gsConfig.ghostscriptPathType === 'system') {
-        return 'gs';
-    }
-    
-    // More reliable detection of development vs production
-    // Check if we're running from the project directory (npm start) vs packaged app
-    const isDev = process.env.NODE_ENV === 'development' || 
-                  process.cwd().includes('psi-pdf-merger-tool') ||
-                  __dirname.includes('src/js');
-    
-    let binDir;
-    if (isDev) {
-        // In development, look in project root/bin
-        binDir = path.join(__dirname, '../../bin');
-    } else {
-        // In production, look in unpacked resources
-        binDir = path.join(process.resourcesPath, 'bin');
-    }
-    
-    let executableName;
-    switch (process.platform) {
-        case 'win32':
-            // Windows: Bundle gswin64c.exe (64-bit console version)
-            executableName = 'gswin64c.exe';
-            break;
-        case 'darwin':
-            // macOS: Bundle gs executable (universal or architecture-specific)
-            if (process.arch === 'arm64') {
-                executableName = 'gs-macos-arm64';
-            } else if (process.arch === 'x64') {
-                executableName = 'gs-macos-x64';
-            } else {
-                throw new Error(`Unsupported macOS architecture: ${process.arch}`);
-            }
-            break;
-        case 'linux':
-            // Linux: Expect gs to be in PATH (user installs via package manager)
-            return 'gs';
-        default:
-            throw new Error(`Unsupported platform: ${process.platform}`);
-    }
-    
-    const fullPath = path.join(binDir, executableName);
-    
-    // Check if file exists, if not try development path as fallback
-    if (!fs.existsSync(fullPath) && !isDev) {
-        const devBinDir = path.join(__dirname, '../../bin');
-        const devPath = path.join(devBinDir, executableName);
-        if (fs.existsSync(devPath)) {
-            return devPath;
-        }
-    }
-    
-    return fullPath;
+
+    // System PATH lookup: platform-specific executable name
+    return process.platform === 'win32' ? 'gswin64c' : 'gs';
 }
 
 /**

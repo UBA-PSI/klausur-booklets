@@ -70,8 +70,8 @@ function getUserConfig() {
     if (fs.existsSync(configPath)) {
       const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
       return {
-        pdfRenderer: config.pdfRenderer || 'ghostscript', // Default to Ghostscript
-        ghostscriptPathType: config.ghostscriptPathType || 'bundled',
+        pdfRenderer: config.pdfRenderer || 'pdfium', // Default to PDFium WASM (built-in)
+        ghostscriptPathType: config.ghostscriptPathType || 'system',
         ghostscriptPath: config.ghostscriptPath || ''
       };
     }
@@ -79,10 +79,10 @@ function getUserConfig() {
     console.warn(`[PDF Processor] Error reading config: ${error.message}`);
   }
   
-  // Default configuration (Ghostscript as default)
+  // Default configuration (PDFium WASM as default, GS requires separate installation)
   return {
-    pdfRenderer: 'ghostscript',
-    ghostscriptPathType: process.platform === 'linux' ? 'system' : 'bundled',
+    pdfRenderer: 'pdfium',
+    ghostscriptPathType: 'system',
     ghostscriptPath: ''
   };
 }
@@ -102,7 +102,7 @@ async function getRendererInfo() {
         return {
           renderer: 'Ghostscript',
           path: path,
-          version: info.replace(/^Ghostscript v/, '').replace(/ - .*$/, '')
+          version: info.replace(/^Ghostscript\s*v?/, '').replace(/ - .*$/, '')
         };
       }
     } catch (error) {
@@ -304,7 +304,8 @@ async function analyzePdfFile(pdfPath) {
 async function renderFirstPageToImage(pdfPath, dpi = 300, statusCallback = null) {
   // Get user config to determine renderer choice
   const userConfig = getUserConfig();
-  let ghostscriptWasConfiguredButUnavailable = false;
+  let ghostscriptFallbackReason = null; // 'not-found' or 'render-failed'
+  let ghostscriptErrorDetail = '';
 
   // Get renderer info for status reporting
   const rendererInfo = await getRendererInfo();
@@ -326,14 +327,15 @@ async function renderFirstPageToImage(pdfPath, dpi = 300, statusCallback = null)
         }
         return result;
       } else {
-        ghostscriptWasConfiguredButUnavailable = true;
+        ghostscriptFallbackReason = 'not-found';
         console.log('[PDF Processor] WARNING: Ghostscript configured but not available, falling back to WASM');
         if (statusCallback) {
           statusCallback('WARNING: Ghostscript is configured but was NOT FOUND. Using PDFium WASM fallback. Check Settings > PDF Processing.');
         }
       }
     } catch (error) {
-      ghostscriptWasConfiguredButUnavailable = true;
+      ghostscriptFallbackReason = 'render-failed';
+      ghostscriptErrorDetail = error.message;
       console.error('[PDF Processor] WARNING: Ghostscript renderer failed:', error.message);
       console.log('[PDF Processor] Falling back to WASM PDFium');
       if (statusCallback) {
@@ -494,8 +496,10 @@ async function renderFirstPageToImage(pdfPath, dpi = 300, statusCallback = null)
           // This was the last strategy, throw a user-friendly error
           let errorMessage = `Unable to render PDF after ${renderStrategies.length} attempts.`;
 
-          if (ghostscriptWasConfiguredButUnavailable) {
+          if (ghostscriptFallbackReason === 'not-found') {
             errorMessage += `\n\nGhostscript is configured but was not found on this system. Please install Ghostscript or verify the path in Settings > PDF Processing.`;
+          } else if (ghostscriptFallbackReason === 'render-failed') {
+            errorMessage += `\n\nGhostscript was found but failed to render this PDF: ${ghostscriptErrorDetail}\n\nThe PDFium WASM fallback also failed. Check your Ghostscript installation (resource files may be missing).`;
           } else if (hasKnownIssues) {
             errorMessage += `\n\nThis PDF contains advanced features (transparency, blend modes) that are not compatible with the built-in PDF renderer.\n\nSolution: Switch to Ghostscript renderer in Settings > PDF Processing.`;
           } else {

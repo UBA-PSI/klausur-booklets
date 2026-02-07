@@ -123,29 +123,26 @@ window.electronAPI.onLoadConfig((loadedConfig) => {
             document.getElementById('renderer-pdfium').checked = true;
         }
     } else {
-        // Default to Ghostscript
-        document.getElementById('renderer-ghostscript').checked = true;
-        config.pdfRenderer = 'ghostscript';
+        // Default to PDFium (built-in, works without additional software)
+        document.getElementById('renderer-pdfium').checked = true;
+        config.pdfRenderer = 'pdfium';
     }
-    
-    // Load Ghostscript path type
+
+    // Load Ghostscript path type — migrate 'bundled' to 'system' (bundled no longer exists)
+    if (config.ghostscriptPathType === 'bundled') {
+        config.ghostscriptPathType = 'system';
+        saveConfig(); // Persist migration immediately
+    }
     if (config.ghostscriptPathType) {
-        if (config.ghostscriptPathType === 'bundled') {
-            document.getElementById('gs-path-bundled').checked = true;
-        } else if (config.ghostscriptPathType === 'system') {
+        if (config.ghostscriptPathType === 'system') {
             document.getElementById('gs-path-system').checked = true;
         } else if (config.ghostscriptPathType === 'custom') {
             document.getElementById('gs-path-custom').checked = true;
         }
     } else {
-        // Default based on platform
-        const defaultType = window.electronAPI.getPlatform && window.electronAPI.getPlatform() === 'linux' ? 'system' : 'bundled';
-        if (defaultType === 'system') {
-            document.getElementById('gs-path-system').checked = true;
-        } else {
-            document.getElementById('gs-path-bundled').checked = true;
-        }
-        config.ghostscriptPathType = defaultType;
+        // Default to system PATH on all platforms
+        document.getElementById('gs-path-system').checked = true;
+        config.ghostscriptPathType = 'system';
     }
     
     // Load Ghostscript path (only for custom)
@@ -156,8 +153,27 @@ window.electronAPI.onLoadConfig((loadedConfig) => {
     // Update UI visibility based on current selections
     updateRendererUIVisibility();
     validateGhostscriptInSettings();
+
+    // Show Ghostscript recommendation banner when PDFium is active
+    showGsRecommendationBanner();
 });
 
+
+/**
+ * Shows or hides the Ghostscript recommendation banner based on the current renderer.
+ * When PDFium is selected, a dismissable banner is shown at the top of the main view.
+ */
+function showGsRecommendationBanner() {
+    const banner = document.getElementById('gsRecommendationBanner');
+    if (!banner) return;
+
+    const pdfRenderer = config.pdfRenderer || 'pdfium';
+    if (pdfRenderer !== 'ghostscript') {
+        banner.classList.remove('d-none');
+    } else {
+        banner.classList.add('d-none');
+    }
+}
 
 /**
  * Updates the visibility of renderer-specific UI sections based on current selections
@@ -165,48 +181,36 @@ window.electronAPI.onLoadConfig((loadedConfig) => {
 function updateRendererUIVisibility() {
     const pdfRenderer = document.querySelector('input[name="pdfRenderer"]:checked')?.value;
     const ghostscriptPathType = document.querySelector('input[name="ghostscriptPathType"]:checked')?.value;
-    
+
     // Show/hide Ghostscript configuration based on renderer selection
     const ghostscriptConfig = document.getElementById('ghostscriptConfig');
     if (ghostscriptConfig) {
-        if (pdfRenderer === 'ghostscript') {
-            ghostscriptConfig.style.display = 'block';
-        } else {
-            ghostscriptConfig.style.display = 'none';
-        }
+        ghostscriptConfig.style.display = pdfRenderer === 'ghostscript' ? 'block' : 'none';
     }
-    
-    // Platform-specific UI visibility
-    const isLinux = window.electronAPI && window.electronAPI.getPlatform && window.electronAPI.getPlatform() === 'linux';
-    
-    // Show/hide bundled vs system options based on platform
-    const bundledOption = document.getElementById('gs-bundled-option');
-    const bundledDesc = document.getElementById('gs-bundled-desc');
-    const systemOption = document.getElementById('gs-system-option');
-    const systemDesc = document.getElementById('gs-system-desc');
-    
-    if (isLinux) {
-        // On Linux, hide bundled option and show system option
-        if (bundledOption) bundledOption.style.display = 'none';
-        if (bundledDesc) bundledDesc.style.display = 'none';
-        if (systemOption) systemOption.style.display = 'block';
-        if (systemDesc) systemDesc.style.display = 'block';
-    } else {
-        // On other platforms, show bundled option and hide system option
-        if (bundledOption) bundledOption.style.display = 'block';
-        if (bundledDesc) bundledDesc.style.display = 'block';
-        if (systemOption) systemOption.style.display = 'none';
-        if (systemDesc) systemDesc.style.display = 'none';
-    }
-    
+
     // Show/hide custom path input based on Ghostscript path type
     const customPathDiv = document.getElementById('customGhostscriptPath');
     if (customPathDiv) {
-        if (pdfRenderer === 'ghostscript' && ghostscriptPathType === 'custom') {
-            customPathDiv.style.display = 'block';
-        } else {
-            customPathDiv.style.display = 'none';
+        customPathDiv.style.display = (pdfRenderer === 'ghostscript' && ghostscriptPathType === 'custom') ? 'block' : 'none';
+    }
+
+    // Show/hide PDFium recommendation when PDFium is selected
+    let pdfiumWarning = document.getElementById('pdfiumRecommendation');
+    if (pdfRenderer === 'pdfium') {
+        if (!pdfiumWarning) {
+            pdfiumWarning = document.createElement('div');
+            pdfiumWarning.id = 'pdfiumRecommendation';
+            pdfiumWarning.className = 'alert alert-info py-2 mt-3';
+            const icon = document.createElement('i');
+            icon.className = 'bi bi-info-circle me-1';
+            pdfiumWarning.appendChild(icon);
+            pdfiumWarning.appendChild(document.createTextNode('For best results with all PDF types, install Ghostscript and select it as renderer.'));
+            const rendererCard = document.querySelector('.card:has(#renderer-pdfium) .card-body');
+            if (rendererCard) rendererCard.appendChild(pdfiumWarning);
         }
+        pdfiumWarning.style.display = 'block';
+    } else if (pdfiumWarning) {
+        pdfiumWarning.style.display = 'none';
     }
 }
 
@@ -976,6 +980,7 @@ document.addEventListener('DOMContentLoaded', () => {
             config.pdfRenderer = e.target.value;
             updateRendererUIVisibility();
             validateGhostscriptInSettings();
+            showGsRecommendationBanner();
             saveConfig();
         });
     });
@@ -1111,11 +1116,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         document.getElementById('renderer-ghostscript').checked = true;
                     }
                     
-                    // Update Ghostscript path type
+                    // Update Ghostscript path type — migrate 'bundled' to 'system'
+                    if (config.ghostscriptPathType === 'bundled') {
+                        config.ghostscriptPathType = 'system';
+                    }
                     if (config.ghostscriptPathType === 'custom') {
                         document.getElementById('gs-path-custom').checked = true;
                     } else {
-                        document.getElementById('gs-path-bundled').checked = true;
+                        document.getElementById('gs-path-system').checked = true;
                     }
                     
                     // Update Ghostscript path if provided
@@ -1184,6 +1192,29 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     // --- End Ghostscript Path Button Listeners ---
+
+    // --- Ghostscript Recommendation Banner Links ---
+    const gsLearnMoreLink = document.getElementById('gsRecommendationLearnMore');
+    if (gsLearnMoreLink) {
+        gsLearnMoreLink.addEventListener('click', async (e) => {
+            e.preventDefault();
+            try {
+                const homepage = await window.electronAPI.getAppHomepage();
+                const readmeUrl = (homepage || 'https://github.com/UBA-PSI/klausur-booklets/') + '#why-ghostscript';
+                window.electronAPI.openExternal(readmeUrl);
+            } catch (error) {
+                console.error('Failed to open Ghostscript info link:', error);
+            }
+        });
+    }
+    const gsOpenSettingsLink = document.getElementById('gsRecommendationOpenSettings');
+    if (gsOpenSettingsLink) {
+        gsOpenSettingsLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            openModal();
+        });
+    }
+    // --- End Ghostscript Recommendation Banner Links ---
 
     // --- Initialize version display ---
     const appVersionDisplay = document.getElementById('appVersionDisplay');

@@ -32,6 +32,27 @@ This tool facilitates the [Klausur-Booklet](https://www.uni-bamberg.de/psi/teach
 
 _That's it  – no command line required._
 
+## Recommended: Install Ghostscript
+
+The built-in PDF renderer (PDFium WASM) works out of the box but may fail with complex or large PDF files. For best results, install Ghostscript:
+
+| Platform | Installation |
+|---|---|
+| macOS | `brew install ghostscript` |
+| Windows | Download from [ghostscript.com](https://ghostscript.com/releases/gsdnld.html) and add to system PATH |
+| Linux | `sudo apt install ghostscript` (Debian/Ubuntu) or `sudo dnf install ghostscript` (Fedora) |
+
+After installation, open the Booklet Tool Settings and select **Ghostscript** as the PDF renderer.
+
+### Why Ghostscript?
+
+The Booklet Tool needs to rasterize submitted PDF pages (convert them to images) before assembling them into booklets. Two renderers are available:
+
+- **PDFium WASM (built-in):** A WebAssembly-based renderer that runs inside the app without additional software. It handles simple PDFs well, but may produce rendering errors with complex PDFs (e.g., transparency, blend modes, advanced shading), and can run into memory limits with large or high-resolution files — especially on Windows.
+- **Ghostscript (recommended):** A mature, battle-tested PostScript/PDF interpreter that runs as an external process. It handles virtually all PDF features correctly, processes large files reliably, and produces consistent output across platforms.
+
+If you process student submissions that include scanned documents, annotated PDFs, or pages exported from different applications, Ghostscript will give you noticeably better and more reliable results.
+
 ## Features
 
 **First Stage:** Set up Moodle for collection of booklet pages.

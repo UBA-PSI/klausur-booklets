@@ -186,6 +186,15 @@
     <!-- Main View (Booklet Generator) -->
     <div id="main-view" class="view-container active">
         <div class="container-fluid px-4">
+            <!-- Ghostscript recommendation banner (shown when PDFium is active) -->
+            <div id="gsRecommendationBanner" class="alert alert-warning alert-dismissible fade show d-none mb-3" role="alert">
+                <i class="bi bi-lightbulb me-2"></i>
+                <strong>Tip:</strong> You are using the built-in PDF renderer (PDFium). For best quality and reliability,
+                <a href="#" id="gsRecommendationLearnMore" class="alert-link">install Ghostscript</a>
+                and select it in <a href="#" id="gsRecommendationOpenSettings" class="alert-link">Settings</a>.
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+
             <!-- Setup Card (renamed from Directory Configuration) -->
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center py-2">
@@ -537,31 +546,31 @@
                             </h6>
                         </div>
                         <div class="card-body py-2">
-                            <p class="small">Choose the engine used to convert PDF files to images during processing. Ghostscript is the recommended default.</p>
+                            <p class="small">Choose the engine used to convert PDF files to images during processing. For best results, install Ghostscript and select it below.</p>
                             
                             <!-- Renderer Selection -->
                             <div class="mb-4">
                                 <div class="row">
                                     <div class="col-md-6">
                                         <div class="form-check">
-                                            <input class="form-check-input" type="radio" name="pdfRenderer" id="renderer-ghostscript" value="ghostscript" checked>
+                                            <input class="form-check-input" type="radio" name="pdfRenderer" id="renderer-ghostscript" value="ghostscript">
                                             <label class="form-check-label fw-bold" for="renderer-ghostscript">
-                                                <i class="bi bi-gear-wide-connected text-success me-1"></i>Ghostscript (Recommended)
+                                                <i class="bi bi-gear-wide-connected text-success me-1"></i>Ghostscript (Recommended — requires installation)
                                             </label>
                                         </div>
                                         <div class="form-text ms-3">
-                                            External binary renderer. Stable, proven, handles large PDFs without memory issues.
+                                            External renderer. Best quality and reliability for all PDF types. Requires Ghostscript to be installed separately (see below).
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <div class="form-check">
-                                            <input class="form-check-input" type="radio" name="pdfRenderer" id="renderer-pdfium" value="pdfium">
+                                            <input class="form-check-input" type="radio" name="pdfRenderer" id="renderer-pdfium" value="pdfium" checked>
                                             <label class="form-check-label fw-bold" for="renderer-pdfium">
-                                                <i class="bi bi-memory text-warning me-1"></i>PDFium WASM (Legacy)
+                                                <i class="bi bi-memory text-warning me-1"></i>PDFium WASM (Built-in)
                                             </label>
                                         </div>
                                         <div class="form-text ms-3">
-                                            Built-in WebAssembly renderer. May have memory issues with large PDFs on Windows.
+                                            Built-in renderer. Works without additional software, but may fail with complex PDFs or cause memory issues with large files.
                                         </div>
                                     </div>
                                 </div>
@@ -577,23 +586,20 @@
                                 <div class="mb-3">
                                     <div class="row">
                                         <div class="col-md-6">
-                                            <div class="form-check" id="gs-bundled-option">
-                                                <input class="form-check-input" type="radio" name="ghostscriptPathType" id="gs-path-bundled" value="bundled" checked>
-                                                <label class="form-check-label fw-bold" for="gs-path-bundled">
-                                                    <i class="bi bi-box-seam text-info me-1"></i>Bundled Version
-                                                </label>
-                                            </div>
-                                            <div class="form-text ms-3" id="gs-bundled-desc">
-                                                Use the Ghostscript binary included with this app (macOS/Windows only).
-                                            </div>
-                                            <div class="form-check" id="gs-system-option" style="display: none;">
-                                                <input class="form-check-input" type="radio" name="ghostscriptPathType" id="gs-path-system" value="system">
+                                            <div class="form-check" id="gs-system-option">
+                                                <input class="form-check-input" type="radio" name="ghostscriptPathType" id="gs-path-system" value="system" checked>
                                                 <label class="form-check-label fw-bold" for="gs-path-system">
-                                                    <i class="bi bi-terminal text-success me-1"></i>System Installation
+                                                    <i class="bi bi-terminal text-success me-1"></i>System PATH
                                                 </label>
                                             </div>
-                                            <div class="form-text ms-3" id="gs-system-desc" style="display: none;">
-                                                Use Ghostscript from system PATH (Linux: install via package manager).
+                                            <div class="form-text ms-3" id="gs-system-desc">
+                                                Ghostscript must be installed separately. The app will look for <code>gs</code> (or <code>gswin64c</code> on Windows) in your system PATH.
+                                            </div>
+                                            <div class="form-text ms-3 mt-2">
+                                                <strong>Installation:</strong><br>
+                                                <i class="bi bi-apple me-1"></i>macOS: <code>brew install ghostscript</code><br>
+                                                <i class="bi bi-windows me-1"></i>Windows: Download from <a href="https://ghostscript.com/releases/gsdnld.html" target="_blank" class="text-decoration-none">ghostscript.com</a><br>
+                                                <i class="bi bi-ubuntu me-1"></i>Linux: <code>sudo apt install ghostscript</code>
                                             </div>
                                         </div>
                                         <div class="col-md-6">
@@ -604,7 +610,7 @@
                                                 </label>
                                             </div>
                                             <div class="form-text ms-3">
-                                                Specify your own Ghostscript installation (required for Linux).
+                                                Specify a custom path to your Ghostscript executable.
                                             </div>
                                         </div>
                                     </div>
@@ -844,8 +850,8 @@
                     <div class="bg-light rounded p-2 mt-2">
                         <p class="small mb-0">
                             <i class="bi bi-info-circle-fill text-muted me-1"></i>
-                            <strong>AGPL Compliance:</strong> Ghostscript is used as an external process. 
-                            The bundled Ghostscript binaries are unmodified from the official distribution. 
+                            <strong>AGPL Compliance:</strong> Ghostscript is used as an external process.
+                            Ghostscript is not bundled with this application. Users install it separately from the official distribution.
                             Source code is available from the official Ghostscript website linked above.
                         </p>
                     </div>
