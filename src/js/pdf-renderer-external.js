@@ -147,15 +147,16 @@ function getGhostscriptPath() {
  * @returns {Promise<boolean>} True if renderer is available
  */
 async function isExternalRendererAvailable() {
+    let gsPath = '(unknown)';
     try {
-        const gsPath = getGhostscriptPath();
-        
+        gsPath = getGhostscriptPath();
+
         // Test gs with version command
         const { stdout } = await execFileAsync(gsPath, ['--version'], { timeout: 5000 });
         // Only log on first successful detection to reduce verbosity
         return true;
     } catch (error) {
-        console.log('[External PDF Renderer] Ghostscript not available, using PDFium fallback');
+        console.log(`[External PDF Renderer] Ghostscript not available at '${gsPath}', falling back to PDFium`);
         return false;
     }
 }
@@ -242,9 +243,10 @@ async function renderFirstPageToImage(pdfPath, dpi = 300) {
         return pngBuffer;
         
     } catch (error) {
+        const gsPath = getGhostscriptPath();
         console.error(`[External PDF Renderer] Error rendering PDF: ${error.message}`);
         console.error(`[External PDF Renderer] Stack trace:`, error.stack);
-        throw new Error(`Ghostscript rendering failed: ${error.message}`);
+        throw new Error(`Ghostscript rendering failed (path: ${gsPath}): ${error.message}`);
     }
 }
 

@@ -110,9 +110,13 @@ async function getRendererInfo() {
     }
   }
   
+  const wasmPath = userConfig.pdfRenderer === 'ghostscript'
+    ? 'embedded WebAssembly (fallback - Ghostscript configured but not found)'
+    : 'embedded WebAssembly';
+
   return {
     renderer: 'PDFium WASM',
-    path: 'embedded WebAssembly',
+    path: wasmPath,
     version: 'built-in'
   };
 }
@@ -300,7 +304,8 @@ async function analyzePdfFile(pdfPath) {
 async function renderFirstPageToImage(pdfPath, dpi = 300, statusCallback = null) {
   // Get user config to determine renderer choice
   const userConfig = getUserConfig();
-  
+  let ghostscriptWasConfiguredButUnavailable = false;
+
   // Get renderer info for status reporting
   const rendererInfo = await getRendererInfo();
   
@@ -321,16 +326,18 @@ async function renderFirstPageToImage(pdfPath, dpi = 300, statusCallback = null)
         }
         return result;
       } else {
-        console.log('[PDF Processor] Ghostscript external renderer not available, falling back to WASM');
+        ghostscriptWasConfiguredButUnavailable = true;
+        console.log('[PDF Processor] WARNING: Ghostscript configured but not available, falling back to WASM');
         if (statusCallback) {
-          statusCallback('Ghostscript not available, using PDFium WASM fallback');
+          statusCallback('WARNING: Ghostscript is configured but was NOT FOUND. Using PDFium WASM fallback. Check Settings > PDF Processing.');
         }
       }
     } catch (error) {
-      console.error('[PDF Processor] External Ghostscript renderer failed:', error.message);
+      ghostscriptWasConfiguredButUnavailable = true;
+      console.error('[PDF Processor] WARNING: Ghostscript renderer failed:', error.message);
       console.log('[PDF Processor] Falling back to WASM PDFium');
       if (statusCallback) {
-        statusCallback(`Ghostscript failed (${error.message}), using PDFium WASM fallback`);
+        statusCallback(`WARNING: Ghostscript failed (${error.message}). Using PDFium WASM fallback.`);
       }
     }
   }
@@ -486,13 +493,15 @@ async function renderFirstPageToImage(pdfPath, dpi = 300, statusCallback = null)
         if (i === renderStrategies.length - 1) {
           // This was the last strategy, throw a user-friendly error
           let errorMessage = `Unable to render PDF after ${renderStrategies.length} attempts.`;
-          
-          if (hasKnownIssues) {
+
+          if (ghostscriptWasConfiguredButUnavailable) {
+            errorMessage += `\n\nGhostscript is configured but was not found on this system. Please install Ghostscript or verify the path in Settings > PDF Processing.`;
+          } else if (hasKnownIssues) {
             errorMessage += `\n\nThis PDF contains advanced features (transparency, blend modes) that are not compatible with the built-in PDF renderer.\n\nSolution: Switch to Ghostscript renderer in Settings > PDF Processing.`;
           } else {
             errorMessage += `\n\nThis PDF may not be compatible with the built-in PDF renderer.\n\nTry: Switch to Ghostscript renderer in Settings > PDF Processing.`;
           }
-          
+
           throw new Error(errorMessage);
         }
       }

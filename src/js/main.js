@@ -2132,6 +2132,23 @@ ipcMain.handle('ghostscript:selectExecutable', async (event) => {
     return { success: false };
 });
 
+// Ghostscript validation for Settings UI
+ipcMain.handle('ghostscript:validate', async () => {
+    const { getCurrentGhostscriptPath, isExternalRendererAvailable, getRendererInfo } = require('./pdf-renderer-external');
+    const gsPath = getCurrentGhostscriptPath();
+    try {
+        const available = await isExternalRendererAvailable();
+        if (available) {
+            const info = await getRendererInfo();
+            const version = info.replace(/^Ghostscript\s*/, '').replace(/ - .*$/, '');
+            return { available: true, path: gsPath, version };
+        }
+        return { available: false, path: gsPath, error: 'Ghostscript executable not found or not working' };
+    } catch (error) {
+        return { available: false, path: gsPath, error: error.message };
+    }
+});
+
 ipcMain.handle('path-basename', async (event, filePath) => { // Corrected channel name
     return path.basename(filePath);
 });

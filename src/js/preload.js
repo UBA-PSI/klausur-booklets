@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getAppHomepage: () => ipcRenderer.invoke('get-app-homepage'),
   selectGhostscriptExecutable: () => ipcRenderer.invoke('ghostscript:selectExecutable'),
+  validateGhostscript: () => ipcRenderer.invoke('ghostscript:validate'),
   getPlatform: () => ipcRenderer.invoke('get-platform'),
   // --- End New APIs ---
 

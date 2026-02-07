@@ -155,6 +155,7 @@ window.electronAPI.onLoadConfig((loadedConfig) => {
     
     // Update UI visibility based on current selections
     updateRendererUIVisibility();
+    validateGhostscriptInSettings();
 });
 
 
@@ -206,6 +207,61 @@ function updateRendererUIVisibility() {
         } else {
             customPathDiv.style.display = 'none';
         }
+    }
+}
+
+/**
+ * Validates the current Ghostscript configuration and shows status in Settings UI
+ */
+async function validateGhostscriptInSettings() {
+    const pdfRenderer = document.querySelector('input[name="pdfRenderer"]:checked')?.value;
+    if (pdfRenderer !== 'ghostscript') {
+        // Hide status when Ghostscript is not selected
+        const statusEl = document.getElementById('ghostscriptStatus');
+        if (statusEl) statusEl.style.display = 'none';
+        return;
+    }
+
+    const statusEl = document.getElementById('ghostscriptStatus');
+    const statusTextEl = document.getElementById('ghostscriptStatusText');
+    if (!statusEl || !statusTextEl) return;
+
+    // Show checking state
+    statusEl.className = 'alert alert-info py-2';
+    statusEl.style.display = 'block';
+    statusTextEl.textContent = 'Checking Ghostscript...';
+
+    try {
+        const result = await window.electronAPI.validateGhostscript();
+        // Clear existing content
+        statusTextEl.textContent = '';
+
+        if (result.available) {
+            statusEl.className = 'alert alert-success py-2';
+            const icon = document.createElement('i');
+            icon.className = 'bi bi-check-circle me-1';
+            statusTextEl.appendChild(icon);
+            statusTextEl.appendChild(document.createTextNode('Ghostscript found '));
+            const versionCode = document.createElement('code');
+            versionCode.textContent = `v${result.version}`;
+            statusTextEl.appendChild(versionCode);
+            statusTextEl.appendChild(document.createTextNode(' at '));
+            const pathCode = document.createElement('code');
+            pathCode.textContent = result.path;
+            statusTextEl.appendChild(pathCode);
+        } else {
+            statusEl.className = 'alert alert-danger py-2';
+            const icon = document.createElement('i');
+            icon.className = 'bi bi-exclamation-triangle me-1';
+            statusTextEl.appendChild(icon);
+            statusTextEl.appendChild(document.createTextNode('Ghostscript not found at '));
+            const pathCode = document.createElement('code');
+            pathCode.textContent = result.path;
+            statusTextEl.appendChild(pathCode);
+        }
+    } catch (error) {
+        statusEl.className = 'alert alert-danger py-2';
+        statusTextEl.textContent = `Validation error: ${error.message}`;
     }
 }
 
@@ -919,6 +975,7 @@ document.addEventListener('DOMContentLoaded', () => {
         radio.addEventListener('change', (e) => {
             config.pdfRenderer = e.target.value;
             updateRendererUIVisibility();
+            validateGhostscriptInSettings();
             saveConfig();
         });
     });
@@ -928,6 +985,7 @@ document.addEventListener('DOMContentLoaded', () => {
         radio.addEventListener('change', (e) => {
             config.ghostscriptPathType = e.target.value;
             updateRendererUIVisibility();
+            validateGhostscriptInSettings();
             saveConfig();
         });
     });
@@ -1089,8 +1147,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const browseGhostscriptBtn = document.getElementById('browseGhostscriptPath');
     const clearGhostscriptBtn = document.getElementById('clearGhostscriptPath');
     const ghostscriptPathInput = document.getElementById('ghostscriptPath');
-    const ghostscriptStatus = document.getElementById('ghostscriptStatus');
-    const ghostscriptStatusText = document.getElementById('ghostscriptStatusText');
     
     if (browseGhostscriptBtn && ghostscriptPathInput) {
         browseGhostscriptBtn.addEventListener('click', async () => {
@@ -1101,17 +1157,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     ghostscriptPathInput.value = result.path;
                     config.ghostscriptPath = result.path;
                     saveConfig();
-                    
-                    // Show success status
-                    if (ghostscriptStatus && ghostscriptStatusText) {
-                        ghostscriptStatusText.textContent = `Selected: ${result.path}`;
-                        ghostscriptStatus.className = 'alert alert-success py-2';
-                        ghostscriptStatus.style.display = 'block';
-                        setTimeout(() => {
-                            ghostscriptStatus.style.display = 'none';
-                        }, 3000);
-                    }
-                    
+
+                    // Validate the selected Ghostscript path
+                    validateGhostscriptInSettings();
+
                     updateStatus('success', 'Ghostscript executable selected');
                 }
             } catch (error) {
@@ -1127,17 +1176,10 @@ document.addEventListener('DOMContentLoaded', () => {
             ghostscriptPathInput.value = '';
             config.ghostscriptPath = '';
             saveConfig();
-            
-            // Show cleared status
-            if (ghostscriptStatus && ghostscriptStatusText) {
-                ghostscriptStatusText.textContent = 'Using bundled/system Ghostscript';
-                ghostscriptStatus.className = 'alert alert-info py-2';
-                ghostscriptStatus.style.display = 'block';
-                setTimeout(() => {
-                    ghostscriptStatus.style.display = 'none';
-                }, 3000);
-            }
-            
+
+            // Re-validate with bundled/system Ghostscript
+            validateGhostscriptInSettings();
+
             updateStatus('info', 'Ghostscript path cleared - using default');
         });
     }
