@@ -70,9 +70,9 @@ _That's it  – no command line required._
 
 ### Supported Learning Management Systems
 
-- Built for **Moodle**: automatically matches students' uploads stored in FULLNAMEWITHSPACES_SOMENUMBER_assignment_file_ folders.
-- Should also work with **Ilias**: submission activities having folder names like FIRSTNAME_LASTNAME_USERNAME_STUDENTNUMBER are supported
-- Works with custom folder structures.
+- **Moodle**: Download and extract ZIP files from each assignment. The tool automatically processes the folder structure.
+- **ILIAS**: Supports both per-assignment and per-student ZIP exports. Place all downloaded ZIP files (without extracting) in the input directory—the tool automatically detects the format and processes them.
+- **Custom folder structures**: Works with any folder naming pattern via settings.
 
 
 ## Documentation

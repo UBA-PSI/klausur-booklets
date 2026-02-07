@@ -21,8 +21,6 @@
 
 **Important Note:** This guide describes the workflow specifically for the Moodle instance as configured at the **University of Bamberg**. While the general principles might apply elsewhere, details may differ significantly in other Moodle installations. **Tested with:** Moodle 4.5.
 
-For the **Ilias** learning platform, the overall process of collecting pages and generating booklets is similar, but currently lacks the automated assignment creation workflow described here.
-
 ## 1. Purpose and Overview
 
 This guide explains how to set up and manage student submissions for multi-page "Booklets" using Moodle. The *Booklet Tool* helps instructors implement the "Klausur-Booklet" incentive system as described at [www.uni-bamberg.de/psi/teaching/booklet-tool/](https://www.uni-bamberg.de/psi/teaching/booklet-tool/).
@@ -141,6 +139,8 @@ The format requirements mentioned in the Student Guide correspond to the rules t
 
 ### Step 3.5: Download Student Submissions
 
+#### For Moodle Users
+
 After the deadlines (or any time during the semester for a preview) have passed:
 
 *   Navigate to the first booklet page assignment in Moodle (e.g., "Booklet Page 1").
@@ -171,6 +171,22 @@ booklet-submissions/
     └── Clara Clever_55553_assignsubmission_file_/
         └── dummy.png
 ```
+
+#### For ILIAS Users
+
+The download process is similar, but with one important difference: **do not extract the ZIP files**.
+
+ILIAS offers two download formats:
+
+1. **Per-Assignment Download** (recommended when you have fewer exercises than students)
+   * Download one ZIP per exercise containing all students' submissions
+   * Example: 3 exercises with 50 students → download 3 ZIP files
+
+2. **Per-Student Download** (recommended when you have fewer students than exercises)
+   * Download one ZIP per student containing all their exercises
+   * Example: 10 students with 20 exercises → download 10 ZIP files
+
+**Usage:** Create a dedicated folder (e.g., `booklet-submissions`) and place all downloaded ZIP files there **without extracting them**. The Booklet Tool automatically detects the ILIAS format and processes the files.
 
 
 ### Step 3.6: Generate the Final Booklets

@@ -3,24 +3,26 @@
 <details>
 <summary>Inhaltsverzeichnis</summary>
 
-* [Zweck und Überblick](#1-zweck-und-überblick)
-* [Voraussetzungen](#2-voraussetzungen)
-* [Schritt-für-Schritt Workflow](#3-schritt-für-schritt-workflow)
-  * [Ansätze zur Einrichtung von Aufgaben](#schritt-30-verständnis-der-zwei-ansätze-zur-einrichtung-von-booklet-aufgaben)
-  * [Erste Moodle-Kurs-Einrichtung](#schritt-31-erste-moodle-kurs-einrichtung-einmal-pro-kurs)
-  * [Moodle-Aufgaben generieren](#schritt-32-moodle-aufgaben-mit-dem-booklet-tool-generieren)
-  * [Aufgaben importieren](#schritt-33-aufgaben-in-moodle-importieren)
-  * [Studierende anleiten](#schritt-34-ihre-studierenden-anleiten)
-  * [Studentische Abgaben herunterladen](#schritt-35-studentische-abgaben-herunterladen)
-  * [Finale Booklets erstellen](#schritt-36-die-finalen-booklets-erstellen)
-* [Wichtige Hinweise](#4-wichtige-hinweise)
-* [Umgang mit identischen Studierendennamen](#5-umgang-mit-identischen-studierendennamen)
+- [Booklet Tool: Anleitung für Lehrende](#booklet-tool-anleitung-für-lehrende)
+  - [1. Zweck und Überblick](#1-zweck-und-überblick)
+  - [2. Voraussetzungen](#2-voraussetzungen)
+  - [3. Schritt-für-Schritt Workflow](#3-schritt-für-schritt-workflow)
+    - [Vorab: Überblick über die zwei Ansätze zur Einrichtung von Booklet-Aufgaben](#vorab-überblick-über-die-zwei-ansätze-zur-einrichtung-von-booklet-aufgaben)
+      - [Manueller Ansatz](#manueller-ansatz)
+      - [Automatisierter Ansatz (Empfohlen)](#automatisierter-ansatz-empfohlen)
+    - [Schritt 3.1: Erste Moodle-Kurs-Einrichtung (Einmal pro Kurs)](#schritt-31-erste-moodle-kurs-einrichtung-einmal-pro-kurs)
+    - [Schritt 3.2: Moodle-Aufgaben mit dem Booklet Tool generieren](#schritt-32-moodle-aufgaben-mit-dem-booklet-tool-generieren)
+    - [Schritt 3.3: Aufgaben in Moodle importieren](#schritt-33-aufgaben-in-moodle-importieren)
+    - [Schritt 3.4: Ihre Studierenden anleiten](#schritt-34-ihre-studierenden-anleiten)
+    - [Schritt 3.5: Studentische Abgaben herunterladen](#schritt-35-studentische-abgaben-herunterladen)
+    - [Schritt 3.6: Die finalen Booklets erstellen](#schritt-36-die-finalen-booklets-erstellen)
+  - [4. Wichtige Hinweise](#4-wichtige-hinweise)
+  - [5. Umgang mit identischen Studierendennamen](#5-umgang-mit-identischen-studierendennamen)
+  - [Schlussbemerkung](#schlussbemerkung)
 
 </details>
 
 **Wichtiger Hinweis:** Diese Anleitung beschreibt den Workflow speziell für die Moodle-Installation, wie sie an der **Universität Bamberg** konfiguriert ist. Während die allgemeinen Prinzipien auch anderswo anwendbar sein könnten, können Details in anderen Moodle-Installationen erheblich abweichen. **Getestet mit:** Moodle 4.5.
-
-Für die **Ilias**-Lernplattform ist der gesamte Prozess zum Sammeln von Seiten und Generieren von Booklets ähnlich, es fehlt jedoch derzeit der hier beschriebene automatisierte Workflow zur Erstellung von Aufgaben.
 
 ## 1. Zweck und Überblick
 
@@ -139,6 +141,8 @@ Die im Studierendenleitfaden genannten Formatanforderungen entsprechen den Regel
 
 ### Schritt 3.5: Studentische Abgaben herunterladen
 
+#### Für Moodle-Nutzer
+
 Nach Ablauf der Fristen (oder jederzeit während des Semesters für eine Vorschau):
 
 * Navigieren Sie zur ersten Booklet-Seitenaufgabe in Moodle (z.B. "Booklet Seite 1").
@@ -169,6 +173,22 @@ booklet-submissions/
     └── Clara Clever_55553_assignsubmission_file_/
         └── dummy.png
 ```
+
+#### Für ILIAS-Nutzer
+
+Der Download-Prozess ist ähnlich, mit einem wichtigen Unterschied: **Entpacken Sie die ZIP-Dateien nicht**.
+
+ILIAS bietet zwei Download-Formate:
+
+1. **Download je Übungseinheit** (empfohlen bei weniger Übungseinheiten als Studierenden)
+   - Laden Sie eine ZIP-Datei pro Übungseinheit mit allen Studierendenabgaben herunter
+   - Beispiel: 3 Übungseinheiten mit 50 Studierenden → 3 ZIP-Dateien herunterladen
+
+2. **Download je Teilnehmer** (empfohlen bei weniger Studierenden als Übungseinheiten)
+   - Laden Sie eine ZIP-Datei pro Studierendem mit allen Übungseinheiten herunter
+   - Beispiel: 10 Studierende mit 20 Übungseinheiten → 10 ZIP-Dateien herunterladen
+
+**Verwendung:** Erstellen Sie einen dedizierten Ordner (z.B. `booklet-submissions`) und legen Sie alle heruntergeladenen ZIP-Dateien dort ab, **ohne sie zu entpacken**. Das Booklet Tool erkennt das ILIAS-Format automatisch und verarbeitet die Dateien.
 
 ### Schritt 3.6: Die finalen Booklets erstellen
 

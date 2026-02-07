@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+- [NEW] **ILIAS ZIP Export Support**: Added automatic detection and preprocessing of ILIAS ZIP exports. Supports both per-assignment format (one ZIP per exercise with all students) and per-student format (one ZIP per student with all assignments). Simply place downloaded ZIP files in the input directory—the tool automatically detects the format and restructures submissions for processing.
+- [NEW] Settings UI documentation explaining ILIAS download options and workflow.
+- [FIXED] **ILIAS missing pages detection**: Fixed missing pages detection for ILIAS ZIP exports. The preprocessor now ensures all page/assignment directories are created (including empty ones), and the temporary directory is preserved until after the merging phase completes. This enables accurate detection of missing student submissions on booklet cover sheets.
+
 ## [1.1.0] - 2025-09-10
 
 - [NEW] **External PDF renderer support**: Added configurable PDF rendering system with support for both bundled Ghostscript and system-installed Ghostscript. Users can now specify custom Ghostscript paths for better compatibility across different environments. By default, Ghostscript replaces the PDFium-based renderer that could not parse some esoterical files.
