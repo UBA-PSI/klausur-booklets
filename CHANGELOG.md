@@ -2,7 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [1.2.1] - 2026-02-07
+
+- [IMPROVED] Removed bundled Ghostscript binaries (~39 MB smaller). Ghostscript must now be installed separately on all platforms.
+- [IMPROVED] Default PDF renderer changed to PDFium WASM (built-in). Ghostscript is opt-in for users who install it.
+- [NEW] Startup banner recommending Ghostscript installation when using the built-in PDFium renderer.
+- [NEW] "Why Ghostscript?" section in README explaining renderer differences.
+- [IMPROVED] Settings UI: replaced "Bundled Version" with "System PATH" option, added platform-specific installation instructions.
+- [IMPROVED] Added ability to open external links in system browser.
 
 ## [1.2.0] - 2026-02-07
 
