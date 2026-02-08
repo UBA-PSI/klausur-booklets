@@ -6,9 +6,9 @@
 **Create personalized exam booklets from students' handwritten note pages in minutes.**
 Download the latest version for [**Windows**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.2.1/booklet-tool-1.2.1-windows-portable-x64.zip) · [**macOS**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.2.1/Booklet.Tool-1.2.1.dmg) · [**Linux**](https://github.com/UBA-PSI/klausur-booklets/releases/tag/v1.2.1) and get started right away. [**Download test data**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.2.1/booklet-tool-testdata.zip) to try out the tool's features.
 
-The Booklet Tool is an Electron application (Windows, macOS, Linux) developed at the [Chair of Privacy and Security in Information Systems](https://www.uni-bamberg.de/psi/), University of Bamberg, within [Projekt DiKuLe](https://www.uni-bamberg.de/dikule/). The Booklet Tool helps instructors create personalized exam aids ("Klausur-Booklets") from student submissions.
+The Booklet Tool is an Electron application (Windows, macOS, Linux) developed at the [Chair of Privacy and Security in Information Systems](https://psi.uni-bamberg.de/), University of Bamberg, within [Projekt DiKuLe](https://www.uni-bamberg.de/dikule/). The Booklet Tool helps instructors create personalized exam aids ("Klausur-Booklets") from student submissions.
 
-This tool facilitates the [Klausur-Booklet](https://www.uni-bamberg.de/psi/teaching/booklet-tool/) incentive system. Students submit note pages regularly during the semester, and instructors use this tool to compile these submissions (along with generated cover sheets) into printed A5 booklets that students can use as authorized aids during the final exam.
+This tool facilitates the [Klausur-Booklet](https://psi.uni-bamberg.de/en/lehre/booklet/) incentive system. Students submit note pages regularly during the semester, and instructors use this tool to compile these submissions (along with generated cover sheets) into printed A5 booklets that students can use as authorized aids during the final exam.
 
 <details>
   <summary><b>Learn more about the Klausur-Booklet concept</b></summary>

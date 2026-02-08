@@ -26,7 +26,7 @@
 
 ## 1. Zweck und Überblick
 
-Diese Anleitung erklärt, wie man Studierendenabgaben für mehrseitige "Booklets" mit Moodle einrichtet und verwaltet. Das *Booklet Tool* unterstützt Lehrende dabei, das "Klausur-Booklet"-Anreizsystem umzusetzen, wie es unter [www.uni-bamberg.de/psi/teaching/booklet-tool/](https://www.uni-bamberg.de/psi/teaching/booklet-tool/) beschrieben wird.
+Diese Anleitung erklärt, wie man Studierendenabgaben für mehrseitige "Booklets" mit Moodle einrichtet und verwaltet. Das *Booklet Tool* unterstützt Lehrende dabei, das "Klausur-Booklet"-Anreizsystem umzusetzen, wie es unter [psi.uni-bamberg.de/en/lehre/booklet/](https://psi.uni-bamberg.de/en/lehre/booklet/) beschrieben wird.
 
 **Das zugrundeliegende Problem:** Es kann schwierig sein, Studierende zu ermutigen, sich durch regelmäßiges Notizenmachen aktiv mit dem Kursmaterial auseinanderzusetzen. Traditionelle Methoden bieten möglicherweise nicht genügend Anreize oder Struktur.
 
