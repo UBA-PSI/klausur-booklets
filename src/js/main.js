@@ -1031,15 +1031,16 @@ async function processTasksDirectly(tasks, outputDirectory, dpi) {
         }
         
         try {
-            // Pass sendLogToRenderer to the transformation function
-            await processSingleTransformation(task.inputPath, task.outputPath, dpi, sendLogToRenderer);
+            const marginResult = await processSingleTransformation(task.inputPath, task.outputPath, dpi, sendLogToRenderer);
             successCount++;
             const studentIdentifier = task.studentInfo?.primaryIdentifier || path.basename(taskOutputDir);
             if (!processedFileInfo[studentIdentifier]) processedFileInfo[studentIdentifier] = [];
-            processedFileInfo[studentIdentifier].push({ 
-                pageName: task.pageName, 
+            processedFileInfo[studentIdentifier].push({
+                pageName: task.pageName,
                 originalFileName: task.originalFileName,
-                studentInfo: task.studentInfo
+                studentInfo: task.studentInfo,
+                marginApplied: marginResult?.needsMargin || false,
+                scaleFactor: marginResult?.scaleFactor || 1.0,
             });
         } catch (processingError) {
             errorCount++;

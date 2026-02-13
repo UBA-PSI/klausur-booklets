@@ -6,6 +6,10 @@ const sharp = require('sharp');
 const decodeHeic = require('heic-decode');
 const { marked } = require('marked');
 const { renderFirstPageToImage, imageToPdf } = require('./pdf-cmdline-processor');
+const { analyzeMargins } = require('./margin-analyzer');
+const { generatePageCountSummary } = require('./page-count-summary');
+
+const SHARP_PIXEL_LIMIT = 268402689 * 4; // 4x default limit for large images
 
 // --- Custom Error for Ambiguity ---
 class AmbiguityError extends Error {
@@ -660,6 +664,13 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent)
         }
     }
     console.log("PDF Merging Process Completed.");
+
+    // Generate page count summary files (TXT + XLSX)
+    try {
+        await generatePageCountSummary(outputDirectory, console.log);
+    } catch (summaryError) {
+        console.error(`Error generating page count summary: ${summaryError.message}`);
+    }
 }
 
 /**
@@ -670,116 +681,99 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent)
  * @param {function} [sendLog=console.log] Function to send log messages.
  */
 async function processSingleTransformation(inputPath, outputPath, dpiValue, sendLog = console.log) {
-    const ext = path.extname(inputPath).toLowerCase(); 
-    // Get last 3 path parts for logging (e.g., PageDir/StudentDir/file.ext)
+    const ext = path.extname(inputPath).toLowerCase();
     const logInputPath = inputPath.split(path.sep).slice(-3).join(path.sep);
     const logOutputPath = outputPath.split(path.sep).slice(-3).join(path.sep);
-    // Keep full path for detailed error reporting
-    const fullInputPath = inputPath;
-    let imageBufferForPdfLib; // Buffer ready to be embedded (always PNG format)
-    let needsRotation = false;
+    let marginResult = { needsMargin: false, scaleFactor: 1.0 };
 
     sendLog(`[Transform Single] Starting: ${logInputPath} -> ${logOutputPath}, Ext=${ext}`);
 
     try {
-        let initialBuffer; // Buffer directly from file or rendering
+        let initialBuffer;
 
         if (ext === '.pdf') {
             sendLog(`[Transform Single] Processing as PDF: ${logInputPath}`);
-            // Create status callback to show renderer info in UI
             const statusCallback = (message) => sendLog(`[PDF Renderer] ${message}`);
-            initialBuffer = await renderFirstPageToImage(inputPath, dpiValue, statusCallback); // Renders first page to PNG buffer
-        } else if (ext === '.png') {
-            sendLog(`[Transform Single] Processing as PNG: ${logInputPath}`);
+            initialBuffer = await renderFirstPageToImage(inputPath, dpiValue, statusCallback);
+        } else if (ext === '.png' || ext === '.jpg' || ext === '.jpeg') {
+            sendLog(`[Transform Single] Processing as ${ext.slice(1).toUpperCase()}: ${logInputPath}`);
             initialBuffer = fs.readFileSync(inputPath);
-        } else if (ext === '.jpg' || ext === '.jpeg') {
-            sendLog(`[Transform Single] Processing as JPG/JPEG: ${logInputPath}`);
-            initialBuffer = fs.readFileSync(inputPath);
-            // Convert to PNG later if needed (e.g., for rotation check/apply)
         } else if (ext === '.heic') {
             sendLog(`[Transform Single] Processing as HEIC: ${logInputPath}`);
             const heicBuffer = fs.readFileSync(inputPath);
             const { data, width, height } = await decodeHeic({ buffer: heicBuffer });
             sendLog(`[Transform Single] Decoded HEIC to raw data (${width}x${height}): ${logInputPath}`);
-            // Convert raw to PNG buffer now
             initialBuffer = await sharp(data, {
-                raw: {
-                    width: width,
-                    height: height,
-                    channels: 4
-                },
-                limitInputPixels: 268402689 * 4 // 4x default limit for large HEIC images
+                raw: { width, height, channels: 4 },
+                limitInputPixels: SHARP_PIXEL_LIMIT
             }).png().toBuffer();
             sendLog(`[Transform Single] Converted HEIC raw data to PNG buffer: ${logInputPath}`);
         } else {
             sendLog(`[Transform Single] WARN: Skipping unsupported file type: ${logInputPath}`);
-            return; 
+            return;
         }
 
         if (!initialBuffer) {
-             sendLog(`[Transform Single] ERROR: Failed to get initial buffer for ${logInputPath}`);
-             return;
+            sendLog(`[Transform Single] ERROR: Failed to get initial buffer for ${logInputPath}`);
+            return;
         }
 
-        // Check dimensions and determine rotation need using Sharp
-        // Configure Sharp with increased pixel limits to handle large images
+        // Check dimensions and determine rotation need
         const metadata = await sharp(initialBuffer, {
-            limitInputPixels: 268402689 * 4 // 4x default limit (default is ~268M pixels for 16384x16384 image)
+            limitInputPixels: SHARP_PIXEL_LIMIT
         }).metadata();
-        
+
         sendLog(`[Transform Single] Image dimensions: ${metadata.width}x${metadata.height} for ${logInputPath}`);
-        if (metadata.width > metadata.height) {
-            sendLog(`[Transform Single] Image is landscape (width > height), rotation needed: ${logInputPath}`);
-            needsRotation = true;
+        const needsRotation = metadata.width > metadata.height;
+        if (needsRotation) {
+            sendLog(`[Transform Single] Image is landscape, rotation needed: ${logInputPath}`);
         }
 
-        // Prepare the final buffer for pdf-lib (ensure PNG, apply rotation if needed)
+        // Prepare the final PNG buffer (apply rotation if needed)
         let sharpInstance = sharp(initialBuffer, {
-            limitInputPixels: 268402689 * 4 // 4x default limit for processing
+            limitInputPixels: SHARP_PIXEL_LIMIT
         });
         if (needsRotation) {
             sharpInstance = sharpInstance.rotate(90);
         }
-        // Ensure output is PNG for pdf-lib's embedPng
-        imageBufferForPdfLib = await sharpInstance.png().toBuffer(); 
+        const imageBufferForPdfLib = await sharpInstance.png().toBuffer();
 
-        // Convert the final image buffer to a PDF page
-        if (imageBufferForPdfLib) {
-            // Pass the original landscape status to imageToPdf if needed for scaling logic, 
-            // although the buffer passed is now rotated to portrait.
-            // For simplicity, let imageToPdf determine final scaling based on the buffer it receives.
-            await imageToPdf(imageBufferForPdfLib, outputPath); 
-            sendLog(`[Transform Single] Successfully created PDF page: ${logOutputPath}`);
-        } else {
-             sendLog(`[Transform Single] ERROR: Failed to get final image buffer for ${logInputPath}`);
+        // Analyze margins
+        try {
+            marginResult = await analyzeMargins(imageBufferForPdfLib);
+            if (marginResult.needsMargin) {
+                sendLog(`[Transform Single] Content at edges, applying margin scale (${marginResult.scaleFactor.toFixed(3)}): ${logInputPath}`);
+            }
+        } catch (analysisError) {
+            sendLog(`[Transform Single] WARN: Margin analysis failed: ${analysisError.message}, proceeding without margins`);
         }
 
+        await imageToPdf(imageBufferForPdfLib, outputPath, {
+            scaleFactor: marginResult.scaleFactor
+        });
+        sendLog(`[Transform Single] Successfully created PDF page: ${logOutputPath}`);
+
     } catch (error) {
-        // Enhanced error reporting with full path and specific error handling
-        const isPixelLimitError = error.message && error.message.includes('exceeds pixel limit');
-        const isSharpError = error.message && (
-            error.message.includes('Input file contains unsupported image format') ||
-            error.message.includes('Input buffer contains unsupported image format') ||
-            isPixelLimitError
-        );
-        
         let detailedError = `[Transform Single] ERROR processing file ${logInputPath}: ${error.message}`;
-        
+        detailedError += `\n[Transform Single] FULL PATH: ${inputPath}`;
+
+        const isPixelLimitError = error.message && error.message.includes('exceeds pixel limit');
         if (isPixelLimitError) {
-            detailedError += `\n[Transform Single] FULL PATH: ${fullInputPath}`;
             detailedError += `\n[Transform Single] This image exceeds Sharp's pixel limits. The image is too large to process safely.`;
             detailedError += `\n[Transform Single] Consider reducing the image resolution or DPI setting (current: ${dpiValue}).`;
             detailedError += `\n[Transform Single] Maximum recommended dimensions: ~32,000 x ~32,000 pixels.`;
-        } else if (isSharpError) {
-            detailedError += `\n[Transform Single] FULL PATH: ${fullInputPath}`;
+        } else if (error.message && (
+            error.message.includes('Input file contains unsupported image format') ||
+            error.message.includes('Input buffer contains unsupported image format')
+        )) {
             detailedError += `\n[Transform Single] This appears to be an image processing error. Check if the file is corrupted or in an unsupported format.`;
-        } else {
-            detailedError += `\n[Transform Single] FULL PATH: ${fullInputPath}`;
         }
-        
+
         sendLog(detailedError);
-        throw error; 
+        throw error;
     }
+
+    return marginResult;
 }
 
 /**

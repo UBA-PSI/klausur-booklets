@@ -545,46 +545,33 @@ async function renderFirstPageToImage(pdfPath, dpi = 300, statusCallback = null)
 }
 
 /**
- * Converts an image to a PDF with A5 page size
- * @param {Buffer} imageBuffer - Image buffer
+ * Converts an image to a PDF with A5 page size.
+ * @param {Buffer} imageBuffer - PNG image buffer
  * @param {string} outputPath - Path to save the output PDF
+ * @param {Object} [options] - Optional configuration
+ * @param {number} [options.scaleFactor=1.0] - Scale factor for margin enforcement (0-1.0)
  * @returns {Promise<void>}
  */
-async function imageToPdf(imageBuffer, outputPath) {
-  // Create a new PDF document
+async function imageToPdf(imageBuffer, outputPath, options = {}) {
+  const scaleFactor = options.scaleFactor || 1.0;
   const pdfDoc = await PDFDocument.create();
-  
-  // Define page size (A5)
   const [width, height] = PageSizes.A5;
-  
-  // Add a blank page
   const page = pdfDoc.addPage([width, height]);
-  
-  // Embed the image
   const image = await pdfDoc.embedPng(imageBuffer);
-  
-  // Calculate scaling to fit within A5 while preserving aspect ratio
+
+  // Scale to fit A5 while preserving aspect ratio, then apply margin scale factor
   const imgDims = image.size();
-  const xScale = width / imgDims.width;
-  const yScale = height / imgDims.height;
-  const scale = Math.min(xScale, yScale); // Use the smaller scale factor to fit
-  
+  const scale = Math.min(width / imgDims.width, height / imgDims.height) * scaleFactor;
   const imgWidth = imgDims.width * scale;
   const imgHeight = imgDims.height * scale;
-  
-  // Position image: Center horizontally, align to top vertically
-  const x = (width - imgWidth) / 2; 
-  const y = height - imgHeight; // Align top edge of image with top edge of page (assuming y=0 is bottom)
-  
-  // Draw the image
+
   page.drawImage(image, {
-    x,
-    y,
+    x: (width - imgWidth) / 2,
+    y: (height - imgHeight) / 2,
     width: imgWidth,
     height: imgHeight,
   });
-  
-  // Save the PDF
+
   const pdfBytes = await pdfDoc.save();
   fs.writeFileSync(outputPath, pdfBytes);
 }
