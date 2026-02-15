@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.0] - 2026-02-15
+
+- [NEW] **Configurable minimum margin**: The minimum margin for student PDFs can now be configured in Settings (default: 3.5 mm, set to 0 to disable). Pages with content extending into the margin zone are automatically scaled down to enforce the minimum margin.
+- [NEW] **Pad to multiple of 4**: New setting to pad merged PDFs with blank pages so the total page count is a multiple of 4, ready for saddle-stitch booklet printing without manual adjustment.
+- [NEW] **Booklet number on cover sheet**: Each cover sheet now shows its sequential booklet number (001, 002, ...) in the top-right corner at 24 pt bold for easier sorting after printing.
+- [FIXED] **TXT summary column alignment with umlauts**: Fixed misaligned columns in the page summary TXT file when student names contain umlauts or other multi-byte characters. Now uses NFC normalization for correct visual width calculation.
+
+## [1.3.0] - 2026-02-14
+
+- [NEW] **Smart margin enforcement**: Automatically detects pages with content extending to the edge (borderless) and scales them down to enforce a minimum margin. Pages that already have sufficient margins are left untouched, preserving original quality and file size. Uses the existing Sharp image buffer in the transform pipeline — no additional rendering overhead.
+- [NEW] **Page count summary**: Generates `page-summary.txt` (with CRLF line endings for Windows) and `page-summary.xlsx` alongside the merged PDFs. Lists per-student page counts, A4 pages/sheets needed for saddle-stitch booklet printing, and totals.
+- [NEW] Added `node-xlsx` dependency for XLSX summary generation.
+
 ## [1.2.1] - 2026-02-07
 
 - [IMPROVED] Removed bundled Ghostscript binaries (~39 MB smaller). Ghostscript must now be installed separately on all platforms.

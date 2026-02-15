@@ -4,7 +4,7 @@
 [![downloads](https://img.shields.io/github/downloads/UBA-PSI/klausur-booklets/total)](https://github.com/UBA-PSI/klausur-booklets/releases)
 
 **Create personalized exam booklets from students' handwritten note pages in minutes.**
-Download the latest version for [**Windows**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.2.1/booklet-tool-1.2.1-windows-portable-x64.zip) · [**macOS**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.2.1/Booklet.Tool-1.2.1.dmg) · [**Linux**](https://github.com/UBA-PSI/klausur-booklets/releases/tag/v1.2.1) and get started right away. [**Download test data**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.2.1/booklet-tool-testdata.zip) to try out the tool's features.
+Download the latest version for [**Windows**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.4.0/booklet-tool-1.4.0-windows-portable-x64.zip) · [**macOS**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.4.0/Booklet.Tool-1.4.0.dmg) · [**Linux**](https://github.com/UBA-PSI/klausur-booklets/releases/tag/v1.4.0) and get started right away. [**Download test data**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.4.0/booklet-tool-testdata.zip) to try out the tool's features.
 
 The Booklet Tool is an Electron application (Windows, macOS, Linux) developed at the [Chair of Privacy and Security in Information Systems](https://psi.uni-bamberg.de/), University of Bamberg, within [Projekt DiKuLe](https://www.uni-bamberg.de/dikule/). The Booklet Tool helps instructors create personalized exam aids ("Klausur-Booklets") from student submissions.
 
@@ -65,7 +65,9 @@ If you process student submissions that include scanned documents, annotated PDF
 - Generates cover sheets that list student information and highlight missing submissions.
 - Merges cover sheets and submitted pages into complete, personalized booklets.
 - Creates print-ready A5 booklets with correct imposition.
-- Booklet Tool creates a Summary HTML file listing all students and the number of pages.
+- Generates a page count summary (TXT + XLSX) listing all students, page counts, and A4 sheets needed for printing.
+- Smart margin enforcement: automatically scales down borderless pages to ensure a minimum margin for clean printing.
+- Configurable minimum margin and optional padding to a multiple of 4 pages for saddle-stitch booklet printing.
 
 ### Interface Highlights
 
