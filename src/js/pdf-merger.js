@@ -625,7 +625,10 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent,
             const pageCount = mergedPdf.getPageCount();
             const pagesToAdd = (4 - (pageCount % 4)) % 4;
             for (let p = 0; p < pagesToAdd; p++) {
-                mergedPdf.addPage([width, height]); // blank page
+                const blankPage = mergedPdf.addPage([width, height]);
+                // Draw an invisible dot to force pdf-lib to create a Contents stream,
+                // otherwise embedPdf() fails with "missing Contents" during booklet creation.
+                blankPage.drawCircle({ x: 0, y: 0, size: 0, opacity: 0 });
             }
             if (pagesToAdd > 0) {
                 console.log(`  Padded with ${pagesToAdd} blank page(s) (${pageCount} -> ${pageCount + pagesToAdd}).`);
@@ -826,12 +829,11 @@ async function createSaddleStitchBooklet(inputPath, outputPath) {
     // console.log(`[Booklet] Input Page Size: ${inputWidth}x${inputHeight}`); // Removed log
     // console.log(`[Booklet] Output Page Size (2-up): ${outputPageWidth}x${outputPageHeight}`); // Removed log
 
-    // --- Logic using embedPage --- 
+    // --- Logic using embedPage ---
     // 1. Pre-embed all necessary pages
-    const embeddedPages = new Map(); 
-    // console.log(`[Booklet] Embedding ${pageCount} source pages...`); // Removed log
+    const embeddedPages = new Map();
     for (let i = 0; i < pageCount; i++) {
-        const [embeddedPage] = await newPdfDoc.embedPdf(inputDoc, [i]); 
+        const [embeddedPage] = await newPdfDoc.embedPdf(inputDoc, [i]);
         embeddedPages.set(i, embeddedPage);
     }
     // console.log(`[Booklet] Finished embedding source pages.`); // Removed log
@@ -848,51 +850,45 @@ async function createSaddleStitchBooklet(inputPath, outputPath) {
         if (leftSourceIndex < pageCount) {
             const leftPageToDraw = embeddedPages.get(leftSourceIndex);
             if (leftPageToDraw) {
-                 try {
-                    // console.log(`[Booklet] Attempting to draw pre-embedded source index ${leftSourceIndex} onto left side`); // Removed log
+                try {
                     outputPage.drawPage(leftPageToDraw, {
                         x: 0,
                         y: 0,
                         width: inputWidth,
                         height: inputHeight
                     });
-                    // console.log(`[Booklet] Drew source index ${leftSourceIndex} onto left side`); // Removed log
-                 } catch (drawError) {
-                     console.error(`[Booklet] Error drawing left page (source index ${leftSourceIndex}) on output page ${i + 1}:`, drawError);
-                     throw drawError; 
-                 }
+                } catch (drawError) {
+                    console.error(`[Booklet] Error drawing left page (source index ${leftSourceIndex}) on output page ${i + 1}:`, drawError);
+                    throw drawError;
+                }
             } else {
-                 console.error(`[Booklet] Critical Error: Failed to find pre-embedded page for source index ${leftSourceIndex}`);
-                 throw new Error(`Failed to find pre-embedded page for source index ${leftSourceIndex}`);
+                console.error(`[Booklet] Critical Error: Failed to find pre-embedded page for source index ${leftSourceIndex}`);
+                throw new Error(`Failed to find pre-embedded page for source index ${leftSourceIndex}`);
             }
-        } else {
-            // console.log(`[Booklet] Left side of output page ${i + 1} is blank (source index ${leftSourceIndex} was padding).`); // Removed log
         }
+        // else: padding index beyond pageCount — left side stays empty
 
         // --- Draw Right Page ---
         if (rightSourceIndex < pageCount) {
             const rightPageToDraw = embeddedPages.get(rightSourceIndex);
-             if (rightPageToDraw) {
+            if (rightPageToDraw) {
                 try {
-                    // console.log(`[Booklet] Attempting to draw pre-embedded source index ${rightSourceIndex} onto right side`); // Removed log
                     outputPage.drawPage(rightPageToDraw, {
                         x: inputWidth,
                         y: 0,
                         width: inputWidth,
                         height: inputHeight
                     });
-                    // console.log(`[Booklet] Drew source index ${rightSourceIndex} onto right side`); // Removed log
-                 } catch (drawError) {
+                } catch (drawError) {
                     console.error(`[Booklet] Error drawing right page (source index ${rightSourceIndex}) on output page ${i + 1}:`, drawError);
-                    throw drawError; 
-                 }
-             } else {
-                 console.error(`[Booklet] Critical Error: Failed to find pre-embedded page for source index ${rightSourceIndex}`);
-                 throw new Error(`Failed to find pre-embedded page for source index ${rightSourceIndex}`);
-             }
-        } else {
-            // console.log(`[Booklet] Right side of output page ${i + 1} is blank (source index ${rightSourceIndex} was padding).`); // Removed log
+                    throw drawError;
+                }
+            } else {
+                console.error(`[Booklet] Critical Error: Failed to find pre-embedded page for source index ${rightSourceIndex}`);
+                throw new Error(`Failed to find pre-embedded page for source index ${rightSourceIndex}`);
+            }
         }
+        // else: padding index beyond pageCount — right side stays empty
     }
     // --- End Logic ---
 
