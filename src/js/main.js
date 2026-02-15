@@ -136,7 +136,9 @@ function createWindow() {
         minFileSizeKB: 1,
         maxFileSizeMB: 20,
         pdfRenderer: 'pdfium',
-        ghostscriptPathType: 'system'
+        ghostscriptPathType: 'system',
+        marginMinMm: 3.5,
+        padToMultipleOf4: false
     };
 
     let configToSend = { ...defaultConfig };
@@ -1003,10 +1005,12 @@ function performFinalCollisionCheck(tasks, isMoodleMode) {
  * @param {Array} tasks - The list of transformation tasks.
  * @param {string} outputDirectory - The base output directory.
  * @param {number} dpi - The DPI setting for transformations.
+ * @param {Object} [options] - Additional options from config.
+ * @param {number} [options.marginMinMm=3.5] - Minimum margin in mm.
  * @returns {string} Success message.
  * @throws {Error} If processing completes with errors.
  */
-async function processTasksDirectly(tasks, outputDirectory, dpi) {
+async function processTasksDirectly(tasks, outputDirectory, dpi, options = {}) {
     sendLogToRenderer("IPC: No ambiguities or collisions. Processing tasks directly.");
     let successCount = 0;
     let errorCount = 0;
@@ -1031,7 +1035,7 @@ async function processTasksDirectly(tasks, outputDirectory, dpi) {
         }
         
         try {
-            const marginResult = await processSingleTransformation(task.inputPath, task.outputPath, dpi, sendLogToRenderer);
+            const marginResult = await processSingleTransformation(task.inputPath, task.outputPath, dpi, sendLogToRenderer, options);
             successCount++;
             const studentIdentifier = task.studentInfo?.primaryIdentifier || path.basename(taskOutputDir);
             if (!processedFileInfo[studentIdentifier]) processedFileInfo[studentIdentifier] = [];
@@ -1175,7 +1179,7 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
             return { status: 'ambiguity_detected', message: 'Ambiguity detected. Please resolve conflicts.' };
         } else {
             // Process tasks directly (includes saving processed info)
-            const resultMessage = await processTasksDirectly(tasks, outputDirectory, dpi);
+            const resultMessage = await processTasksDirectly(tasks, outputDirectory, dpi, { marginMinMm: config.marginMinMm });
 
             // Generate and send summary log after direct processing
             await generateAndSendSummary(outputDirectory);
@@ -1292,7 +1296,7 @@ ipcMain.handle('resolve-ambiguity', async (event, selectedIdentifiers) => {
     
     // Process the combined list of unambiguous and resolved tasks
     try {
-        const resultMessage = await processTasksDirectly(tasksToProcess, pendingTransformationData.outputDirectory, currentTransformationDpi);
+        const resultMessage = await processTasksDirectly(tasksToProcess, pendingTransformationData.outputDirectory, currentTransformationDpi, { marginMinMm: config.marginMinMm ?? 3.5 });
 
         // Generate and send summary log AFTER ambiguity resolution and processing
         await generateAndSendSummary(pendingTransformationData.outputDirectory);
@@ -1619,7 +1623,9 @@ Missing:
 
         sendLogToRenderer("Main: Starting mergeStudentPDFs function..."); // Log before starting
         // Pass the effective directory for missing pages detection
-        await mergeStudentPDFs(directoryForMissingPagesDetection, outputDirectory, coverTemplateContent);
+        await mergeStudentPDFs(directoryForMissingPagesDetection, outputDirectory, coverTemplateContent, {
+            padToMultipleOf4: !!config.padToMultipleOf4
+        });
         sendLogToRenderer("Main: mergeStudentPDFs completed successfully."); // Log on success
 
         // Cleanup ILIAS temp directory after successful merging

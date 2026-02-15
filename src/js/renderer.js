@@ -115,6 +115,14 @@ window.electronAPI.onLoadConfig((loadedConfig) => {
     if (config.maxFileSizeMB !== undefined) {
         document.getElementById('maxFileSizeMB').value = config.maxFileSizeMB;
     }
+    // Load PDF output settings
+    if (config.marginMinMm !== undefined) {
+        document.getElementById('marginMinMm').value = config.marginMinMm;
+    }
+    if (config.padToMultipleOf4) {
+        document.getElementById('padToMultipleOf4').checked = true;
+    }
+
     // Load PDF renderer selection
     if (config.pdfRenderer) {
         if (config.pdfRenderer === 'ghostscript') {
@@ -277,6 +285,11 @@ function saveConfig() {
         config.coverTemplateContent = coverTemplateTextarea.value;
     }
     
+    // Save PDF output settings
+    const marginValue = parseFloat(document.getElementById('marginMinMm').value);
+    config.marginMinMm = isNaN(marginValue) ? 3.5 : marginValue;
+    config.padToMultipleOf4 = document.getElementById('padToMultipleOf4').checked;
+
     // Save PDF renderer selection
     config.pdfRenderer = document.querySelector('input[name="pdfRenderer"]:checked').value;
     

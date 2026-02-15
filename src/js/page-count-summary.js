@@ -79,19 +79,24 @@ async function generatePageCountSummary(outputDirectory, sendLog = console.log) 
 
     // --- Generate TXT (CRLF line endings for Windows compatibility) ---
     const CRLF = '\r\n';
+
+    // Visual width: NFC-normalize then count codepoints (handles combining chars like umlauts in NFD)
+    const visualWidth = (str) => str.normalize('NFC').length;
+    const padEndVisual = (str, width) => str + ' '.repeat(Math.max(0, width - visualWidth(str)));
+
     const rows = studentStats.map(s => [
-        s.number, s.lastName, s.firstName,
+        s.number, s.lastName.normalize('NFC'), s.firstName.normalize('NFC'),
         String(s.contentPages), String(s.a5Pages), String(s.a4Pages), String(s.a4Sheets),
         String(s.marginsApplied),
     ]);
 
-    // Calculate column widths
+    // Calculate column widths using visual width
     const colWidths = HEADERS.map((h, i) => {
-        const dataMax = rows.reduce((max, row) => Math.max(max, row[i].length), 0);
-        return Math.max(h.length, dataMax);
+        const dataMax = rows.reduce((max, row) => Math.max(max, visualWidth(row[i])), 0);
+        return Math.max(visualWidth(h), dataMax);
     });
 
-    const formatRow = (cols) => cols.map((c, i) => c.padEnd(colWidths[i])).join('  |  ');
+    const formatRow = (cols) => cols.map((c, i) => padEndVisual(c, colWidths[i])).join('  |  ');
     const separator = colWidths.map(w => '-'.repeat(w)).join('--+--');
 
     let txt = '';

@@ -138,6 +138,36 @@ function sanitizeFilename(filename) {
 }
 // ---------------------------------
 
+/**
+ * Returns candidate base paths for bundled font files (dev + production layouts).
+ */
+function getFontBasePaths() {
+    const paths = [
+        path.join(__dirname, '../assets/fonts'),
+        path.join(__dirname, '../../src/assets/fonts'),
+    ];
+    if (typeof process.resourcesPath === 'string') {
+        paths.push(
+            path.join(process.resourcesPath, 'app.asar.unpacked/src/assets/fonts'),
+            path.join(process.resourcesPath, 'src/assets/fonts'),
+        );
+    }
+    return paths;
+}
+
+/**
+ * Finds the first existing font file by name across all candidate base paths.
+ * @param {string} fontFileName - e.g. 'Roboto-Bold.ttf'
+ * @returns {string|null} Absolute path to the font file, or null if not found.
+ */
+function findFontPath(fontFileName) {
+    for (const basePath of getFontBasePaths()) {
+        const fullPath = path.join(basePath, fontFileName);
+        if (fs.existsSync(fullPath)) return fullPath;
+    }
+    return null;
+}
+
 async function generateCoverSheet(templateContent, submittedSeitenListString, missingSeiten, studentInfo, width, height) {
     if (!templateContent) {
         console.error("Error: No cover sheet template content provided.");
@@ -153,63 +183,26 @@ Student: {{LAST_NAME}}, {{FIRST_NAME}}
 {{MISSING_PAGES_LIST}}`;
     }
 
-    // Extract info, providing defaults and normalize Unicode
-    const rawFullName = studentInfo?.fullName || 'Unknown Name';
-    const rawFirstName = studentInfo?.firstName || '';
-    const rawLastName = studentInfo?.lastName || 'Unknown';
-    
-    // Normalize Unicode to convert combining characters to composed forms
-    const fullName = rawFullName.normalize('NFC');
-    const firstName = rawFirstName.normalize('NFC'); 
-    const lastName = rawLastName.normalize('NFC');
-    const studentNumber = studentInfo?.studentNumber || '–'; // Use '–' if not available
+    // Extract info, providing defaults and NFC-normalize Unicode
+    const fullName = (studentInfo?.fullName || 'Unknown Name').normalize('NFC');
+    const firstName = (studentInfo?.firstName || '').normalize('NFC');
+    const lastName = (studentInfo?.lastName || 'Unknown').normalize('NFC');
+    const studentNumber = studentInfo?.studentNumber || '\u2013'; // en-dash if not available
 
-    // Debug Unicode characters in student info
-    console.log(`Cover sheet debug - Raw full name: "${rawFullName}"`);
-    console.log(`Cover sheet debug - Normalized full name: "${fullName}"`);
-    console.log(`Cover sheet debug - First name: "${firstName}"`);
-    console.log(`Cover sheet debug - Last name: "${lastName}"`);
-    
-    // Check for Unicode characters in both raw and normalized
-    console.log(`Raw fullName characters:`);
-    for (let i = 0; i < rawFullName.length; i++) {
-        const char = rawFullName.charAt(i);
-        const code = char.charCodeAt(0);
-        if (code > 127) {
-            console.log(`  "${char}" (U+${code.toString(16).toUpperCase()})`);
-        }
-    }
-    
-    console.log(`Normalized fullName characters:`);
-    for (let i = 0; i < fullName.length; i++) {
-        const char = fullName.charAt(i);
-        const code = char.charCodeAt(0);
-        if (code > 127) {
-            console.log(`  "${char}" (U+${code.toString(16).toUpperCase()})`);
-        }
-    }
-
-    // Sort the missing pages list numerically using natural sort
-    const sortedMissingSeiten = [...missingSeiten].sort((a, b) => {
-        // Natural sort to handle numeric ordering (1, 2, 10, 11)
-        return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
-    });
+    // Sort the missing pages list numerically
+    const sortedMissingSeiten = [...missingSeiten].sort((a, b) =>
+        a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+    );
     const missingList = sortedMissingSeiten.length > 0 ? sortedMissingSeiten.join('\n') : 'None';
-
-    // Debug the lists being used in the cover sheet
-    console.log(`Cover sheet submitted list: "${submittedSeitenListString}"`);
-    console.log(`Cover sheet missing list: "${missingList}"`);
 
     // Replace template tags
     let processedContent = templateContent
-        .replace(/\{\{\s*FULL_NAME\s*\}\}/gi, fullName) 
+        .replace(/\{\{\s*FULL_NAME\s*\}\}/gi, fullName)
         .replace(/\{\{\s*LAST_NAME\s*\}\}/gi, lastName)
         .replace(/\{\{\s*FIRST_NAME\s*\}\}/gi, firstName)
-        .replace(/\{\{\s*STUDENTNUMBER\s*\}\}/gi, studentNumber) // Replace student number
-        .replace(/\{\{\s*SUBMITTED_PAGES_LIST\s*\}\}/gi, submittedSeitenListString) // This will be replaced *after* sorting the list
+        .replace(/\{\{\s*STUDENTNUMBER\s*\}\}/gi, studentNumber)
+        .replace(/\{\{\s*SUBMITTED_PAGES_LIST\s*\}\}/gi, submittedSeitenListString)
         .replace(/\{\{\s*MISSING_PAGES_LIST\s*\}\}/gi, missingList);
-        
-    console.log(`Cover sheet processed content preview: ${processedContent.substring(0, 200)}...`);
 
     const pdfDoc = await PDFDocument.create();
     
@@ -218,61 +211,27 @@ Student: {{LAST_NAME}}, {{FIRST_NAME}}
     
     const page = pdfDoc.addPage([width, height]);
     
-    // Use Roboto fonts that support Unicode characters (including umlauts)
+    // Use Roboto fonts for Unicode support (including umlauts), fall back to Helvetica
     let helvetica, helveticaBold;
-    let usingCustomFonts = false;
-    
+
     try {
-        // Try multiple possible paths for font files (dev vs production)
-        const possibleBasePaths = [
-            path.join(__dirname, '../assets/fonts'), // Development
-            path.join(__dirname, '../../src/assets/fonts'), // Alternative dev path
-            path.join(process.resourcesPath, 'app.asar.unpacked/src/assets/fonts'), // Production (asar unpacked)
-            path.join(process.resourcesPath, 'src/assets/fonts'), // Alternative production path
-        ];
-        
-        let robotoRegularPath, robotoBoldPath;
-        let fontsFound = false;
-        
-        for (const basePath of possibleBasePaths) {
-            const regularPath = path.join(basePath, 'Roboto-Regular.ttf');
-            const boldPath = path.join(basePath, 'Roboto-Bold.ttf');
-            
-            if (fs.existsSync(regularPath) && fs.existsSync(boldPath)) {
-                robotoRegularPath = regularPath;
-                robotoBoldPath = boldPath;
-                fontsFound = true;
-                console.log(`Found Roboto fonts at: ${basePath}`);
-                break;
-            }
+        const robotoRegularPath = findFontPath('Roboto-Regular.ttf');
+        const robotoBoldPath = findFontPath('Roboto-Bold.ttf');
+
+        if (!robotoRegularPath || !robotoBoldPath) {
+            throw new Error('Roboto fonts not found in any of the expected locations');
         }
-        
-        if (!fontsFound) {
-            throw new Error(`Roboto fonts not found in any of the expected locations: ${possibleBasePaths.join(', ')}`);
-        }
-        
-        const robotoRegularBytes = fs.readFileSync(robotoRegularPath);
-        const robotoBoldBytes = fs.readFileSync(robotoBoldPath);
-        
-        console.log(`Roboto Regular font size: ${robotoRegularBytes.length} bytes`);
-        console.log(`Roboto Bold font size: ${robotoBoldBytes.length} bytes`);
-        
-        helvetica = await pdfDoc.embedFont(robotoRegularBytes);
-        helveticaBold = await pdfDoc.embedFont(robotoBoldBytes);
-        
-        console.log('Successfully embedded Roboto fonts');
-        usingCustomFonts = true;
-        
+
+        helvetica = await pdfDoc.embedFont(fs.readFileSync(robotoRegularPath));
+        helveticaBold = await pdfDoc.embedFont(fs.readFileSync(robotoBoldPath));
     } catch (fontError) {
         console.warn('Could not load Roboto fonts, falling back to standard fonts with text sanitization:', fontError.message);
-        console.warn('Font error details:', fontError);
-        
+
         helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
         helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-        
-        // Sanitize the processedContent to replace problematic characters
+
+        // Sanitize text to replace characters unsupported by WinAnsi encoding
         processedContent = sanitizeTextForWinAnsi(processedContent);
-        console.log('Applied text sanitization due to font fallback');
     }
 
     // Settings for drawing
@@ -299,7 +258,7 @@ Student: {{LAST_NAME}}, {{FIRST_NAME}}
                 page.drawText(headingText, {
                     x: margin,
                     y: currentY,
-                    font: isBoldHeading ? helveticaBold : helveticaBold, // Keep headings bold for now
+                    font: helveticaBold,
                     size: headingFontSize - (token.depth * 2), 
                     lineHeight: (headingFontSize - (token.depth * 2)) + lineSpacing,
                 });
@@ -432,7 +391,7 @@ function parseTextSegments(text, fontRegular, fontBold, fontSize, maxWidth) {
     return lines;
 }
 
-async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent) {
+async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent, options = {}) {
     console.log("Starting PDF Merging Process...");
     const pdfsSubDirectory = path.join(outputDirectory, 'pdfs'); // pdfs still at root level
     if (!fs.existsSync(pdfsSubDirectory)) {
@@ -635,9 +594,43 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent)
         // Generate cover sheet using the studentInfo object and template CONTENT
         // Pass the updated missing list
         const coverSheet = await generateCoverSheet(templateContent, submittedSeitenListString, finalMissingSeiten, studentInfoForCover, width, height);
+        const coverSheetPage = coverSheet.getPage(0);
+
+        // Draw booklet number top-right on cover sheet
+        const numberFontSize = 24;
+        const boldFontPath = findFontPath('Roboto-Bold.ttf');
+        let numberFont;
+        try {
+            numberFont = boldFontPath
+                ? await coverSheet.embedFont(fs.readFileSync(boldFontPath))
+                : await coverSheet.embedFont(StandardFonts.HelveticaBold);
+        } catch (_) {
+            numberFont = await coverSheet.embedFont(StandardFonts.HelveticaBold);
+        }
+        const numberWidth = numberFont.widthOfTextAtSize(studentNumber, numberFontSize);
+        coverSheetPage.drawText(studentNumber, {
+            x: width - 50 - numberWidth,
+            y: height - 50,
+            font: numberFont,
+            size: numberFontSize,
+            color: rgb(0.3, 0.3, 0.3),
+        });
+
         const [coverPage] = await mergedPdf.copyPages(coverSheet, [0]);
         mergedPdf.insertPage(0, coverPage);
-        console.log(`  Generated and added cover sheet.`);
+        console.log(`  Generated and added cover sheet with number ${studentNumber}.`);
+
+        // Pad to multiple of 4 pages if configured
+        if (options.padToMultipleOf4) {
+            const pageCount = mergedPdf.getPageCount();
+            const pagesToAdd = (4 - (pageCount % 4)) % 4;
+            for (let p = 0; p < pagesToAdd; p++) {
+                mergedPdf.addPage([width, height]); // blank page
+            }
+            if (pagesToAdd > 0) {
+                console.log(`  Padded with ${pagesToAdd} blank page(s) (${pageCount} -> ${pageCount + pagesToAdd}).`);
+            }
+        }
 
         // Sanitize filename to prevent filesystem issues with non-ASCII characters
         const sanitizedIdentifier = sanitizeFilename(studentInfoForCover.primaryIdentifier || studentIdentifier);
@@ -679,8 +672,10 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent)
  * @param {string} outputPath Path to save the resulting single-page PDF.
  * @param {number} dpiValue DPI for PDF rendering (if applicable).
  * @param {function} [sendLog=console.log] Function to send log messages.
+ * @param {Object} [options] Additional options.
+ * @param {number} [options.marginMinMm=3.5] Minimum margin in mm.
  */
-async function processSingleTransformation(inputPath, outputPath, dpiValue, sendLog = console.log) {
+async function processSingleTransformation(inputPath, outputPath, dpiValue, sendLog = console.log, options = {}) {
     const ext = path.extname(inputPath).toLowerCase();
     const logInputPath = inputPath.split(path.sep).slice(-3).join(path.sep);
     const logOutputPath = outputPath.split(path.sep).slice(-3).join(path.sep);
@@ -738,9 +733,15 @@ async function processSingleTransformation(inputPath, outputPath, dpiValue, send
         }
         const imageBufferForPdfLib = await sharpInstance.png().toBuffer();
 
-        // Analyze margins
+        // Analyze margins (skip if margin is 0)
+        const marginMm = options.marginMinMm ?? 3.5;
         try {
-            marginResult = await analyzeMargins(imageBufferForPdfLib);
+            if (marginMm > 0) {
+                // Vertical margin is proportionally larger due to A5 aspect ratio
+                const A5_W = 148.0, A5_H = 210.0;
+                const verticalMm = marginMm * (A5_H / A5_W);
+                marginResult = await analyzeMargins(imageBufferForPdfLib, { horizontal: marginMm, vertical: verticalMm });
+            }
             if (marginResult.needsMargin) {
                 sendLog(`[Transform Single] Content at edges, applying margin scale (${marginResult.scaleFactor.toFixed(3)}): ${logInputPath}`);
             }

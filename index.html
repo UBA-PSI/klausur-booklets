@@ -538,6 +538,38 @@
                         </div>
                     </div>
 
+                    <!-- PDF Output Settings Card -->
+                    <div class="card mb-3">
+                        <div class="card-header py-2">
+                            <h6 class="mb-0">
+                                <i class="bi bi-layout-sidebar text-primary me-1"></i>PDF Output
+                            </h6>
+                        </div>
+                        <div class="card-body py-2">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-2">
+                                        <label for="marginMinMm" class="form-label">Minimum Margin (mm):</label>
+                                        <input type="number" id="marginMinMm" value="3.5" min="0" max="20" step="0.5" class="form-control">
+                                        <div class="form-text">Pages with content at the edge are scaled down to enforce this margin. Set to 0 to disable.</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-2">
+                                        <label class="form-label">&nbsp;</label>
+                                        <div class="form-check mt-2">
+                                            <input class="form-check-input" type="checkbox" id="padToMultipleOf4" value="1">
+                                            <label class="form-check-label" for="padToMultipleOf4">
+                                                Pad merged PDFs to multiple of 4 pages
+                                            </label>
+                                            <div class="form-text">Adds blank pages so booklet printing works without extra blank sheets.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- PDF Renderer Selection Card -->
                     <div class="card mb-3">
                         <div class="card-header py-2">
