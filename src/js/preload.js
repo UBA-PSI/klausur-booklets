@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Renderer -> Main (send/invoke)
   selectDirectory: (type) => ipcRenderer.send('select-directory', type),
   saveConfig: (config) => ipcRenderer.send('save-config', config),
+  abortProcessing: () => ipcRenderer.invoke('abort-processing'),
   startTransformation: (mainDir, outputDir, dpi) => ipcRenderer.invoke('start-transformation', mainDir, outputDir, dpi),
   startMerging: (mainDir, outputDir) => ipcRenderer.invoke('start-merging', mainDir, outputDir),
   createBooklets: (outputDir) => ipcRenderer.invoke('create-booklets', outputDir),
@@ -53,9 +54,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Function to remove listeners if needed (optional but good practice)
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
-
-  // Function to clear output
-  clearOutputFolder: (outputDir) => ipcRenderer.invoke('clear-output-folder', outputDir)
 });
 
 console.log('electronAPI exposed on window object.'); 

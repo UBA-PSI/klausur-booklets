@@ -448,6 +448,11 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent,
     console.log(`Sorted ${studentsWithInfo.length} students by last name for processing.`);
 
     for (let i = 0; i < studentsWithInfo.length; i++) {
+        if (global.abortProcessingFlag) {
+            console.log(`Merge aborted by user after ${i} of ${studentsWithInfo.length} student(s).`);
+            throw new Error(`Merge aborted. ${i} of ${studentsWithInfo.length} student(s) completed.`);
+        }
+
         const student = studentsWithInfo[i];
         const studentIdentifier = student.identifier;
         const studentNumber = String(i + 1).padStart(3, '0'); // 001, 002, 003, etc.

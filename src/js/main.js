@@ -32,10 +32,13 @@ function sendLogToRenderer(message) {
     }
 }
 
+// Abort flag for canceling processing operations (shared with pdf-merger.js via global)
+global.abortProcessingFlag = false;
+
 // Updated require to include new functions and error
 const {
     mergeStudentPDFs,
-    processSingleTransformation,  
+    processSingleTransformation,
     createSaddleStitchBooklet
 } = require('./pdf-merger');
 
@@ -1017,6 +1020,11 @@ async function processTasksDirectly(tasks, outputDirectory, dpi, options = {}) {
     const totalTasks = tasks.length;
 
     for (let i = 0; i < totalTasks; i++) {
+        if (global.abortProcessingFlag) {
+            sendLogToRenderer(`Processing aborted by user after ${successCount} file(s).`);
+            return `Processing aborted. ${successCount} file(s) completed.`;
+        }
+
         const task = tasks[i];
         const taskOutputDir = path.dirname(task.outputPath);
         if (!fs.existsSync(taskOutputDir)) {
@@ -1105,6 +1113,7 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
     }
 
     // Reset global state
+    global.abortProcessingFlag = false;
     pendingTransformationData = null;
     currentTransformationDpi = dpi;
     currentOutputDirectory = outputDirectory;
@@ -1224,6 +1233,7 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
 });
 
 ipcMain.handle('resolve-ambiguity', async (event, selectedIdentifiers) => {
+    global.abortProcessingFlag = false;
     sendLogToRenderer("IPC: Received resolve-ambiguity with selected files:");
     console.log("Selected choices:", selectedIdentifiers); // Log the raw choices received
     
@@ -1583,6 +1593,7 @@ async function generateSummaryHtml(outputDirectory) {
 // --- End Summary Function ---
 
 ipcMain.handle('start-merging', async (event, mainDirectory, outputDirectory) => {
+    global.abortProcessingFlag = false;
     sendLogToRenderer(`IPC: Received start-merging for outputDir: ${outputDirectory}`);
     try {
         // Determine which directory to use for missing pages detection
@@ -1642,15 +1653,18 @@ Missing:
 
         return "Success"; // Indicate success to renderer
     } catch (error) {
-        sendLogToRenderer(`Main: Error during PDF merging: ${error.message}`); // Log error
-        sendLogToRenderer("Main: Preparing to re-throw error for start-merging."); // Keep this one for errors
-        // Re-throw error to be caught by renderer's try/catch block
-        throw error;  
+        if (global.abortProcessingFlag) {
+            sendLogToRenderer(`Main: ${error.message}`);
+            return error.message; // return abort info so UI shows neutral message
+        }
+        sendLogToRenderer(`Main: Error during PDF merging: ${error.message}`);
+        throw error;
     }
 });
 
 // Re-enabled booklet creation using JS
 ipcMain.handle('create-booklets', async (event, outputDirectory) => {
+    global.abortProcessingFlag = false;
     sendLogToRenderer(`IPC: Received create-booklets request for outputDir: ${outputDirectory}`);
     try {
         const pdfsDir = path.join(outputDirectory, 'pdfs');
@@ -1677,12 +1691,19 @@ ipcMain.handle('create-booklets', async (event, outputDirectory) => {
         }
 
         // Process booklets sequentially to avoid overwhelming resources
+        let bookletCount = 0;
         for (const pdfFile of studentPDFs) {
+            if (global.abortProcessingFlag) {
+                sendLogToRenderer(`Booklet creation aborted by user after ${bookletCount} booklet(s).`);
+                return `Booklet creation aborted. ${bookletCount} of ${studentPDFs.length} booklet(s) completed.`;
+            }
+
             const inputFilePath = path.join(pdfsDir, pdfFile);
             const outputFilePath = path.join(bookletsDir, pdfFile);
             sendLogToRenderer(`Attempting to create booklet for: ${inputFilePath} -> ${outputFilePath}`);
             try {
                 await createSaddleStitchBooklet(inputFilePath, outputFilePath);
+                bookletCount++;
             } catch (bookletError) {
                 // Log specific error and continue with the next file
                 // Use filename directly, as full path isn't needed here
@@ -1712,6 +1733,12 @@ ipcMain.handle('create-booklets', async (event, outputDirectory) => {
         // Send the error back to the renderer process
         throw new Error(`Booklet creation failed: ${error.message}`); 
     }
+});
+
+ipcMain.handle('abort-processing', async () => {
+    sendLogToRenderer('User requested abort.');
+    global.abortProcessingFlag = true;
+    return { success: true };
 });
 
 // Modify saveProcessedFileInfo to properly handle email-based identifiers

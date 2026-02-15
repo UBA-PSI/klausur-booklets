@@ -71,6 +71,29 @@ function updateStatus(type, message) {
     }
 }
 
+/**
+ * Sets the processing state — disables/enables action buttons and shows/hides abort button.
+ * @param {boolean} active - True while processing is running
+ * @param {boolean} [showAbort=true] - Whether to show the abort button (false for step 1)
+ */
+function setProcessingState(active, showAbort = true) {
+    const buttonIds = ['clearOutputBtn', 'startTransformationBtn', 'startMergingBtn', 'createBookletsBtn'];
+    buttonIds.forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.disabled = active;
+    });
+
+    const abortBtn = document.getElementById('abortBtn');
+    if (abortBtn) {
+        if (active && showAbort) {
+            abortBtn.style.display = 'inline-block';
+            abortBtn.disabled = false;
+        } else {
+            abortBtn.style.display = 'none';
+        }
+    }
+}
+
 
 
 // --- Setup Listeners using electronAPI --- 
@@ -647,7 +670,7 @@ ambiguityCloseBtn.onclick = function() {
         modal.hide();
     }
     updateStatus('info', 'Ambiguity resolution cancelled by user.');
-    // Reset state if needed
+    setProcessingState(false);
     currentAmbiguities = [];
     resolvedChoices = {};
 }
@@ -687,6 +710,8 @@ confirmAmbiguityBtn.onclick = async function() {
     } catch (error) {
         document.getElementById('status').textContent = 'Error after resolving ambiguity: ' + error.message;
         updateStatus('error', 'Error after resolving ambiguity: ' + error.message);
+    } finally {
+        setProcessingState(false);
     }
 }
 
@@ -808,7 +833,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateStatus('error', 'Output directory not set. Please select one.');
                 return;
             }
-            // Optional: Add a confirmation dialog here
+            setProcessingState(true, false); // no abort button for clear
             updateStatus('processing', 'Clearing output folder...');
             try {
                 const result = await window.electronAPI.clearOutputFolder(outputDir);
@@ -819,6 +844,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (error) {
                 updateStatus('error', `Error clearing output: ${error.message}`);
+            } finally {
+                setProcessingState(false);
             }
         });
     }
@@ -855,7 +882,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const folderPattern = document.getElementById('foldername-pattern').value; // Get folder pattern
             const isMoodleMode = folderPattern?.startsWith('FULLNAMEWITHSPACES');
 
-            // --- Pre-check for Collisions --- 
+            // --- Pre-check for Collisions ---
+            setProcessingState(true);
             updateStatus('processing', 'Checking for potential name collisions...');
             try {
                 // Determine if CSVs should be checked (only relevant in Moodle mode)
@@ -871,23 +899,24 @@ document.addEventListener('DOMContentLoaded', () => {
                     lastInputDirectory = mainDir;
                     lastFolderPattern = folderPattern;
                     openMoodleCollisionModal(
-                        collisionResult.collidingNames, 
-                        collisionResult.usedCSVs, 
+                        collisionResult.collidingNames,
+                        collisionResult.usedCSVs,
                         collisionResult.csvMappingsCount,
                         collisionResult.partialCsvCoverage,
                         collisionResult.missingCsvPages,
                         collisionResult.studentsAffected,
                         collisionResult.mappingErrors
                     );
+                    setProcessingState(false); // re-enable buttons before returning
                     return; // Stop before starting the main transformation
                 }
-                // --- End Pre-check --- 
+                // --- End Pre-check ---
 
                 // If pre-check passes, proceed with transformation
                 updateStatus('processing', 'Starting file conversion...');
                 const result = await window.electronAPI.startTransformation(mainDir, outputDir, dpi);
                 if (result && result.status === 'ambiguity_detected') {
-                    updateStatus('info', result.message); 
+                    updateStatus('info', result.message);
                 } else {
                      const successMessage = typeof result === 'string' ? result : 'Files converted successfully!';
                     updateStatus('success', successMessage);
@@ -898,11 +927,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Handle FinalCollisionError specifically if it still occurs (should be caught by pre-check now)
                 if (error.message?.includes('FinalCollisionError')) {
                      updateStatus('error', `Collision Error: ${error.message.replace('FinalCollisionError: ', '')}`);
-                     // Potentially open the modal here too as a fallback, though pre-check should catch it
-                     // For now, just show error status.
                 } else {
                     updateStatus('error', `Error during conversion: ${error.message}`);
                 }
+            } finally {
+                setProcessingState(false);
             }
         });
     }
@@ -914,16 +943,18 @@ document.addEventListener('DOMContentLoaded', () => {
                  updateStatus('error', 'Please set both input and output directories.');
                 return;
             }
-            const mainDir = document.getElementById('mainDirectoryPath').value; // Although not directly used, good for context
+            const mainDir = document.getElementById('mainDirectoryPath').value;
             const outputDir = document.getElementById('outputDirectoryPath').value;
+            setProcessingState(true);
             updateStatus('processing', 'Merging PDFs...');
-            // Log to the UI process log immediately
             logProcessMessage('UI: Clicked Merge PDFs button. Invoking merge...');
             try {
                 const result = await window.electronAPI.startMerging(mainDir, outputDir);
                 updateStatus('success', result);
             } catch (error) {
                 updateStatus('error', `Error merging PDFs: ${error.message}`);
+            } finally {
+                setProcessingState(false);
             }
         });
     }
@@ -936,12 +967,29 @@ document.addEventListener('DOMContentLoaded', () => {
                  updateStatus('error', 'Output directory not set.');
                 return;
             }
+            setProcessingState(true);
             updateStatus('processing', 'Creating booklets...');
             try {
                 const result = await window.electronAPI.createBooklets(outputDir);
                 updateStatus('success', result);
             } catch (error) {
                 updateStatus('error', `Error creating booklets: ${error.message}`);
+            } finally {
+                setProcessingState(false);
+            }
+        });
+    }
+
+    // Abort Button
+    const abortBtn = document.getElementById('abortBtn');
+    if (abortBtn) {
+        abortBtn.addEventListener('click', async () => {
+            abortBtn.disabled = true;
+            updateStatus('processing', 'Aborting...');
+            try {
+                await window.electronAPI.abortProcessing();
+            } catch (error) {
+                console.error('Error sending abort signal:', error);
             }
         });
     }
