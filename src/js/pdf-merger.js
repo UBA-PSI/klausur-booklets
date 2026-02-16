@@ -11,6 +11,15 @@ const { generatePageCountSummary } = require('./page-count-summary');
 
 const SHARP_PIXEL_LIMIT = 268402689 * 4; // 4x default limit for large images
 
+/**
+ * Yield to the event loop and check whether the user has requested an abort.
+ * @returns {boolean} True if abort was requested.
+ */
+async function checkAborted() {
+    await new Promise(resolve => setTimeout(resolve, 0));
+    return global.abortProcessingFlag;
+}
+
 // --- Custom Error for Ambiguity ---
 class AmbiguityError extends Error {
     constructor(ambiguities) {
@@ -22,118 +31,80 @@ class AmbiguityError extends Error {
 }
 // ---------------------------------
 
+// --- Shared Unicode-to-ASCII character map (used by both sanitization functions) ---
+const UNICODE_CHAR_MAP = {
+    // German umlauts
+    'ä': 'ae', 'ö': 'oe', 'ü': 'ue', 'ß': 'ss',
+    'Ä': 'Ae', 'Ö': 'Oe', 'Ü': 'Ue',
+    // French accents
+    'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'å': 'a',
+    'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e',
+    'ì': 'i', 'í': 'i', 'î': 'i', 'ï': 'i',
+    'ò': 'o', 'ó': 'o', 'ô': 'o', 'õ': 'o',
+    'ù': 'u', 'ú': 'u', 'û': 'u',
+    'ñ': 'n', 'ç': 'c',
+    'À': 'A', 'Á': 'A', 'Â': 'A', 'Ã': 'A', 'Å': 'A',
+    'È': 'E', 'É': 'E', 'Ê': 'E', 'Ë': 'E',
+    'Ì': 'I', 'Í': 'I', 'Î': 'I', 'Ï': 'I',
+    'Ò': 'O', 'Ó': 'O', 'Ô': 'O', 'Õ': 'O',
+    'Ù': 'U', 'Ú': 'U', 'Û': 'U',
+    'Ñ': 'N', 'Ç': 'C',
+    'ÿ': 'y', 'Ÿ': 'Y',
+    // Combining diacritical marks (fallback, should be handled by NFC normalization)
+    '\u0300': '', '\u0301': '', '\u0302': '', '\u0303': '', '\u0304': '',
+    '\u0305': '', '\u0306': '', '\u0307': '', '\u0308': '', '\u0309': '',
+    '\u030A': '', '\u030B': '', '\u030C': '', '\u030D': '', '\u030E': '',
+    '\u030F': '', '\u0310': '', '\u0311': '', '\u0312': '', '\u0313': '',
+    '\u0314': '', '\u0315': '', '\u0316': '', '\u0317': '', '\u0318': '',
+    '\u0319': '', '\u031A': '', '\u031B': '', '\u031C': '', '\u031D': '',
+    '\u031E': '', '\u031F': '', '\u0320': '', '\u0321': '', '\u0322': '',
+    '\u0323': '', '\u0324': '', '\u0325': '', '\u0326': '', '\u0327': '',
+    '\u0328': '', '\u0329': '', '\u032A': '', '\u032B': '', '\u032C': '',
+    '\u032D': '', '\u032E': '', '\u032F': '', '\u0330': '', '\u0331': '',
+    '\u0332': '', '\u0333': '', '\u0334': '', '\u0335': '', '\u0336': '',
+};
+
 // --- Text Sanitization for WinAnsi Compatibility ---
 function sanitizeTextForWinAnsi(text) {
-    // First normalize Unicode to convert combining characters to composed forms
     const normalizedText = text.normalize('NFC');
     console.log(`Sanitizing text for WinAnsi: "${text}" -> normalized: "${normalizedText}"`);
-    
-    // Map common Unicode characters to their closest ASCII equivalents
-    const charMap = {
-        // German umlauts
-        'ä': 'ae', 'ö': 'oe', 'ü': 'ue', 'ß': 'ss',
-        'Ä': 'Ae', 'Ö': 'Oe', 'Ü': 'Ue',
-        // French accents
-        'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'å': 'a',
-        'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e',
-        'ì': 'i', 'í': 'i', 'î': 'i', 'ï': 'i',
-        'ò': 'o', 'ó': 'o', 'ô': 'o', 'õ': 'o',
-        'ù': 'u', 'ú': 'u', 'û': 'u',
-        'ñ': 'n', 'ç': 'c',
-        'À': 'A', 'Á': 'A', 'Â': 'A', 'Ã': 'A', 'Å': 'A',
-        'È': 'E', 'É': 'E', 'Ê': 'E', 'Ë': 'E',
-        'Ì': 'I', 'Í': 'I', 'Î': 'I', 'Ï': 'I',
-        'Ò': 'O', 'Ó': 'O', 'Ô': 'O', 'Õ': 'O',
-        'Ù': 'U', 'Ú': 'U', 'Û': 'U',
-        'Ñ': 'N', 'Ç': 'C',
-        // Other common characters
-        'ÿ': 'y', 'Ÿ': 'Y',
-        // Remove combining diacritical marks (fallback, should be handled by normalization)
-        '\u0300': '', '\u0301': '', '\u0302': '', '\u0303': '', '\u0304': '',
-        '\u0305': '', '\u0306': '', '\u0307': '', '\u0308': '', '\u0309': '',
-        '\u030A': '', '\u030B': '', '\u030C': '', '\u030D': '', '\u030E': '',
-        '\u030F': '', '\u0310': '', '\u0311': '', '\u0312': '', '\u0313': '',
-        '\u0314': '', '\u0315': '', '\u0316': '', '\u0317': '', '\u0318': '',
-        '\u0319': '', '\u031A': '', '\u031B': '', '\u031C': '', '\u031D': '',
-        '\u031E': '', '\u031F': '', '\u0320': '', '\u0321': '', '\u0322': '',
-        '\u0323': '', '\u0324': '', '\u0325': '', '\u0326': '', '\u0327': '',
-        '\u0328': '', '\u0329': '', '\u032A': '', '\u032B': '', '\u032C': '',
-        '\u032D': '', '\u032E': '', '\u032F': '', '\u0330': '', '\u0331': '',
-        '\u0332': '', '\u0333': '', '\u0334': '', '\u0335': '', '\u0336': '',
-    };
-    
+
     return normalizedText.replace(/[\u0080-\uFFFF]/g, function(match) {
-        return charMap[match] || '?'; // Replace unmappable characters with '?'
+        return UNICODE_CHAR_MAP[match] || '?';
     });
 }
 
 // --- Filename Sanitization for Filesystem Compatibility ---
 function sanitizeFilename(filename) {
-    // First normalize Unicode to convert combining characters to composed forms
     const normalizedFilename = filename.normalize('NFC');
     console.log(`Sanitizing filename: "${filename}" -> normalized: "${normalizedFilename}"`);
-    
-    // Map common Unicode characters to their closest ASCII equivalents for filenames
-    const charMap = {
-        // German umlauts
-        'ä': 'ae', 'ö': 'oe', 'ü': 'ue', 'ß': 'ss',
-        'Ä': 'Ae', 'Ö': 'Oe', 'Ü': 'Ue',
-        // French accents
-        'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'å': 'a',
-        'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e',
-        'ì': 'i', 'í': 'i', 'î': 'i', 'ï': 'i',
-        'ò': 'o', 'ó': 'o', 'ô': 'o', 'õ': 'o',
-        'ù': 'u', 'ú': 'u', 'û': 'u',
-        'ñ': 'n', 'ç': 'c',
-        'À': 'A', 'Á': 'A', 'Â': 'A', 'Ã': 'A', 'Å': 'A',
-        'È': 'E', 'É': 'E', 'Ê': 'E', 'Ë': 'E',
-        'Ì': 'I', 'Í': 'I', 'Î': 'I', 'Ï': 'I',
-        'Ò': 'O', 'Ó': 'O', 'Ô': 'O', 'Õ': 'O',
-        'Ù': 'U', 'Ú': 'U', 'Û': 'U',
-        'Ñ': 'N', 'Ç': 'C',
-        'ÿ': 'y', 'Ÿ': 'Y',
-        // Combining diacritical marks (should be handled by normalization, but as fallback)
-        '\u0300': '', '\u0301': '', '\u0302': '', '\u0303': '', '\u0304': '',
-        '\u0305': '', '\u0306': '', '\u0307': '', '\u0308': '', '\u0309': '',
-        '\u030A': '', '\u030B': '', '\u030C': '', '\u030D': '', '\u030E': '',
-        '\u030F': '', '\u0310': '', '\u0311': '', '\u0312': '', '\u0313': '',
-        '\u0314': '', '\u0315': '', '\u0316': '', '\u0317': '', '\u0318': '',
-        '\u0319': '', '\u031A': '', '\u031B': '', '\u031C': '', '\u031D': '',
-        '\u031E': '', '\u031F': '', '\u0320': '', '\u0321': '', '\u0322': '',
-        '\u0323': '', '\u0324': '', '\u0325': '', '\u0326': '', '\u0327': '',
-        '\u0328': '', '\u0329': '', '\u032A': '', '\u032B': '', '\u032C': '',
-        '\u032D': '', '\u032E': '', '\u032F': '', '\u0330': '', '\u0331': '',
-        '\u0332': '', '\u0333': '', '\u0334': '', '\u0335': '', '\u0336': '',
-    };
-    
+
     // Replace Unicode characters with ASCII equivalents
     let sanitized = normalizedFilename;
-    // First, explicitly handle each character in the map
-    for (const [unicode, replacement] of Object.entries(charMap)) {
+    for (const [unicode, replacement] of Object.entries(UNICODE_CHAR_MAP)) {
         sanitized = sanitized.replace(new RegExp(unicode, 'g'), replacement);
     }
-    
-    // Then handle any remaining Unicode characters
+
+    // Handle any remaining Unicode characters
     sanitized = sanitized.replace(/[\u0080-\uFFFF]/g, function(match) {
         console.log(`Unmapped Unicode character found: "${match}" (U+${match.charCodeAt(0).toString(16).toUpperCase()})`);
-        return 'X'; // Use 'X' for unmapped characters
+        return 'X';
     });
-    
+
     console.log(`Sanitized result: "${sanitized}"`);
-    
+
     // Remove or replace characters that are problematic in filenames
     sanitized = sanitized
-        .replace(/[<>:"/\\|?*]/g, '') // Remove Windows-forbidden characters
-        .replace(/[\x00-\x1f]/g, '') // Remove control characters
-        .replace(/\s+/g, ' ') // Normalize whitespace
-        .trim() // Remove leading/trailing whitespace
-        .replace(/\.$/, ''); // Remove trailing periods (Windows issue)
-    
-    // Ensure filename isn't empty after sanitization
+        .replace(/[<>:"/\\|?*]/g, '')
+        .replace(/[\x00-\x1f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/\.$/, '');
+
     if (!sanitized) {
         sanitized = 'sanitized_filename';
     }
-    
+
     return sanitized;
 }
 // ---------------------------------
@@ -168,9 +139,9 @@ function findFontPath(fontFileName) {
     return null;
 }
 
-async function generateCoverSheet(templateContent, submittedSeitenListString, missingSeiten, studentInfo, width, height) {
+async function generateCoverSheet(templateContent, submittedSeitenListString, missingSeiten, studentInfo, width, height, sendLog = console.log) {
     if (!templateContent) {
-        console.error("Error: No cover sheet template content provided.");
+        sendLog('Warning: No cover sheet template content provided, using fallback.');
         // Provide a minimal fallback if content is empty or null
         templateContent = `# Error: Template Missing
 
@@ -225,7 +196,7 @@ Student: {{LAST_NAME}}, {{FIRST_NAME}}
         helvetica = await pdfDoc.embedFont(fs.readFileSync(robotoRegularPath));
         helveticaBold = await pdfDoc.embedFont(fs.readFileSync(robotoBoldPath));
     } catch (fontError) {
-        console.warn('Could not load Roboto fonts, falling back to standard fonts with text sanitization:', fontError.message);
+        sendLog(`Warning: Could not load Roboto fonts, falling back to standard fonts with text sanitization: ${fontError.message}`);
 
         helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
         helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -293,7 +264,6 @@ Student: {{LAST_NAME}}, {{FIRST_NAME}}
                      page.drawText('-', { x: margin, y: currentY, font: helvetica, size: baseFontSize });
                      const itemSegments = parseTextSegments(item.text, helvetica, helveticaBold, baseFontSize, width - 2 * margin - listIndent);
                      let itemCurrentY = currentY;
-                     let firstLine = true;
                      for (const lineSegments of itemSegments) {
                          if (itemCurrentY < margin) break;
                          let currentX = margin + listIndent;
@@ -307,7 +277,6 @@ Student: {{LAST_NAME}}, {{FIRST_NAME}}
                             currentX += seg.width;
                          }
                          itemCurrentY -= (baseFontSize + lineSpacing);
-                         firstLine = false;
                      }
                      currentY = itemCurrentY; // Update main Y position
                  }
@@ -332,7 +301,6 @@ Student: {{LAST_NAME}}, {{FIRST_NAME}}
                 break;
             // Add cases for other token types if needed (e.g., blockquote, code)
             default:
-                // console.log("Unhandled token type:", token.type);
                 break;
         }
     }
@@ -391,17 +359,17 @@ function parseTextSegments(text, fontRegular, fontBold, fontSize, maxWidth) {
     return lines;
 }
 
-async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent, options = {}) {
-    console.log("Starting PDF Merging Process...");
+async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent, options = {}, sendLog = console.log, onProgress = null) {
+    sendLog('Starting PDF Merging Process...');
     const pdfsSubDirectory = path.join(outputDirectory, 'pdfs'); // pdfs still at root level
     if (!fs.existsSync(pdfsSubDirectory)) {
-        console.log(`Creating PDF output directory: ${pdfsSubDirectory}`);
+        sendLog(`Creating PDF output directory: ${pdfsSubDirectory}`);
         fs.mkdirSync(pdfsSubDirectory, { recursive: true });
     }
 
     const pagesDirectory = path.join(outputDirectory, 'pages'); // Define path to 'pages' dir
     if (!fs.existsSync(pagesDirectory)) {
-        console.error(`Error: Pages directory not found at ${pagesDirectory}. Run Transformation first.`);
+        sendLog(`Error: Pages directory not found at ${pagesDirectory}. Run Transformation first.`);
         throw new Error(`Pages directory not found: ${pagesDirectory}.`);
     }
 
@@ -411,7 +379,7 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent,
         // Check if it's a directory AND not named 'pdfs' or 'booklets' (redundant check, but safe)
         return fs.statSync(dirPath).isDirectory() && dir !== 'pdfs' && dir !== 'booklets';
     });
-    console.log(`Found ${studentIdentifiers.length} student identifier directories in ${pagesDirectory}.`);
+    sendLog(`Found ${studentIdentifiers.length} student identifier directories in ${pagesDirectory}.`);
 
     // Collect student info and sort by last name for numbering
     const studentsWithInfo = [];
@@ -427,7 +395,7 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent,
                     studentInfo = data.processedFiles[0].studentInfo;
                 }
             } catch (err) {
-                console.warn(`Could not read student info for ${studentIdentifier}, using fallback`);
+                sendLog(`  Warning: Could not read student info for ${studentIdentifier}, using fallback`);
             }
         }
         
@@ -445,11 +413,11 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent,
         return lastNameA.localeCompare(lastNameB, 'de', { numeric: true });
     });
     
-    console.log(`Sorted ${studentsWithInfo.length} students by last name for processing.`);
+    sendLog(`Sorted ${studentsWithInfo.length} students by last name for processing.`);
 
     for (let i = 0; i < studentsWithInfo.length; i++) {
-        if (global.abortProcessingFlag) {
-            console.log(`Merge aborted by user after ${i} of ${studentsWithInfo.length} student(s).`);
+        if (await checkAborted()) {
+            sendLog(`Merge aborted by user after ${i} of ${studentsWithInfo.length} student(s).`);
             throw new Error(`Merge aborted. ${i} of ${studentsWithInfo.length} student(s) completed.`);
         }
 
@@ -457,59 +425,48 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent,
         const studentIdentifier = student.identifier;
         const studentNumber = String(i + 1).padStart(3, '0'); // 001, 002, 003, etc.
         
-        console.log(`Processing student ${studentNumber}: ${studentIdentifier}`);
+        sendLog(`Processing student ${studentNumber}: ${studentIdentifier}`);
+        if (onProgress) {
+            onProgress({
+                current: i + 1,
+                total: studentsWithInfo.length,
+                percentage: Math.round(((i + 1) / studentsWithInfo.length) * 100),
+                fileName: student.info?.fullName || studentIdentifier
+            });
+        }
         // Use the pre-determined path
         const studentDirPath = student.dirPath;
 
-        // --- Read Processed File Info --- 
-        let processedFilesData = []; // Default to an empty array
+        // --- Read Processed File Info ---
+        let processedFilesData = [];
         const infoFilePath = path.join(studentDirPath, 'processed_files.json');
-        let studentInfoForCover = null; // Store student info for the cover sheet
-        
+        const fallbackInfo = { primaryIdentifier: studentIdentifier, fullName: studentIdentifier };
+        let studentInfoForCover = fallbackInfo;
+
         if (fs.existsSync(infoFilePath)) {
             try {
                 const data = JSON.parse(fs.readFileSync(infoFilePath, 'utf-8'));
-                
-                // --- FIX: Check if processedFiles key exists and is an array ---
-                if (data && Array.isArray(data.processedFiles)) { 
-                    processedFilesData = data.processedFiles; 
-                    console.log(`  Loaded ${processedFilesData.length} processed file entries for ${studentIdentifier}.`);
-                } else {
-                    console.warn(`  WARN: 'processedFiles' key missing or not an array in ${infoFilePath} for ${studentIdentifier}. Using empty list.`);
-                    processedFilesData = []; // Ensure it's an empty array
-                }
-                // --- End FIX ---
 
-                // Get studentInfo from the first entry (should be consistent)
-                // Now check the potentially empty processedFilesData array
+                if (data && Array.isArray(data.processedFiles)) {
+                    processedFilesData = data.processedFiles;
+                    sendLog(`  Loaded ${processedFilesData.length} processed file entries for ${studentIdentifier}.`);
+                } else {
+                    sendLog(`  Warning: 'processedFiles' key missing or not an array in ${infoFilePath} for ${studentIdentifier}. Using empty list.`);
+                }
+
+                // Use studentInfo from the first processed entry when available
                 if (processedFilesData.length > 0 && processedFilesData[0].studentInfo) {
                     studentInfoForCover = processedFilesData[0].studentInfo;
-                } else if (data && data.summary && data.summary.processingErrors && data.summary.processingErrors.length > 0 && data.summary.processingErrors[0].studentIdentifier === studentIdentifier) {
-                    // Try getting identifier from summary errors if no processed files exist
-                    console.warn(`  No processed files found for ${studentIdentifier}, attempting to get info from summary.`);
-                    studentInfoForCover = { primaryIdentifier: studentIdentifier, fullName: studentIdentifier }; // Basic fallback using identifier
-                } else if (data && data.summary && data.summary.skippedFiles && data.summary.skippedFiles.length > 0 && data.summary.skippedFiles[0].studentIdentifier === studentIdentifier) {
-                    // Try getting identifier from summary skips
-                     console.warn(`  No processed files or errors found for ${studentIdentifier}, attempting to get info from summary.`);
-                     studentInfoForCover = { primaryIdentifier: studentIdentifier, fullName: studentIdentifier }; // Basic fallback
                 } else {
-                    console.warn(`  Could not extract studentInfo from processed_files.json or summary for ${studentIdentifier}`);
-                    // Create a final fallback studentInfo object
-                    studentInfoForCover = { primaryIdentifier: studentIdentifier, fullName: studentIdentifier }; 
+                    sendLog(`  Warning: Could not extract studentInfo from processed_files.json for ${studentIdentifier}, using fallback.`);
                 }
             } catch (err) {
-                console.error(`  Error reading or parsing processed file info for ${studentIdentifier}:`, err);
-                processedFilesData = []; // Ensure empty array on error
-                // Create a fallback studentInfo object on error
-                studentInfoForCover = { primaryIdentifier: studentIdentifier, fullName: studentIdentifier }; 
+                sendLog(`  Error reading or parsing processed file info for ${studentIdentifier}: ${err.message}`);
             }
         } else {
-            console.warn(`  Processed file info not found for ${studentIdentifier} at ${infoFilePath}`);
-            processedFilesData = []; // Ensure empty array if file missing
-            // Create a fallback studentInfo object if file is missing
-            studentInfoForCover = { primaryIdentifier: studentIdentifier, fullName: studentIdentifier }; 
+            sendLog(`  Warning: Processed file info not found for ${studentIdentifier} at ${infoFilePath}`);
         }
-        // --- End Read --- 
+        // --- End Read ---
 
         // Find the generated PDFs for merging within the student's directory in 'pages'
         const studentPDFs = fs.readdirSync(studentDirPath)
@@ -522,10 +479,10 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent,
                              }); 
 
         if (studentPDFs.length === 0 && processedFilesData.length === 0) {
-            console.log(`  No transformed PDFs or processed info found for ${studentIdentifier}, skipping merge.`);
+            sendLog(`  No transformed PDFs or processed info found for ${studentIdentifier}, skipping merge.`);
             continue; 
         }
-        console.log(`  Found ${studentPDFs.length} PDF file(s) and ${processedFilesData.length} processed file entries.`);
+        sendLog(`  Found ${studentPDFs.length} PDF file(s) and ${processedFilesData.length} processed file entries.`);
 
         const mergedPdf = await PDFDocument.create();
         let width = 595.28, height = 841.89; 
@@ -552,6 +509,10 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent,
 
         // Merge actual PDF content (looping through found PDFs)
         for (const pdfFile of studentPDFs) {
+            if (await checkAborted()) {
+                throw new Error(`Merge aborted. Stopped during ${studentIdentifier} processing.`);
+            }
+
             const pdfPathToMerge = path.join(studentDirPath, pdfFile); // Full path to PDF inside student dir
             try {
                 const pdfBuffer = fs.readFileSync(pdfPathToMerge);
@@ -562,7 +523,7 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent,
                     width = firstPage.getWidth();
                     height = firstPage.getHeight();
                     dimensionsDetermined = true;
-                    console.log(`  Determined page dimensions from ${pdfFile}: ${width}x${height}`);
+                    sendLog(`  Determined page dimensions from ${pdfFile}: ${width}x${height}`);
                 }
 
                 const [page] = await mergedPdf.copyPages(pdfDoc, [0]); // Copy page
@@ -571,10 +532,7 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent,
             } catch (mergeError) {
                 const pageName = path.basename(pdfFile, '.pdf');
                 const errorMsg = `Error merging page ${pageName} for ${studentIdentifier}: ${mergeError.message}`;
-                console.error(errorMsg);
-                // TODO: Send error to UI log via main process
-                // We need a way to communicate this back to main.js to send IPC message.
-                // For now, just console log and track failure.
+                sendLog(errorMsg);
                 pagesFailedToMerge.push(pageName);
             }
         }
@@ -594,11 +552,11 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent,
             // Natural sort to handle numeric ordering (1, 2, 10, 11)
             return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
         });
-        console.log(`  Submitted based on processed info: ${submittedPageNames.length}, Merged successfully: ${pagesSuccessfullyMerged.length}, Failed/Missing: ${finalMissingSeiten.length}`);
+        sendLog(`  Submitted based on processed info: ${submittedPageNames.length}, Merged successfully: ${pagesSuccessfullyMerged.length}, Failed/Missing: ${finalMissingSeiten.length}`);
 
         // Generate cover sheet using the studentInfo object and template CONTENT
         // Pass the updated missing list
-        const coverSheet = await generateCoverSheet(templateContent, submittedSeitenListString, finalMissingSeiten, studentInfoForCover, width, height);
+        const coverSheet = await generateCoverSheet(templateContent, submittedSeitenListString, finalMissingSeiten, studentInfoForCover, width, height, sendLog);
         const coverSheetPage = coverSheet.getPage(0);
 
         // Draw booklet number top-right on cover sheet
@@ -623,7 +581,7 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent,
 
         const [coverPage] = await mergedPdf.copyPages(coverSheet, [0]);
         mergedPdf.insertPage(0, coverPage);
-        console.log(`  Generated and added cover sheet with number ${studentNumber}.`);
+        sendLog(`  Generated and added cover sheet with number ${studentNumber}.`);
 
         // Pad to multiple of 4 pages if configured
         if (options.padToMultipleOf4) {
@@ -636,7 +594,7 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent,
                 blankPage.drawCircle({ x: 0, y: 0, size: 0, opacity: 0 });
             }
             if (pagesToAdd > 0) {
-                console.log(`  Padded with ${pagesToAdd} blank page(s) (${pageCount} -> ${pageCount + pagesToAdd}).`);
+                sendLog(`  Padded with ${pagesToAdd} blank page(s) (${pageCount} -> ${pageCount + pagesToAdd}).`);
             }
         }
 
@@ -648,29 +606,29 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent,
         // Try saving the final merged PDF
         try {
             fs.writeFileSync(outputPath, await mergedPdf.save());
-            console.log(`  Successfully merged and saved to: ${outputPath}`);
+            sendLog(`  Successfully merged and saved to: ${outputPath}`);
         } catch (saveError) {
             const saveErrorMsg = `Error saving final merged PDF for ${studentIdentifier}: ${saveError.message}`;
-            console.error(saveErrorMsg);
-            // TODO: Send error to UI log via main process
-            // Create placeholder in pdfs folder
+            sendLog(saveErrorMsg);
             const errorFilePath = outputPath.replace(/\.pdf$/, '_merge_error.txt');
             try {
                 fs.writeFileSync(errorFilePath, `Failed to save merged PDF.\nError: ${saveError.message}\n${saveError.stack || ''}`);
-                console.log(`Created error placeholder: ${errorFilePath}`);
+                sendLog(`Created error placeholder: ${errorFilePath}`);
             } catch (writeError) {
-                console.error(`Failed to write merge error placeholder for ${studentIdentifier}: ${writeError.message}`);
+                sendLog(`Failed to write merge error placeholder for ${studentIdentifier}: ${writeError.message}`);
             }
             // Indicate failure if needed, maybe throw error to main?
         }
     }
-    console.log("PDF Merging Process Completed.");
+    sendLog('PDF Merging Process Completed.');
 
-    // Generate page count summary files (TXT + XLSX)
-    try {
-        await generatePageCountSummary(outputDirectory, console.log);
-    } catch (summaryError) {
-        console.error(`Error generating page count summary: ${summaryError.message}`);
+    // Generate page count summary files (TXT + XLSX) — skip if aborted
+    if (!global.abortProcessingFlag) {
+        try {
+            await generatePageCountSummary(outputDirectory, sendLog);
+        } catch (summaryError) {
+            sendLog(`Error generating page count summary: ${summaryError.message}`);
+        }
     }
 }
 
@@ -791,22 +749,19 @@ async function processSingleTransformation(inputPath, outputPath, dpiValue, send
  * @param {string} inputPath - Path to the input PDF file.
  * @param {string} outputPath - Path to save the output booklet PDF.
  */
-async function createSaddleStitchBooklet(inputPath, outputPath) {
-    // console.log(`[Booklet] Starting creation for ${inputPath} -> ${outputPath}`); // Removed log
+async function createSaddleStitchBooklet(inputPath, outputPath, sendLog = console.log) {
     const pdfBytes = fs.readFileSync(inputPath);
     const inputDoc = await PDFDocument.load(pdfBytes);
     const pageCount = inputDoc.getPageCount();
-    // console.log(`[Booklet] Original page count: ${pageCount}`); // Removed log
 
     if (pageCount === 0) {
-        console.warn(`Skipping booklet creation for empty PDF: ${inputPath}`);
+        sendLog(`Skipping booklet creation for empty PDF: ${inputPath}`);
         return; // Skip if the PDF has no pages
     }
 
     let finalPageCount = pageCount;
     const pagesToAdd = (4 - (pageCount % 4)) % 4;
     finalPageCount += pagesToAdd;
-    // console.log(`[Booklet] Final page count (multiple of 4): ${finalPageCount}`); // Removed log
 
     const newPdfDoc = await PDFDocument.create();
     const newIndices = [];
@@ -821,8 +776,6 @@ async function createSaddleStitchBooklet(inputPath, outputPath) {
             newIndices.push(finalPageCount - 1 - i);
         }
     }
-    // console.log(`[Booklet] Calculated new page index order: ${JSON.stringify(newIndices)}`); // Removed log
-
     // Get dimensions from the first page
     const [firstInputPage] = inputDoc.getPages();
     const inputWidth = firstInputPage.getWidth();
@@ -831,25 +784,26 @@ async function createSaddleStitchBooklet(inputPath, outputPath) {
     // Determine output page size (e.g., landscape A3 for portrait A4 input)
     const outputPageWidth = inputWidth * 2;
     const outputPageHeight = inputHeight;
-    // console.log(`[Booklet] Input Page Size: ${inputWidth}x${inputHeight}`); // Removed log
-    // console.log(`[Booklet] Output Page Size (2-up): ${outputPageWidth}x${outputPageHeight}`); // Removed log
-
     // --- Logic using embedPage ---
     // 1. Pre-embed all necessary pages
     const embeddedPages = new Map();
     for (let i = 0; i < pageCount; i++) {
+        if (await checkAborted()) {
+            throw new Error('Booklet creation aborted during page embedding.');
+        }
         const [embeddedPage] = await newPdfDoc.embedPdf(inputDoc, [i]);
         embeddedPages.set(i, embeddedPage);
     }
-    // console.log(`[Booklet] Finished embedding source pages.`); // Removed log
 
     // 2. Iterate through the required OUTPUT pages
     for (let i = 0; i < finalPageCount / 2; i++) {
+        if (await checkAborted()) {
+            throw new Error('Booklet creation aborted during page assembly.');
+        }
         const leftSourceIndex = newIndices[i * 2];
         const rightSourceIndex = newIndices[i * 2 + 1];
 
         const outputPage = newPdfDoc.addPage([outputPageWidth, outputPageHeight]);
-        // console.log(`[Booklet] Created output page ${i + 1}`); // Removed log
 
         // --- Draw Left Page ---
         if (leftSourceIndex < pageCount) {
@@ -863,11 +817,11 @@ async function createSaddleStitchBooklet(inputPath, outputPath) {
                         height: inputHeight
                     });
                 } catch (drawError) {
-                    console.error(`[Booklet] Error drawing left page (source index ${leftSourceIndex}) on output page ${i + 1}:`, drawError);
+                    sendLog(`[Booklet] Error drawing left page (source index ${leftSourceIndex}) on output page ${i + 1}: ${drawError.message}`);
                     throw drawError;
                 }
             } else {
-                console.error(`[Booklet] Critical Error: Failed to find pre-embedded page for source index ${leftSourceIndex}`);
+                sendLog(`[Booklet] Critical Error: Failed to find pre-embedded page for source index ${leftSourceIndex}`);
                 throw new Error(`Failed to find pre-embedded page for source index ${leftSourceIndex}`);
             }
         }
@@ -885,11 +839,11 @@ async function createSaddleStitchBooklet(inputPath, outputPath) {
                         height: inputHeight
                     });
                 } catch (drawError) {
-                    console.error(`[Booklet] Error drawing right page (source index ${rightSourceIndex}) on output page ${i + 1}:`, drawError);
+                    sendLog(`[Booklet] Error drawing right page (source index ${rightSourceIndex}) on output page ${i + 1}: ${drawError.message}`);
                     throw drawError;
                 }
             } else {
-                console.error(`[Booklet] Critical Error: Failed to find pre-embedded page for source index ${rightSourceIndex}`);
+                sendLog(`[Booklet] Critical Error: Failed to find pre-embedded page for source index ${rightSourceIndex}`);
                 throw new Error(`Failed to find pre-embedded page for source index ${rightSourceIndex}`);
             }
         }
@@ -900,10 +854,11 @@ async function createSaddleStitchBooklet(inputPath, outputPath) {
     // Save the new PDF
     const newPdfBytes = await newPdfDoc.save();
     fs.writeFileSync(outputPath, newPdfBytes);
-    console.log(`Booklet created: ${outputPath}`); // Keep final success log
+    sendLog(`Booklet created: ${outputPath}`);
 }
 
 module.exports = {
+    checkAborted,
     mergeStudentPDFs,
     processSingleTransformation,
     createSaddleStitchBooklet,

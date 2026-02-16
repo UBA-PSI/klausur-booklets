@@ -85,18 +85,12 @@ function setProcessingState(active, showAbort = true) {
 
     const abortBtn = document.getElementById('abortBtn');
     if (abortBtn) {
-        if (active && showAbort) {
-            abortBtn.style.display = 'inline-block';
-            abortBtn.disabled = false;
-        } else {
-            abortBtn.style.display = 'none';
-        }
+        abortBtn.style.display = (active && showAbort) ? 'inline-block' : 'none';
+        abortBtn.disabled = false;
     }
 }
 
-
-
-// --- Setup Listeners using electronAPI --- 
+// --- Setup Listeners using electronAPI ---
 window.electronAPI.onLoadConfig((loadedConfig) => {
     console.log('Received load-config:', loadedConfig); // Debug log
     // Update the higher-scoped config variable

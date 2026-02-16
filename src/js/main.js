@@ -35,18 +35,27 @@ function sendLogToRenderer(message) {
 // Abort flag for canceling processing operations (shared with pdf-merger.js via global)
 global.abortProcessingFlag = false;
 
-// Updated require to include new functions and error
+/**
+ * Send progress data to the renderer process.
+ * @param {{ current: number, total: number, percentage: number, fileName: string }} progressData
+ */
+function sendProgress(progressData) {
+    if (mainWindow) {
+        mainWindow.webContents.send('transformation-progress', progressData);
+    }
+}
+
 const {
+    checkAborted,
     mergeStudentPDFs,
     processSingleTransformation,
     createSaddleStitchBooklet
 } = require('./pdf-merger');
 
-// --- MBZ Batch Creator Logic --- 
-// const { createBatchAssignments } = require('../mbz-batch-creator'); // OLD IMPORT
-const { modifyMoodleBackup } = require('../mbz-creator/lib/mbzCreator'); // NEW IMPORT
-const { generateAssignmentDates } = require('../mbz-creator/lib/dateUtils'); // Might need this here
-// --- End MBZ Batch Creator Logic --- 
+// --- MBZ Batch Creator Logic ---
+const { modifyMoodleBackup } = require('../mbz-creator/lib/mbzCreator');
+const { generateAssignmentDates } = require('../mbz-creator/lib/dateUtils');
+// --- End MBZ Batch Creator Logic ---
 
 // Keep track of the main window
 let mainWindow = null;
@@ -1020,7 +1029,7 @@ async function processTasksDirectly(tasks, outputDirectory, dpi, options = {}) {
     const totalTasks = tasks.length;
 
     for (let i = 0; i < totalTasks; i++) {
-        if (global.abortProcessingFlag) {
+        if (await checkAborted()) {
             sendLogToRenderer(`Processing aborted by user after ${successCount} file(s).`);
             return `Processing aborted. ${successCount} file(s) completed.`;
         }
@@ -1032,15 +1041,12 @@ async function processTasksDirectly(tasks, outputDirectory, dpi, options = {}) {
             fs.mkdirSync(taskOutputDir, { recursive: true });
         }
 
-        if (mainWindow) {
-            const progress = Math.round(((i + 1) / totalTasks) * 100);
-            mainWindow.webContents.send('transformation-progress', {
-                current: i + 1,
-                total: totalTasks,
-                percentage: progress,
-                fileName: path.basename(task.inputPath) 
-            });
-        }
+        sendProgress({
+            current: i + 1,
+            total: totalTasks,
+            percentage: Math.round(((i + 1) / totalTasks) * 100),
+            fileName: path.basename(task.inputPath)
+        });
         
         try {
             const marginResult = await processSingleTransformation(task.inputPath, task.outputPath, dpi, sendLogToRenderer, options);
@@ -1190,11 +1196,11 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
             // Process tasks directly (includes saving processed info)
             const resultMessage = await processTasksDirectly(tasks, outputDirectory, dpi, { marginMinMm: config.marginMinMm });
 
-            // Generate and send summary log after direct processing
-            await generateAndSendSummary(outputDirectory);
-
-            // Generate HTML summary report
-            await generateSummaryHtml(outputDirectory);
+            // Generate summary only if processing was not aborted
+            if (!global.abortProcessingFlag) {
+                await generateAndSendSummary(outputDirectory);
+                await generateSummaryHtml(outputDirectory);
+            }
 
             // NOTE: Do NOT cleanup ILIAS temp directory here!
             // The temp directory is needed during the merging phase to detect missing pages.
@@ -1233,6 +1239,11 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
 });
 
 ipcMain.handle('resolve-ambiguity', async (event, selectedIdentifiers) => {
+    if (global.abortProcessingFlag) {
+        sendLogToRenderer('IPC: Abort was requested during ambiguity resolution, canceling.');
+        global.abortProcessingFlag = false;
+        return 'Processing aborted by user.';
+    }
     global.abortProcessingFlag = false;
     sendLogToRenderer("IPC: Received resolve-ambiguity with selected files:");
     console.log("Selected choices:", selectedIdentifiers); // Log the raw choices received
@@ -1308,11 +1319,11 @@ ipcMain.handle('resolve-ambiguity', async (event, selectedIdentifiers) => {
     try {
         const resultMessage = await processTasksDirectly(tasksToProcess, pendingTransformationData.outputDirectory, currentTransformationDpi, { marginMinMm: config.marginMinMm ?? 3.5 });
 
-        // Generate and send summary log AFTER ambiguity resolution and processing
-        await generateAndSendSummary(pendingTransformationData.outputDirectory);
-        
-        // Generate HTML summary report
-        await generateSummaryHtml(pendingTransformationData.outputDirectory);
+        // Generate summary only if processing was not aborted
+        if (!global.abortProcessingFlag) {
+            await generateAndSendSummary(pendingTransformationData.outputDirectory);
+            await generateSummaryHtml(pendingTransformationData.outputDirectory);
+        }
 
         // NOTE: Do NOT cleanup ILIAS temp directory here!
         // The temp directory is needed during the merging phase to detect missing pages.
@@ -1632,11 +1643,10 @@ Missing:
             sendLogToRenderer("IPC: Error reading config for cover template, using default:");
         }
 
-        sendLogToRenderer("Main: Starting mergeStudentPDFs function..."); // Log before starting
-        // Pass the effective directory for missing pages detection
+        sendLogToRenderer("Main: Starting mergeStudentPDFs function...");
         await mergeStudentPDFs(directoryForMissingPagesDetection, outputDirectory, coverTemplateContent, {
             padToMultipleOf4: !!config.padToMultipleOf4
-        });
+        }, sendLogToRenderer, sendProgress);
         sendLogToRenderer("Main: mergeStudentPDFs completed successfully."); // Log on success
 
         // Cleanup ILIAS temp directory after successful merging
@@ -1693,7 +1703,7 @@ ipcMain.handle('create-booklets', async (event, outputDirectory) => {
         // Process booklets sequentially to avoid overwhelming resources
         let bookletCount = 0;
         for (const pdfFile of studentPDFs) {
-            if (global.abortProcessingFlag) {
+            if (await checkAborted()) {
                 sendLogToRenderer(`Booklet creation aborted by user after ${bookletCount} booklet(s).`);
                 return `Booklet creation aborted. ${bookletCount} of ${studentPDFs.length} booklet(s) completed.`;
             }
@@ -1702,11 +1712,15 @@ ipcMain.handle('create-booklets', async (event, outputDirectory) => {
             const outputFilePath = path.join(bookletsDir, pdfFile);
             sendLogToRenderer(`Attempting to create booklet for: ${inputFilePath} -> ${outputFilePath}`);
             try {
-                await createSaddleStitchBooklet(inputFilePath, outputFilePath);
+                await createSaddleStitchBooklet(inputFilePath, outputFilePath, sendLogToRenderer);
                 bookletCount++;
             } catch (bookletError) {
+                // If abort was requested, return gracefully instead of treating as error
+                if (global.abortProcessingFlag) {
+                    sendLogToRenderer(`Booklet creation aborted during ${pdfFile}.`);
+                    return `Booklet creation aborted. ${bookletCount} of ${studentPDFs.length} booklet(s) completed.`;
+                }
                 // Log specific error and continue with the next file
-                // Use filename directly, as full path isn't needed here
                 const errorMsg = `Error creating booklet for ${pdfFile}: ${bookletError.message}`;
                 sendLogToRenderer(errorMsg);
                 if (mainWindow) mainWindow.webContents.send('error-log', errorMsg); // Log to UI
@@ -1721,8 +1735,6 @@ ipcMain.handle('create-booklets', async (event, outputDirectory) => {
                     sendLogToRenderer(writeErrorMsg);
                     if (mainWindow) mainWindow.webContents.send('error-log', `ERROR: ${writeErrorMsg}`);
                 }
-                // Optionally re-throw if one failure should stop the whole process
-                // throw new Error(`Failed to create booklet for ${pdfFile}: ${bookletError.message}`); 
             }
         }
 
