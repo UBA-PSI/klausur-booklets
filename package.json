@@ -65,7 +65,7 @@
     "productName": "Booklet Tool",
     "asarUnpack": [
       "**/node_modules/sharp/**/*",
-      "**/node_modules/@img/sharp-libvips-*/**",
+      "**/node_modules/@img/sharp-*/**",
       "**/node_modules/@hyzyla/pdfium/dist/pdfium.wasm",
       "src/assets/mbz-templates/**/*",
       "src/assets/fonts/**/*",
@@ -81,6 +81,7 @@
           ]
         }
       ],
+      "x64ArchFiles": "Contents/Resources/app.asar.unpacked/node_modules/@img/**/*",
       "artifactName": "${productName}.${ext}",
       "type": "distribution",
       "hardenedRuntime": true,
