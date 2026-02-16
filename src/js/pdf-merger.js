@@ -79,14 +79,10 @@ function sanitizeFilename(filename) {
     const normalizedFilename = filename.normalize('NFC');
     console.log(`Sanitizing filename: "${filename}" -> normalized: "${normalizedFilename}"`);
 
-    // Replace Unicode characters with ASCII equivalents
-    let sanitized = normalizedFilename;
-    for (const [unicode, replacement] of Object.entries(UNICODE_CHAR_MAP)) {
-        sanitized = sanitized.replace(new RegExp(unicode, 'g'), replacement);
-    }
-
-    // Handle any remaining Unicode characters
-    sanitized = sanitized.replace(/[\u0080-\uFFFF]/g, function(match) {
+    // Replace Unicode characters with ASCII equivalents using the shared char map,
+    // then replace any remaining non-ASCII characters with 'X'
+    let sanitized = normalizedFilename.replace(/[\u0080-\uFFFF]/g, function(match) {
+        if (UNICODE_CHAR_MAP[match] !== undefined) return UNICODE_CHAR_MAP[match];
         console.log(`Unmapped Unicode character found: "${match}" (U+${match.charCodeAt(0).toString(16).toUpperCase()})`);
         return 'X';
     });
@@ -101,14 +97,8 @@ function sanitizeFilename(filename) {
         .trim()
         .replace(/\.$/, '');
 
-    if (!sanitized) {
-        sanitized = 'sanitized_filename';
-    }
-
-    return sanitized;
+    return sanitized || 'sanitized_filename';
 }
-// ---------------------------------
-
 /**
  * Returns candidate base paths for bundled font files (dev + production layouts).
  */
@@ -424,7 +414,7 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent,
         const student = studentsWithInfo[i];
         const studentIdentifier = student.identifier;
         const studentNumber = String(i + 1).padStart(3, '0'); // 001, 002, 003, etc.
-        
+
         sendLog(`Processing student ${studentNumber}: ${studentIdentifier}`);
         if (onProgress) {
             onProgress({
@@ -434,14 +424,12 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent,
                 fileName: student.info?.fullName || studentIdentifier
             });
         }
-        // Use the pre-determined path
         const studentDirPath = student.dirPath;
 
-        // --- Read Processed File Info ---
+        // --- Read Processed File Info (reuse studentInfo from sorting phase) ---
         let processedFilesData = [];
         const infoFilePath = path.join(studentDirPath, 'processed_files.json');
-        const fallbackInfo = { primaryIdentifier: studentIdentifier, fullName: studentIdentifier };
-        let studentInfoForCover = fallbackInfo;
+        let studentInfoForCover = student.info; // Reuse info already loaded during sorting
 
         if (fs.existsSync(infoFilePath)) {
             try {
@@ -454,11 +442,9 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent,
                     sendLog(`  Warning: 'processedFiles' key missing or not an array in ${infoFilePath} for ${studentIdentifier}. Using empty list.`);
                 }
 
-                // Use studentInfo from the first processed entry when available
+                // Use studentInfo from the first processed entry when available (more detailed than folder-parsed info)
                 if (processedFilesData.length > 0 && processedFilesData[0].studentInfo) {
                     studentInfoForCover = processedFilesData[0].studentInfo;
-                } else {
-                    sendLog(`  Warning: Could not extract studentInfo from processed_files.json for ${studentIdentifier}, using fallback.`);
                 }
             } catch (err) {
                 sendLog(`  Error reading or parsing processed file info for ${studentIdentifier}: ${err.message}`);
@@ -721,22 +707,22 @@ async function processSingleTransformation(inputPath, outputPath, dpiValue, send
         sendLog(`[Transform Single] Successfully created PDF page: ${logOutputPath}`);
 
     } catch (error) {
-        let detailedError = `[Transform Single] ERROR processing file ${logInputPath}: ${error.message}`;
-        detailedError += `\n[Transform Single] FULL PATH: ${inputPath}`;
+        const lines = [
+            `[Transform Single] ERROR processing file ${logInputPath}: ${error.message}`,
+            `[Transform Single] FULL PATH: ${inputPath}`,
+        ];
 
-        const isPixelLimitError = error.message && error.message.includes('exceeds pixel limit');
-        if (isPixelLimitError) {
-            detailedError += `\n[Transform Single] This image exceeds Sharp's pixel limits. The image is too large to process safely.`;
-            detailedError += `\n[Transform Single] Consider reducing the image resolution or DPI setting (current: ${dpiValue}).`;
-            detailedError += `\n[Transform Single] Maximum recommended dimensions: ~32,000 x ~32,000 pixels.`;
-        } else if (error.message && (
-            error.message.includes('Input file contains unsupported image format') ||
-            error.message.includes('Input buffer contains unsupported image format')
-        )) {
-            detailedError += `\n[Transform Single] This appears to be an image processing error. Check if the file is corrupted or in an unsupported format.`;
+        if (error.message?.includes('exceeds pixel limit')) {
+            lines.push(
+                '[Transform Single] This image exceeds Sharp\'s pixel limits. The image is too large to process safely.',
+                `[Transform Single] Consider reducing the image resolution or DPI setting (current: ${dpiValue}).`,
+                '[Transform Single] Maximum recommended dimensions: ~32,000 x ~32,000 pixels.',
+            );
+        } else if (error.message?.includes('unsupported image format')) {
+            lines.push('[Transform Single] This appears to be an image processing error. Check if the file is corrupted or in an unsupported format.');
         }
 
-        sendLog(detailedError);
+        sendLog(lines.join('\n'));
         throw error;
     }
 
@@ -805,49 +791,20 @@ async function createSaddleStitchBooklet(inputPath, outputPath, sendLog = consol
 
         const outputPage = newPdfDoc.addPage([outputPageWidth, outputPageHeight]);
 
-        // --- Draw Left Page ---
-        if (leftSourceIndex < pageCount) {
-            const leftPageToDraw = embeddedPages.get(leftSourceIndex);
-            if (leftPageToDraw) {
-                try {
-                    outputPage.drawPage(leftPageToDraw, {
-                        x: 0,
-                        y: 0,
-                        width: inputWidth,
-                        height: inputHeight
-                    });
-                } catch (drawError) {
-                    sendLog(`[Booklet] Error drawing left page (source index ${leftSourceIndex}) on output page ${i + 1}: ${drawError.message}`);
-                    throw drawError;
-                }
-            } else {
-                sendLog(`[Booklet] Critical Error: Failed to find pre-embedded page for source index ${leftSourceIndex}`);
-                throw new Error(`Failed to find pre-embedded page for source index ${leftSourceIndex}`);
+        // Draw left and right pages (skip if index is beyond pageCount — padding stays empty)
+        function drawHalfPage(sourceIndex, xOffset) {
+            if (sourceIndex >= pageCount) return;
+            const embeddedPage = embeddedPages.get(sourceIndex);
+            if (!embeddedPage) {
+                throw new Error(`Failed to find pre-embedded page for source index ${sourceIndex}`);
             }
+            outputPage.drawPage(embeddedPage, {
+                x: xOffset, y: 0, width: inputWidth, height: inputHeight
+            });
         }
-        // else: padding index beyond pageCount — left side stays empty
 
-        // --- Draw Right Page ---
-        if (rightSourceIndex < pageCount) {
-            const rightPageToDraw = embeddedPages.get(rightSourceIndex);
-            if (rightPageToDraw) {
-                try {
-                    outputPage.drawPage(rightPageToDraw, {
-                        x: inputWidth,
-                        y: 0,
-                        width: inputWidth,
-                        height: inputHeight
-                    });
-                } catch (drawError) {
-                    sendLog(`[Booklet] Error drawing right page (source index ${rightSourceIndex}) on output page ${i + 1}: ${drawError.message}`);
-                    throw drawError;
-                }
-            } else {
-                sendLog(`[Booklet] Critical Error: Failed to find pre-embedded page for source index ${rightSourceIndex}`);
-                throw new Error(`Failed to find pre-embedded page for source index ${rightSourceIndex}`);
-            }
-        }
-        // else: padding index beyond pageCount — right side stays empty
+        drawHalfPage(leftSourceIndex, 0, 'left');
+        drawHalfPage(rightSourceIndex, inputWidth, 'right');
     }
     // --- End Logic ---
 

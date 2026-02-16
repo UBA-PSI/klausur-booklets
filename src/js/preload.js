@@ -1,10 +1,5 @@
-// Preload script for context isolation
-
-console.log('Preload script loaded.');
-
 const { contextBridge, ipcRenderer } = require('electron');
 
-// Define the functions to expose to the renderer process
 contextBridge.exposeInMainWorld('electronAPI', {
   // Renderer -> Main (send/invoke)
   selectDirectory: (type) => ipcRenderer.send('select-directory', type),
@@ -18,7 +13,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   handleImportConfig: () => ipcRenderer.invoke('handle-import-config'),
   precheckCollisions: (mainDir, pattern, useCSVs) => ipcRenderer.invoke('precheck-collisions', mainDir, pattern, useCSVs),
   clearOutputFolder: (outputDir) => ipcRenderer.invoke('clear-output-folder', outputDir),
-  // --- New APIs for MBZ Batch Creator --- 
+
+  // MBZ Batch Creator APIs
   showOpenDialog: (options) => ipcRenderer.invoke('dialog:showOpenDialog', options),
   showSaveDialog: (options) => ipcRenderer.invoke('dialog:showSaveDialog', options),
   showMessageBox: (options) => ipcRenderer.invoke('dialog:showMessageBox', options),
@@ -29,13 +25,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadMbzCreatorHtml: () => ipcRenderer.invoke('load-mbz-creator-html'),
   fsExists: (filePath) => ipcRenderer.invoke('fs-exists', filePath),
   getDefaultMbzTemplatePath: () => ipcRenderer.invoke('get-default-mbz-template-path'),
+
+  // App-level APIs
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getAppHomepage: () => ipcRenderer.invoke('get-app-homepage'),
   selectGhostscriptExecutable: () => ipcRenderer.invoke('ghostscript:selectExecutable'),
   validateGhostscript: () => ipcRenderer.invoke('ghostscript:validate'),
   getPlatform: () => ipcRenderer.invoke('get-platform'),
   openExternal: (url) => ipcRenderer.invoke('open-external-url', url),
-  // --- End New APIs ---
 
   // Main -> Renderer (receive)
   onDirectorySelected: (callback) => ipcRenderer.on('directory-selected', (_event, type, path) => callback(type, path)),
@@ -43,17 +40,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onNameCollision: (callback) => ipcRenderer.on('name-collision', (_event, message) => callback(message)),
   onAmbiguityRequest: (callback) => ipcRenderer.on('request-ambiguity-resolution', (_event, ambiguities) => callback(ambiguities)),
   onTransformationProgress: (callback) => ipcRenderer.on('transformation-progress', (_event, progressData) => callback(progressData)),
-
-  // Listener for logs from main process
   onLogError: (callback) => ipcRenderer.on('error-log', (_event, message) => callback(message)),
-  // Listener for general process logs from main process
   onProcessLog: (callback) => ipcRenderer.on('process-log', (_event, message) => callback(message)),
-  
-  // Listener for opening settings with Ghostscript focus
   onOpenSettingsGhostscript: (callback) => ipcRenderer.on('open-settings-ghostscript', (_event) => callback()),
-
-  // Function to remove listeners if needed (optional but good practice)
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
 });
-
-console.log('electronAPI exposed on window object.'); 

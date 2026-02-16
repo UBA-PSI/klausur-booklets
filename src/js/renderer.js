@@ -1,8 +1,11 @@
-// Remove the direct require of ipcRenderer
-// const { ipcRenderer } = require('electron');
-
-// Declare config at a higher scope
 let config = {};
+
+/** Escape a string for safe insertion into HTML. */
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
 
 // Default Cover Template Content (Updated with user's template)
 const DEFAULT_COVER_TEMPLATE = `# {{LAST_NAME}}
@@ -20,7 +23,6 @@ Dieses Booklet ist bei der Prüfung im Sommersemester 2025 und bei der darauffol
 **Nicht eingereichte Seiten:**
 {{MISSING_PAGES_LIST}}`;
 
-// Define the openModal function directly here instead of relying on modal.js
 function openModal() {
     const modal = document.getElementById("settingsModal");
     if (modal) {
@@ -31,18 +33,14 @@ function openModal() {
     }
 }
 
-// Check if the API is exposed
 if (!window.electronAPI) {
   console.error("FATAL: Preload script did not expose electronAPI!");
-  // Handle the error appropriately, maybe show a message to the user
 }
 
 function selectDirectory(type) {
-    // Use the exposed function
     window.electronAPI.selectDirectory(type);
 }
 
-// Updated updateStatus function
 function updateStatus(type, message) {
     const statusBar = document.getElementById('status-bar');
     const statusMessage = document.getElementById('status-message'); // Main message span
@@ -92,89 +90,16 @@ function setProcessingState(active, showAbort = true) {
 
 // --- Setup Listeners using electronAPI ---
 window.electronAPI.onLoadConfig((loadedConfig) => {
-    console.log('Received load-config:', loadedConfig); // Debug log
-    // Update the higher-scoped config variable
-    config = loadedConfig || {}; 
-    // Update UI fields from loaded config
-    if (config.mainDirectory) {
-        document.getElementById('mainDirectoryPath').value = config.mainDirectory;
-    }
-    if (config.outputDirectory) {
-        document.getElementById('outputDirectoryPath').value = config.outputDirectory;
-    }
-    if (config.dpi) {
-        document.getElementById('dpi').value = config.dpi;
-    }
-    // Load foldername pattern
-    if (config.foldernamePattern) {
-        document.getElementById('foldername-pattern').value = config.foldernamePattern;
-        
-        const iliasPattern = document.getElementById('pattern-ilias').value;
-        const moodlePattern = document.getElementById('pattern-moodle').value;
-        
-        if (config.foldernamePattern === iliasPattern) {
-            document.getElementById('pattern-ilias').checked = true;
-        } else if (config.foldernamePattern === moodlePattern) {
-            document.getElementById('pattern-moodle').checked = true;
-        } else {
-            document.getElementById('pattern-custom').checked = true;
-        }
-    }
-    // Load cover template content
-    const coverTemplateTextarea = document.getElementById('coverTemplateContentInput');
-    if (coverTemplateTextarea) {
-        coverTemplateTextarea.value = config.coverTemplateContent || DEFAULT_COVER_TEMPLATE;
-    }
-    // Load filesize limits
-    if (config.minFileSizeKB !== undefined) { // Check existence to avoid overwriting default
-        document.getElementById('minFileSizeKB').value = config.minFileSizeKB;
-    }
-    if (config.maxFileSizeMB !== undefined) {
-        document.getElementById('maxFileSizeMB').value = config.maxFileSizeMB;
-    }
-    // Load PDF output settings
-    if (config.marginMinMm !== undefined) {
-        document.getElementById('marginMinMm').value = config.marginMinMm;
-    }
-    if (config.padToMultipleOf4) {
-        document.getElementById('padToMultipleOf4').checked = true;
-    }
+    console.log('Received load-config:', loadedConfig);
+    config = loadedConfig || {};
+    applyConfigToUI();
+    validateGhostscriptInSettings();
+    showGsRecommendationBanner();
 
-    // Load PDF renderer selection
-    if (config.pdfRenderer) {
-        if (config.pdfRenderer === 'ghostscript') {
-            document.getElementById('renderer-ghostscript').checked = true;
-        } else if (config.pdfRenderer === 'pdfium') {
-            document.getElementById('renderer-pdfium').checked = true;
-        }
-    } else {
-        // Default to PDFium (built-in, works without additional software)
-        document.getElementById('renderer-pdfium').checked = true;
-        config.pdfRenderer = 'pdfium';
-    }
-
-    // Load Ghostscript path type — migrate 'bundled' to 'system' (bundled no longer exists)
-    if (config.ghostscriptPathType === 'bundled' || !config.ghostscriptPathType) {
-        config.ghostscriptPathType = 'system';
+    // Persist migration of 'bundled' -> 'system' if it changed
+    if (loadedConfig?.ghostscriptPathType === 'bundled') {
         saveConfig();
     }
-    if (config.ghostscriptPathType === 'custom') {
-        document.getElementById('gs-path-custom').checked = true;
-    } else {
-        document.getElementById('gs-path-system').checked = true;
-    }
-    
-    // Load Ghostscript path (only for custom)
-    if (config.ghostscriptPath) {
-        document.getElementById('ghostscriptPath').value = config.ghostscriptPath;
-    }
-    
-    // Update UI visibility based on current selections
-    updateRendererUIVisibility();
-    validateGhostscriptInSettings();
-
-    // Show Ghostscript recommendation banner when PDFium is active
-    showGsRecommendationBanner();
 });
 
 
@@ -316,8 +241,71 @@ function saveConfig() {
     // Save Ghostscript path (only relevant for custom type)
     config.ghostscriptPath = document.getElementById('ghostscriptPath').value;
 
-    // Use the exposed function to save the updated config object
     window.electronAPI.saveConfig(config);
+}
+
+/**
+ * Applies the current config object to all UI elements.
+ * Used by both initial config load and config import to avoid duplicated mapping code.
+ */
+function applyConfigToUI() {
+    if (config.mainDirectory) document.getElementById('mainDirectoryPath').value = config.mainDirectory;
+    if (config.outputDirectory) document.getElementById('outputDirectoryPath').value = config.outputDirectory;
+    if (config.dpi) document.getElementById('dpi').value = config.dpi;
+
+    // Foldername pattern + radio button selection
+    if (config.foldernamePattern) {
+        document.getElementById('foldername-pattern').value = config.foldernamePattern;
+        const iliasPattern = document.getElementById('pattern-ilias')?.value;
+        const moodlePattern = document.getElementById('pattern-moodle')?.value;
+        if (config.foldernamePattern === iliasPattern) {
+            document.getElementById('pattern-ilias').checked = true;
+        } else if (config.foldernamePattern === moodlePattern) {
+            document.getElementById('pattern-moodle').checked = true;
+        } else {
+            const customRadio = document.getElementById('pattern-custom');
+            if (customRadio) customRadio.checked = true;
+        }
+    }
+
+    // Cover template
+    const coverTemplateTextarea = document.getElementById('coverTemplateContentInput');
+    if (coverTemplateTextarea) {
+        coverTemplateTextarea.value = config.coverTemplateContent || DEFAULT_COVER_TEMPLATE;
+    }
+
+    // Filesize limits
+    if (config.minFileSizeKB !== undefined) document.getElementById('minFileSizeKB').value = config.minFileSizeKB;
+    if (config.maxFileSizeMB !== undefined) document.getElementById('maxFileSizeMB').value = config.maxFileSizeMB;
+
+    // PDF output settings
+    if (config.marginMinMm !== undefined) document.getElementById('marginMinMm').value = config.marginMinMm;
+    if (config.padToMultipleOf4) document.getElementById('padToMultipleOf4').checked = true;
+
+    // PDF renderer
+    if (config.pdfRenderer === 'ghostscript') {
+        document.getElementById('renderer-ghostscript').checked = true;
+    } else {
+        document.getElementById('renderer-pdfium').checked = true;
+        config.pdfRenderer = config.pdfRenderer || 'pdfium';
+    }
+
+    // Ghostscript path type — migrate 'bundled' to 'system' (bundled no longer exists)
+    if (config.ghostscriptPathType === 'bundled' || !config.ghostscriptPathType) {
+        config.ghostscriptPathType = 'system';
+    }
+    if (config.ghostscriptPathType === 'custom') {
+        document.getElementById('gs-path-custom').checked = true;
+    } else {
+        document.getElementById('gs-path-system').checked = true;
+    }
+
+    // Ghostscript custom path
+    if (config.ghostscriptPath) {
+        document.getElementById('ghostscriptPath').value = config.ghostscriptPath;
+    }
+
+    updateRendererUIVisibility();
 }
 
 window.electronAPI.onDirectorySelected((type, directoryPath) => {
@@ -335,9 +323,8 @@ window.electronAPI.onDirectorySelected((type, directoryPath) => {
 });
 
 window.electronAPI.onNameCollision((errorMessage) => {
-    console.log(`Received name-collision: ${errorMessage}`); // Debug log
-    document.getElementById('status').textContent = errorMessage;
-    updateStatus('error', errorMessage); // Update status bar too
+    console.log(`Received name-collision: ${errorMessage}`);
+    updateStatus('error', errorMessage);
 });
 
 // --- Ambiguity Resolution Logic ---
@@ -388,8 +375,8 @@ function openMoodleCollisionModal(collidingNames, usedCSVs = false, csvMappingsC
         csvStatusHTML = `
             <h4 class="warning-heading">CSV Files Missing in Some Directories</h4>
             <p>You have CSV files in some page directories but not in others. This prevents proper student matching across pages.</p>
-            <p><strong>Missing CSV files in:</strong> ${missingCsvPages.join(', ')}</p>
-            <p><strong>Students potentially affected (appear in multiple pages):</strong> ${studentsAffected.join(', ') || 'None'}</p>
+            <p><strong>Missing CSV files in:</strong> ${missingCsvPages.map(escapeHtml).join(', ')}</p>
+            <p><strong>Students potentially affected (appear in multiple pages):</strong> ${studentsAffected.map(escapeHtml).join(', ') || 'None'}</p>
             <p><strong>Action required:</strong> Please add the corresponding CSV files to <em>all</em> page directories where these students appear before continuing.</p>
             <p><small>CSV files must be placed in every page directory for the tool to correctly match students across pages.</small></p>
         `;
@@ -403,12 +390,10 @@ function openMoodleCollisionModal(collidingNames, usedCSVs = false, csvMappingsC
     }
     csvStatusDiv.innerHTML = csvStatusHTML;
 
-    // --- Populate Missing CSV Mappings Section --- 
     if (hasMappingErrors) {
-        mappingErrorListUl.innerHTML = ''; // Clear just in case
         mappingErrors.forEach(err => {
             const item = document.createElement('li');
-            item.innerHTML = `Page: <strong>${err.pageDir}</strong>, Folder: <code>${err.studentFolder}</code> (Expected Number: ${err.someNumber})`;
+            item.innerHTML = `Page: <strong>${escapeHtml(err.pageDir)}</strong>, Folder: <code>${escapeHtml(err.studentFolder)}</code> (Expected Number: ${escapeHtml(String(err.someNumber))})`;
             mappingErrorListUl.appendChild(item);
         });
         mappingErrorSection.style.display = 'block'; // Show the section
@@ -416,9 +401,7 @@ function openMoodleCollisionModal(collidingNames, usedCSVs = false, csvMappingsC
         mappingErrorSection.style.display = 'none'; // Hide if no errors
     }
 
-    // --- Populate Same-Name Collisions Section --- 
     if (hasCollisions) {
-        collisionListUl.innerHTML = ''; // Clear just in case
         collidingNames.forEach(name => {
             const item = document.createElement('li');
             item.textContent = name;
@@ -524,24 +507,6 @@ if (moodleCollisionRetryWithCSVBtn) {
 } else {
     console.warn("CSV retry button not found in HTML. Please add it to the modal.");
 }
-
-// Also close if clicking outside
-window.addEventListener('click', (event) => {
-    // Remove direct style manipulation - Bootstrap handles backdrop clicks automatically
-    
-    // We only need to handle legacy non-Bootstrap modals if we have any
-    const moodleCollisionModal = document.getElementById('moodleCollisionModal');
-    const ambiguityModal = document.getElementById('ambiguityModal');
-    
-    if (!moodleCollisionModal.classList.contains('fade') && event.target == moodleCollisionModal) {
-        closeMoodleCollisionModal();
-    }
-    
-    if (!ambiguityModal.classList.contains('fade') && event.target == ambiguityModal) {
-        // Close ambiguity modal if clicked outside
-        ambiguityCloseBtn.click();
-    }
-});
 
 // --- End Moodle Collision Modal Logic ---
 
@@ -697,12 +662,9 @@ confirmAmbiguityBtn.onclick = async function() {
     }
 
     try {
-        // Send final resolved choices back to main process
         const resultMessage = await window.electronAPI.resolveAmbiguity(resolvedChoices);
-        document.getElementById('status').textContent = resultMessage;
         updateStatus('success', resultMessage);
     } catch (error) {
-        document.getElementById('status').textContent = 'Error after resolving ambiguity: ' + error.message;
         updateStatus('error', 'Error after resolving ambiguity: ' + error.message);
     } finally {
         setProcessingState(false);
@@ -735,46 +697,35 @@ window.electronAPI.onTransformationProgress((progressData) => {
 });
 // --- End Progress Listener ---
 
-// --- Listener for Process Logs ---
+// --- Log Output Helpers ---
 const processLogContainer = document.getElementById('processLogContainer');
 const processLogOutput = document.getElementById('processLogOutput');
-window.electronAPI.onProcessLog((message) => {
-    if (processLogContainer && processLogOutput) {
-        processLogContainer.style.display = 'block'; // Show container
-        processLogOutput.value += message + '\n'; // Append message
-        processLogOutput.scrollTop = processLogOutput.scrollHeight; // Scroll to bottom
-    }
-});
-// --- End Process Log Listener ---
-
-// --- Listener for Errors from Main Process ---
 const errorLogContainer = document.getElementById('errorLogContainer');
 const errorLogOutput = document.getElementById('errorLogOutput');
-function logErrorToUI(message) {
-    if (errorLogContainer && errorLogOutput) {
-        errorLogContainer.style.display = 'block'; // Show container
-        errorLogOutput.value += message + '\n'; // Append error message
-        errorLogOutput.scrollTop = errorLogOutput.scrollHeight; // Scroll to bottom
-    }
-}
-window.electronAPI.onLogError(logErrorToUI);
-// --- End Error Listener ---
 
-// --- Helper to log to process log ---
-function logProcessMessage(message) {
-    if (processLogContainer && processLogOutput) {
-        processLogContainer.style.display = 'block'; // Show container
-        // Format timestamp consistently
-        const now = new Date();
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const seconds = String(now.getSeconds()).padStart(2, '0');
-        const timestamp = `${hours}:${minutes}:${seconds}`;
-        processLogOutput.value += `[${timestamp}] ${message}\n`; // Append message with timestamp
-        processLogOutput.scrollTop = processLogOutput.scrollHeight; // Scroll to bottom
+/**
+ * Appends a message to a log textarea and shows its container.
+ */
+function appendToLog(container, textarea, message) {
+    if (container && textarea) {
+        container.style.display = 'block';
+        textarea.value += message + '\n';
+        textarea.scrollTop = textarea.scrollHeight;
     }
 }
-// --- End Helper ---
+
+window.electronAPI.onProcessLog((message) => appendToLog(processLogContainer, processLogOutput, message));
+window.electronAPI.onLogError((message) => appendToLog(errorLogContainer, errorLogOutput, message));
+
+/**
+ * Logs a timestamped message to the process log from the renderer side.
+ */
+function logProcessMessage(message) {
+    const now = new Date();
+    const timestamp = [now.getHours(), now.getMinutes(), now.getSeconds()]
+        .map(n => String(n).padStart(2, '0')).join(':');
+    appendToLog(processLogContainer, processLogOutput, `[${timestamp}] ${message}`);
+}
 
 // --- End Ambiguity Resolution Logic ---
 
@@ -1059,7 +1010,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             
             modal.show();
-            setTimeout(logBackdrop, 100);
         });
     } else {
         console.warn('Edit cover template button not found');
@@ -1088,11 +1038,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Initialize components or listeners that depend on the full DOM
-    // For example, if ambiguity modal buttons needed setup here:
-    // ambiguityPrevBtn.onclick = ... etc.
-    // Make sure any functions called here (like openModal, saveConfig) are defined globally or passed correctly.
-
     // --- Import/Export Config Button Listeners ---
     const importBtn = document.getElementById('importConfigBtn');
     const exportBtn = document.getElementById('exportConfigBtn');
@@ -1120,68 +1065,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (importBtn) {
         importBtn.addEventListener('click', async () => {
-            console.log('Import Config button clicked.');
             try {
                 const result = await window.electronAPI.handleImportConfig();
                 if (result.success && result.config) {
                     updateStatus('success', `Config imported from ${result.filePath}`);
-                    // Update the global config object
-                    config = result.config; 
-                    
-                    // Manually update UI elements based on the new config
-                    // This mirrors the logic in onLoadConfig
-                    if (config.mainDirectory) document.getElementById('mainDirectoryPath').value = config.mainDirectory;
-                    if (config.outputDirectory) document.getElementById('outputDirectoryPath').value = config.outputDirectory;
-                    if (config.dpi) document.getElementById('dpi').value = config.dpi;
-                    if (config.foldernamePattern) {
-                        document.getElementById('foldername-pattern').value = config.foldernamePattern;
-                        // Update radio buttons for pattern
-                        const iliasPatternVal = document.getElementById('pattern-ilias')?.value;
-                        const moodlePatternVal = document.getElementById('pattern-moodle')?.value;
-                        if (iliasPatternVal && config.foldernamePattern === iliasPatternVal) {
-                             document.getElementById('pattern-ilias').checked = true;
-                        } else if (moodlePatternVal && config.foldernamePattern === moodlePatternVal) {
-                             document.getElementById('pattern-moodle').checked = true;
-                        } else {
-                             const customRadio = document.getElementById('pattern-custom');
-                             if (customRadio) customRadio.checked = true;
-                        }
-                    }
-                    const coverTemplateTextarea = document.getElementById('coverTemplateContentInput');
-                    if (coverTemplateTextarea) {
-                        coverTemplateTextarea.value = config.coverTemplateContent || DEFAULT_COVER_TEMPLATE;
-                    }
-                    if (config.minFileSizeKB !== undefined) document.getElementById('minFileSizeKB').value = config.minFileSizeKB;
-                    if (config.maxFileSizeMB !== undefined) document.getElementById('maxFileSizeMB').value = config.maxFileSizeMB;
-                    
-                    // Update PDF renderer selection
-                    if (config.pdfRenderer === 'pdfium') {
-                        document.getElementById('renderer-pdfium').checked = true;
-                    } else {
-                        document.getElementById('renderer-ghostscript').checked = true;
-                    }
-                    
-                    // Update Ghostscript path type — migrate 'bundled' to 'system'
-                    if (config.ghostscriptPathType === 'bundled') {
-                        config.ghostscriptPathType = 'system';
-                    }
-                    if (config.ghostscriptPathType === 'custom') {
-                        document.getElementById('gs-path-custom').checked = true;
-                    } else {
-                        document.getElementById('gs-path-system').checked = true;
-                    }
-                    
-                    // Update Ghostscript path if provided
-                    if (config.ghostscriptPath) {
-                        document.getElementById('ghostscriptPath').value = config.ghostscriptPath;
-                    }
-                    
-                    // Update UI visibility based on imported config
-                    updateRendererUIVisibility();
-
-                    // Optionally, save the newly imported config back to the default location immediately
-                    // saveConfig(); // Decide if this is desired behavior
-
+                    config = result.config;
+                    applyConfigToUI();
                 } else if (!result.cancelled) {
                     updateStatus('error', `Failed to import config: ${result.error}`);
                 }
@@ -1190,8 +1079,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateStatus('error', `Error importing config: ${error.message}`);
             }
         });
-    } else {
-        console.warn('Import Config button not found');
     }
 
     // --- End Import/Export Config Button Listeners ---
@@ -1346,17 +1233,9 @@ window.addEventListener('click', (event) => {
         }
     }
     
-    // Save config on outside click for specific modals
     const settingsModal = document.getElementById('settingsModal');
-    const coverModal = document.getElementById('coverTemplateModal');
-    
     if(settingsModal && event.target === settingsModal) {
-        console.log('[DEBUG] Settings Modal: Click outside detected, triggering saveConfig.');
         window.saveConfig();
     }
 });
-
-
-
-
 

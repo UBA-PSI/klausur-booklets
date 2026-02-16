@@ -14,9 +14,14 @@ const execFileAsync = promisify(execFile);
 // ILIAS Preprocessor
 const iliasPreprocessor = require('./ilias-preprocessor');
 
+/** Check whether mainWindow is still usable for IPC. */
+function canSendToRenderer() {
+    return mainWindow && mainWindow.webContents && !mainWindow.webContents.isDestroyed();
+}
+
 // Function to send logs to the renderer process UI
 function sendLogToRenderer(message) {
-    if (mainWindow && mainWindow.webContents) {
+    if (canSendToRenderer()) {
         // Format timestamp consistently
         const now = new Date();
         const hours = String(now.getHours()).padStart(2, '0');
@@ -40,7 +45,7 @@ global.abortProcessingFlag = false;
  * @param {{ current: number, total: number, percentage: number, fileName: string }} progressData
  */
 function sendProgress(progressData) {
-    if (mainWindow) {
+    if (canSendToRenderer()) {
         mainWindow.webContents.send('transformation-progress', progressData);
     }
 }
@@ -73,6 +78,44 @@ let currentOutputDirectory = null;
 let someNumberToEmailMap = {}; // Global map for CSV lookup
 let iliasPreprocessingTempDir = null; // Track ILIAS temp directory for cleanup
 let effectiveInputDirectoryForMerging = null; // Track the effective input directory for missing pages detection
+
+/**
+ * Loads config from disk, returning an empty object on failure.
+ */
+function loadConfig() {
+    try {
+        return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
+    } catch (err) {
+        sendLogToRenderer(`WARN: Could not load config from ${CONFIG_PATH}: ${err.message}. Using defaults.`);
+        return {};
+    }
+}
+
+/**
+ * Cleans up ILIAS temporary directory if one exists.
+ */
+function cleanupIliasTemp() {
+    if (!iliasPreprocessingTempDir) return;
+    try {
+        iliasPreprocessor.cleanupTempDirectory(iliasPreprocessingTempDir);
+        sendLogToRenderer('ILIAS temporary directory cleaned up.');
+    } catch (cleanupErr) {
+        sendLogToRenderer(`WARN: Could not cleanup ILIAS temp directory: ${cleanupErr.message}`);
+    }
+    iliasPreprocessingTempDir = null;
+    effectiveInputDirectoryForMerging = null;
+}
+
+/**
+ * Resets global state between processing runs.
+ */
+function resetGlobalState() {
+    pendingTransformationData = null;
+    currentOutputDirectory = null;
+    processedFileInfo = {};
+    skippedFileLog = [];
+    errorFileLog = [];
+}
 
 /**
  * Check if Ghostscript binary is available in system PATH (Linux only)
@@ -118,7 +161,7 @@ async function showGhostscriptNotice() {
     
     if (result.response === 0) {
         // User chose to open settings - send message to renderer
-        mainWindow.webContents.send('open-settings-ghostscript');
+        if (canSendToRenderer()) mainWindow.webContents.send('open-settings-ghostscript');
     }
 }
 
@@ -187,7 +230,7 @@ function createWindow() {
 
     // Send the potentially modified config object once the window is ready
     win.webContents.on('did-finish-load', async () => {
-        if(mainWindow) {
+        if (canSendToRenderer()) {
             mainWindow.webContents.send('load-config', configToSend);
             
             // Check Ghostscript availability on Linux after loading
@@ -210,7 +253,7 @@ function createWindow() {
 
 
 // --- Create Application Menu ---
-const createMenu = (win) => {
+function createMenu(win) {
     const template = [
         {
             label: 'File',
@@ -252,7 +295,7 @@ const createMenu = (win) => {
 
     const menu = Menu.buildFromTemplate(template);
     Menu.setApplicationMenu(menu);
-};
+}
 // --- End Menu Creation ---
 
 app.whenReady().then(() => {
@@ -673,13 +716,7 @@ async function parseCSVsInDirectory(mainDirectory) {
 async function prepareTransformations(mainDirectory, outputDirectory, folderPattern) {
     sendLogToRenderer("Preparing transformations...");
 
-    // Load config to get filesize limits
-    let config = {};
-    try {
-        config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
-    } catch (err) {
-        sendLogToRenderer("WARN: Could not load config for filesize limits, using defaults.");
-    }
+    const config = loadConfig();
     const minSizeBytes = (config.minFileSizeKB || 5) * 1024;
     const maxSizeBytes = (config.maxFileSizeMB || 20) * 1024 * 1024; // Default 20MB
     sendLogToRenderer(`Filesize limits: Min=${minSizeBytes} bytes, Max=${maxSizeBytes} bytes`);
@@ -742,13 +779,13 @@ async function prepareTransformations(mainDirectory, outputDirectory, folderPatt
                         sendLogToRenderer(warnMsg);
                         // Log skip
                         skippedFileLog.push({ studentIdentifier, pageDir, fileName: file, reason: 'Unsupported Type' });
-                        if (mainWindow) mainWindow.webContents.send('error-log', warnMsg);
+                        if (canSendToRenderer()) mainWindow.webContents.send('error-log', warnMsg);
                     }
                 } catch (statErr) {
                     // Log error if we can't even stat the file
                     const statErrorMsg = `WARN: Could not read item info: ${path.relative(mainDirectory, filePath)} - Error: ${statErr.message}`;
                     sendLogToRenderer(statErrorMsg);
-                    if (mainWindow) mainWindow.webContents.send('error-log', statErrorMsg);
+                    if (canSendToRenderer()) mainWindow.webContents.send('error-log', statErrorMsg);
                 }
             }
             // --- End Unexpected File Type Check ---
@@ -789,7 +826,7 @@ async function prepareTransformations(mainDirectory, outputDirectory, folderPatt
                     sendLogToRenderer(errorMsg);
                     // Log skip
                     skippedFileLog.push({ studentIdentifier, pageDir, fileName: file, reason: 'Invalid/Corrupt' });
-                    if (mainWindow) mainWindow.webContents.send('error-log', errorMsg);
+                    if (canSendToRenderer()) mainWindow.webContents.send('error-log', errorMsg);
                     isValid = false;
                 }
 
@@ -808,48 +845,45 @@ async function prepareTransformations(mainDirectory, outputDirectory, folderPatt
                         sendLogToRenderer(sizeErrorMsg);
                         // Log skip
                         skippedFileLog.push({ studentIdentifier, pageDir, fileName: file, reason: 'Size Limit' });
-                        if (mainWindow) mainWindow.webContents.send('error-log', sizeErrorMsg);
+                        if (canSendToRenderer()) mainWindow.webContents.send('error-log', sizeErrorMsg);
                     }
                 } catch (err) { // Should not happen if buffer read worked, but safety check
                     const relativePath = path.relative(mainDirectory, filePath);
                     const statErrorMsg = `Error checking size for file ${relativePath}: ${err.message}`;
                     sendLogToRenderer(statErrorMsg);
-                    if (mainWindow) mainWindow.webContents.send('error-log', statErrorMsg);
+                    if (canSendToRenderer()) mainWindow.webContents.send('error-log', statErrorMsg);
                     // Log skip (though this indicates a read error, treat as skip)
                     skippedFileLog.push({ studentIdentifier, pageDir, fileName: file, reason: 'Read Error' });
                 }
             } // End loop through potential files
 
-            // Use the fully validated list now
-            const finalValidFiles = validatedFiles;
-
-            if (finalValidFiles.length === 0) {
+            if (validatedFiles.length === 0) {
                 const relativeFolderPath = path.relative(mainDirectory, studentFolderPath);
                 const skipMsg = `INFO: No valid files found in ${relativeFolderPath}, skipping folder.`;
                 sendLogToRenderer(skipMsg);
-                // if (mainWindow) mainWindow.webContents.send('error-log', skipMsg); // Maybe too noisy for UI log
+                // if (canSendToRenderer()) mainWindow.webContents.send('error-log', skipMsg); // Maybe too noisy for UI log
                 continue;
             }
             
-            // --- Proceed with ambiguity check / task creation using finalValidFiles --- 
+            // --- Proceed with ambiguity check / task creation using validatedFiles --- 
             const studentOutputDir = path.join(outputDirectory, 'pages', studentIdentifier);
             if (!fs.existsSync(studentOutputDir)) {
                 fs.mkdirSync(studentOutputDir, { recursive: true });
             }
             const outputFilePath = path.join(studentOutputDir, `${pageDir}.pdf`);
             
-            if (finalValidFiles.length === 1) {
+            if (validatedFiles.length === 1) {
                 transformationTasks.push({
-                    inputPath: path.join(studentFolderPath, finalValidFiles[0]),
+                    inputPath: path.join(studentFolderPath, validatedFiles[0]),
                     outputPath: outputFilePath,
                     pageName: pageDir,
-                    originalFileName: finalValidFiles[0],
+                    originalFileName: validatedFiles[0],
                     studentInfo: parsedStudentInfo 
                 });
-            } else { // finalValidFiles.length > 1
+            } else { // validatedFiles.length > 1
                 ambiguities.push({
                     folderPath: studentFolderPath,
-                    files: finalValidFiles, // Use the validated list
+                    files: validatedFiles, // Use the validated list
                     context: `Student: ${studentFolder}, Page: ${pageDir}`
                 });
             }
@@ -1071,14 +1105,9 @@ async function processTasksDirectly(tasks, outputDirectory, dpi, options = {}) {
                 error: processingError.message
             });
 
-            // Use relative path for input file in error message
-            const relativeInputPath = task.inputPath ? path.relative(currentOutputDirectory, task.inputPath) : '[unknown input file]'; // Use currentOutputDirectory as base? Or should we pass mainDirectory?
-            // Let's assume we want path relative to the *input* directory for clarity. Need mainDirectory here.
-            // NOTE: processTasksDirectly needs access to mainDirectory to make this log useful.
-            // For now, log the full path or just the basename
             const errorMsg = `Error transforming ${path.basename(task.inputPath)}: ${processingError.message}`;
             sendLogToRenderer(errorMsg); // Send to process log
-            if (mainWindow) mainWindow.webContents.send('error-log', errorMsg);
+            if (canSendToRenderer()) mainWindow.webContents.send('error-log', errorMsg);
             // Create placeholder error file
             try {
                 const errorFilePath = task.outputPath.replace(/\.pdf$/, '_error.txt'); 
@@ -1089,7 +1118,7 @@ async function processTasksDirectly(tasks, outputDirectory, dpi, options = {}) {
                 const relativeOutputPath = task.outputPath ? path.relative(currentOutputDirectory, task.outputPath) : '[unknown output file]';
                 const writeErrorMsg = `Failed to write error placeholder for ${relativeOutputPath}: ${writeError.message}`;
                 sendLogToRenderer(writeErrorMsg); // Send to process log
-                 if (mainWindow) mainWindow.webContents.send('error-log', `ERROR: ${writeErrorMsg}`);
+                 if (canSendToRenderer()) mainWindow.webContents.send('error-log', `ERROR: ${writeErrorMsg}`);
             }
         }
     }
@@ -1124,16 +1153,10 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
     currentTransformationDpi = dpi;
     currentOutputDirectory = outputDirectory;
     processedFileInfo = {};
-    skippedFileLog = []; // Clear logs for new run
-    errorFileLog = [];   // Clear logs for new run
+    skippedFileLog = [];
+    errorFileLog = [];
 
-    let config = {};
-    try {
-        config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
-    } catch (err) {
-        sendLogToRenderer("WARN: Could not load config for transformation, using defaults.");
-    }
-    // Apply default Moodle pattern if not found in config
+    const config = loadConfig();
     const folderPattern = config.foldernamePattern || 'FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file';
     const isMoodleMode = folderPattern?.startsWith('FULLNAMEWITHSPACES');
     sendLogToRenderer(`Using folder pattern: ${folderPattern}, Moodle Mode: ${isMoodleMode}`);
@@ -1158,12 +1181,7 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
         }
     } catch (preprocessError) {
         sendLogToRenderer(`ERROR: ILIAS preprocessing failed: ${preprocessError.message}`);
-        // Cleanup temp dir if it was created
-        if (iliasPreprocessingTempDir) {
-            iliasPreprocessor.cleanupTempDirectory(iliasPreprocessingTempDir);
-            iliasPreprocessingTempDir = null;
-            effectiveInputDirectoryForMerging = null;
-        }
+        cleanupIliasTemp();
         throw preprocessError;
     }
 
@@ -1186,7 +1204,7 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
             // Store data for later resolution
             pendingTransformationData = { unambiguousTasks: tasks, ambiguities, outputDirectory }; 
             sendLogToRenderer("IPC: Ambiguities found. Requesting resolution from renderer.");
-            if (mainWindow) {
+            if (canSendToRenderer()) {
                 mainWindow.webContents.send('request-ambiguity-resolution', ambiguities);
             }
             // Need to generate summary AFTER ambiguity is resolved
@@ -1202,11 +1220,7 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
                 await generateSummaryHtml(outputDirectory);
             }
 
-            // NOTE: Do NOT cleanup ILIAS temp directory here!
-            // The temp directory is needed during the merging phase to detect missing pages.
-            // It will be cleaned up after merging in the 'start-merging' handler.
-
-            // Clear global state after successful direct processing
+            // NOTE: ILIAS temp dir is NOT cleaned up here — it's needed for the merging phase.
             pendingTransformationData = null;
             currentOutputDirectory = null;
             return resultMessage;
@@ -1214,27 +1228,9 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
 
     } catch (error) {
         sendLogToRenderer("IPC: Error during transformation start:");
-
-        // Cleanup ILIAS temp directory on error
-        if (iliasPreprocessingTempDir) {
-            try {
-                iliasPreprocessor.cleanupTempDirectory(iliasPreprocessingTempDir);
-                sendLogToRenderer("ILIAS temporary directory cleaned up after error.");
-                iliasPreprocessingTempDir = null;
-                effectiveInputDirectoryForMerging = null;
-            } catch (cleanupErr) {
-                console.error("Failed to cleanup ILIAS temp dir after error:", cleanupErr);
-            }
-        }
-
-        // Clear potentially inconsistent state on error
-        pendingTransformationData = null;
-        currentOutputDirectory = null;
-        processedFileInfo = {};
-        // Also clear summary logs on error
-        skippedFileLog = [];
-        errorFileLog = [];
-        throw error; // Re-throw to renderer
+        cleanupIliasTemp();
+        resetGlobalState();
+        throw error;
     }
 });
 
@@ -1257,15 +1253,7 @@ ipcMain.handle('resolve-ambiguity', async (event, selectedIdentifiers) => {
         throw new Error("Missing output directory or DPI setting in pending data.");
     }
     
-    // Load folder pattern again, it's needed to parse student info
-    let config = {};
-    try {
-        config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
-    } catch (err) {
-        sendLogToRenderer("WARN: Could not load config to get folder pattern during ambiguity resolution.");
-        // Potentially throw an error here if pattern is crucial?
-    }
-    // Apply default Moodle pattern if not found in config
+    const config = loadConfig();
     const folderPattern = config.foldernamePattern || 'FULLNAMEWITHSPACES_SOMENUMBER_assignsubmission_file';
 
     // Start with the tasks that were already unambiguous
@@ -1276,13 +1264,6 @@ ipcMain.handle('resolve-ambiguity', async (event, selectedIdentifiers) => {
     for (const folderPath in selectedIdentifiers) {
         const selectedFileName = selectedIdentifiers[folderPath];
         sendLogToRenderer(`  Resolving ambiguity for folder: ${path.basename(folderPath)} with file: ${selectedFileName}`);
-        
-        // Find the corresponding ambiguity object (we don't strictly need it if we have the path)
-        // const ambiguity = pendingTransformationData.ambiguities.find(a => a.folderPath === folderPath);
-        // if (!ambiguity) {
-        //     sendLogToRenderer(`WARN: Could not find ambiguity data for folder path ${folderPath}. Skipping.`);
-        //     continue;
-        // }
 
         try {
             // Reconstruct necessary info to create the task
@@ -1325,40 +1306,14 @@ ipcMain.handle('resolve-ambiguity', async (event, selectedIdentifiers) => {
             await generateSummaryHtml(pendingTransformationData.outputDirectory);
         }
 
-        // NOTE: Do NOT cleanup ILIAS temp directory here!
-        // The temp directory is needed during the merging phase to detect missing pages.
-        // It will be cleaned up after merging in the 'start-merging' handler.
-
-        // Clear global state
-        pendingTransformationData = null;
-        currentOutputDirectory = null;
-        processedFileInfo = {}; // Clear processed info as well
-        skippedFileLog = [];    // Clear summary logs
-        errorFileLog = [];
-
+        // NOTE: ILIAS temp dir is NOT cleaned up here — it's needed for the merging phase.
+        resetGlobalState();
         return resultMessage;
     } catch (error) {
         sendLogToRenderer("IPC: Error processing after ambiguity resolution:");
-
-        // Cleanup ILIAS temp directory on error
-        if (iliasPreprocessingTempDir) {
-            try {
-                iliasPreprocessor.cleanupTempDirectory(iliasPreprocessingTempDir);
-                sendLogToRenderer("ILIAS temporary directory cleaned up after error.");
-                iliasPreprocessingTempDir = null;
-                effectiveInputDirectoryForMerging = null;
-            } catch (cleanupErr) {
-                console.error("Failed to cleanup ILIAS temp dir after error:", cleanupErr);
-            }
-        }
-
-        // Clear potentially inconsistent state on error
-        pendingTransformationData = null;
-        currentOutputDirectory = null;
-        processedFileInfo = {};
-        skippedFileLog = [];
-        errorFileLog = [];
-        throw error; // Re-throw to the renderer
+        cleanupIliasTemp();
+        resetGlobalState();
+        throw error;
     }
 });
 
@@ -1615,9 +1570,8 @@ ipcMain.handle('start-merging', async (event, mainDirectory, outputDirectory) =>
             sendLogToRenderer(`Using ILIAS temp directory for missing pages detection: ${effectiveInputDirectoryForMerging}`);
         }
 
-        // Load config to get cover template content
-        let config = {};
-        let coverTemplateContent = `# Default Cover Template
+        const config = loadConfig();
+        const coverTemplateContent = config.coverTemplateContent || `# Default Cover Template
 
 Student: {{FULL_NAME}}
 Number: {{STUDENTNUMBER}}
@@ -1626,22 +1580,7 @@ Submitted:
 {{SUBMITTED_PAGES_LIST}}
 
 Missing:
-{{MISSING_PAGES_LIST}}`; // Default content
-        try {
-            if (fs.existsSync(CONFIG_PATH)) {
-                config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
-                if (config.coverTemplateContent) {
-                    coverTemplateContent = config.coverTemplateContent;
-                    sendLogToRenderer("IPC: Loaded cover template content from config.");
-                } else {
-                    sendLogToRenderer("IPC: No cover template content in config, using default.");
-                }
-            } else {
-                 sendLogToRenderer("IPC: Config file not found, using default cover template.");
-            }
-        } catch (err) {
-            sendLogToRenderer("IPC: Error reading config for cover template, using default:");
-        }
+{{MISSING_PAGES_LIST}}`;
 
         sendLogToRenderer("Main: Starting mergeStudentPDFs function...");
         await mergeStudentPDFs(directoryForMissingPagesDetection, outputDirectory, coverTemplateContent, {
@@ -1649,17 +1588,7 @@ Missing:
         }, sendLogToRenderer, sendProgress);
         sendLogToRenderer("Main: mergeStudentPDFs completed successfully."); // Log on success
 
-        // Cleanup ILIAS temp directory after successful merging
-        if (iliasPreprocessingTempDir) {
-            try {
-                iliasPreprocessor.cleanupTempDirectory(iliasPreprocessingTempDir);
-                sendLogToRenderer("✓ ILIAS temporary directory cleaned up after merging.");
-                iliasPreprocessingTempDir = null;
-                effectiveInputDirectoryForMerging = null;
-            } catch (cleanupErr) {
-                sendLogToRenderer(`WARN: Could not cleanup ILIAS temp directory: ${cleanupErr.message}`);
-            }
-        }
+        cleanupIliasTemp();
 
         return "Success"; // Indicate success to renderer
     } catch (error) {
@@ -1710,6 +1639,12 @@ ipcMain.handle('create-booklets', async (event, outputDirectory) => {
 
             const inputFilePath = path.join(pdfsDir, pdfFile);
             const outputFilePath = path.join(bookletsDir, pdfFile);
+            sendProgress({
+                current: bookletCount + 1,
+                total: studentPDFs.length,
+                percentage: Math.round(((bookletCount + 1) / studentPDFs.length) * 100),
+                fileName: pdfFile
+            });
             sendLogToRenderer(`Attempting to create booklet for: ${inputFilePath} -> ${outputFilePath}`);
             try {
                 await createSaddleStitchBooklet(inputFilePath, outputFilePath, sendLogToRenderer);
@@ -1723,7 +1658,7 @@ ipcMain.handle('create-booklets', async (event, outputDirectory) => {
                 // Log specific error and continue with the next file
                 const errorMsg = `Error creating booklet for ${pdfFile}: ${bookletError.message}`;
                 sendLogToRenderer(errorMsg);
-                if (mainWindow) mainWindow.webContents.send('error-log', errorMsg); // Log to UI
+                if (canSendToRenderer()) mainWindow.webContents.send('error-log', errorMsg); // Log to UI
                 // Create placeholder error file
                 try {
                     const errorFilePath = outputFilePath.replace(/\.pdf$/, '_booklet_error.txt');
@@ -1733,7 +1668,7 @@ ipcMain.handle('create-booklets', async (event, outputDirectory) => {
                     // Use filename directly
                     const writeErrorMsg = `Failed to write booklet error placeholder for ${pdfFile}: ${writeError.message}`;
                     sendLogToRenderer(writeErrorMsg);
-                    if (mainWindow) mainWindow.webContents.send('error-log', `ERROR: ${writeErrorMsg}`);
+                    if (canSendToRenderer()) mainWindow.webContents.send('error-log', `ERROR: ${writeErrorMsg}`);
                 }
             }
         }
@@ -2092,7 +2027,7 @@ ipcMain.handle('clear-output-folder', async (event, outputDirectory) => {
                 const errorMsg = `Failed to clear subfolder '${relativeFolderPath}': ${err.message}`;
                 sendLogToRenderer(errorMsg);
                 errors.push(errorMsg);
-                if (mainWindow) mainWindow.webContents.send('error-log', `ERROR: ${errorMsg}`);
+                if (canSendToRenderer()) mainWindow.webContents.send('error-log', `ERROR: ${errorMsg}`);
             }
         } else {
             // Use relative path
@@ -2110,7 +2045,7 @@ ipcMain.handle('clear-output-folder', async (event, outputDirectory) => {
             const errorMsg = `Failed to delete summary.html: ${err.message}`;
             sendLogToRenderer(errorMsg);
             errors.push(errorMsg);
-            if (mainWindow) mainWindow.webContents.send('error-log', `ERROR: ${errorMsg}`);
+            if (canSendToRenderer()) mainWindow.webContents.send('error-log', `ERROR: ${errorMsg}`);
         }
     }
 
