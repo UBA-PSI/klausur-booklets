@@ -470,7 +470,7 @@ Dominik Herrmann (dh.psi@uni-bamberg.de)
 Chair of Privacy and Security in Information Systems
 University of Bamberg 
 
-During development, the following GenAI models have been used for design, implementation, and writing documentation: Anthropic Claude Sonnet 3.7/Opus 4, OpenAI GPT 4.1/4.5/o3, Google Gemini 2.5 Pro Experimental.
+During development, the following GenAI models have been used for design, implementation, and writing documentation: Anthropic Claude Sonnet 3.7/Sonnet 4.5/Opus 4/Opus 4.5/Opus 4.6, OpenAI GPT 4.1/4.5/5.3 Codex/o3, Google Gemini 2.5 Pro Experimental.
 
 ## Acknowledgements
 
