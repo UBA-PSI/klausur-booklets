@@ -4,7 +4,7 @@
 [![downloads](https://img.shields.io/github/downloads/UBA-PSI/klausur-booklets/total)](https://github.com/UBA-PSI/klausur-booklets/releases)
 
 **Create personalized exam booklets from students' handwritten note pages in minutes.**
-Download the latest version for [**Windows**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.4.0/booklet-tool-1.4.0-windows-portable-x64.zip) · [**macOS**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.4.0/Booklet.Tool-1.4.0.dmg) · [**Linux**](https://github.com/UBA-PSI/klausur-booklets/releases/tag/v1.4.0) and get started right away. [**Download test data**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.4.0/booklet-tool-testdata.zip) to try out the tool's features.
+Download the latest version for [**Windows**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.5.0/booklet-tool-1.5.0-windows-portable-x64.zip) · [**macOS**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.5.0/Booklet.Tool-1.5.0.dmg) · [**Linux**](https://github.com/UBA-PSI/klausur-booklets/releases/tag/v1.5.0) and get started right away. [**Download test data**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.5.0/booklet-tool-testdata.zip) to try out the tool's features.
 
 The Booklet Tool is an Electron application (Windows, macOS, Linux) developed at the [Chair of Privacy and Security in Information Systems](https://psi.uni-bamberg.de/), University of Bamberg, within [Projekt DiKuLe](https://www.uni-bamberg.de/dikule/). The Booklet Tool helps instructors create personalized exam aids ("Klausur-Booklets") from student submissions.
 
@@ -470,7 +470,7 @@ Dominik Herrmann (dh.psi@uni-bamberg.de)
 Chair of Privacy and Security in Information Systems
 University of Bamberg 
 
-During development, the following GenAI models have been used for design, implementation, and writing documentation: Anthropic Claude Sonnet 3.7, OpenAI GPT 4.1/4.5/o3, Google Gemini 2.5 Pro Experimental.
+During development, the following GenAI models have been used for design, implementation, and writing documentation: Anthropic Claude Sonnet 3.7/Opus 4, OpenAI GPT 4.1/4.5/o3, Google Gemini 2.5 Pro Experimental.
 
 ## Acknowledgements
 

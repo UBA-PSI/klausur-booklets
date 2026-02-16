@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.0] - 2026-02-16
+
+- [SECURITY] **Electron upgrade 35 to 39**: Fixes critical CVEs (CVE-2025-10585, CVE-2025-55305, CVE-2026-0628) and adds macOS Tahoe compatibility. Removed deprecated `@electron/remote` dependency.
+- [NEW] **Abort button**: Processing steps (Convert, Merge, Booklets) can now be canceled mid-operation. Already-completed files are kept. The abort button appears in the status bar during processing.
+- [NEW] **Button disabling during processing**: All action buttons are disabled while a processing step is running, preventing accidental double-clicks or conflicting operations.
+- [NEW] **Progress indicator for all steps**: The status bar now shows progress (x/y and percentage) during all three processing steps, including Merge PDFs and Create Booklets.
+- [NEW] **Detailed merge log output**: The Merge PDFs step now shows detailed progress in the process log (previously only visible on the console).
+- [FIXED] **Booklet crash with blank pages**: Fixed "Can't embed page with missing Contents" error when PDFs were padded to multiples of 4 with blank pages.
+- [IMPROVED] **IPC safety**: All renderer IPC sends now check for destroyed webContents, preventing crashes when the window is closed during processing.
+- [IMPROVED] **XSS hardening**: User-controlled content in the collision modal is now HTML-escaped.
+- [IMPROVED] Code simplification: extracted shared helpers, deduplicated Unicode character map (~70 lines), simplified fallback chains, removed dead code (-240 lines net).
+
 ## [1.4.0] - 2026-02-15
 
 - [NEW] **Configurable minimum margin**: The minimum margin for student PDFs can now be configured in Settings (default: 3.5 mm, set to 0 to disable). Pages with content extending into the margin zone are automatically scaled down to enforce the minimum margin.
