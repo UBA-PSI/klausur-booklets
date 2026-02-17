@@ -3,6 +3,25 @@
  * Loads an existing MBZ file, shows assignments for editing, and saves a modified MBZ.
  */
 
+const TIME_PATTERN = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])(?::([0-5][0-9]))?$/;
+
+function pad(n) {
+    return String(n).padStart(2, '0');
+}
+
+function normalizeTime(time) {
+    return time.split(':').length === 2 ? `${time}:00` : time;
+}
+
+function formatUtcDate(date) {
+    return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
+}
+
+function formatUtcTimestamp(ts) {
+    const d = new Date(ts * 1000);
+    return `${formatUtcDate(d)} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+}
+
 class MbzBatchCreator {
     constructor(container, options = {}) {
         this.container = container;
@@ -105,11 +124,10 @@ class MbzBatchCreator {
 
         this.elements.deadlineTime?.addEventListener('blur', () => {
             const timeValue = this.elements.deadlineTime.value;
-            const timePattern = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])(?::([0-5][0-9]))?$/;
-            if (!timePattern.test(timeValue)) {
+            if (!TIME_PATTERN.test(timeValue)) {
                 this.elements.deadlineTime.value = '17:00:00';
-            } else if (timeValue.split(':').length === 2) {
-                this.elements.deadlineTime.value = `${timeValue}:00`;
+            } else {
+                this.elements.deadlineTime.value = normalizeTime(timeValue);
             }
         });
 
@@ -118,7 +136,6 @@ class MbzBatchCreator {
         this.elements.gracePeriod?.addEventListener('change', updatePreview);
         this.elements.openMode?.addEventListener('change', updatePreview);
         this.elements.openDuration?.addEventListener('change', updatePreview);
-
     }
 
     async selectAndParseMbz() {
@@ -153,14 +170,12 @@ class MbzBatchCreator {
                 return;
             }
 
-            // Enrich assignments with editable date/time strings
             this.assignments = parseResult.assignments.map(a => {
                 if (a.duedate <= 0) {
                     return { ...a, dateStr: '', timeStr: '17:00:00' };
                 }
                 const d = new Date(a.duedate * 1000);
-                const pad = (n) => String(n).padStart(2, '0');
-                const dateStr = `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+                const dateStr = formatUtcDate(d);
                 const timeStr = `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
                 return { ...a, dateStr, timeStr };
             });
@@ -281,11 +296,8 @@ class MbzBatchCreator {
                         this.updateCalendarHighlights();
                         this.updateGenerateButtonState();
                     } else if (field === 'timeStr') {
-                        const timePattern = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])(?::([0-5][0-9]))?$/;
-                        if (timePattern.test(e.target.value)) {
-                            if (e.target.value.split(':').length === 2) {
-                                e.target.value = `${e.target.value}:00`;
-                            }
+                        if (TIME_PATTERN.test(e.target.value)) {
+                            e.target.value = normalizeTime(e.target.value);
                             this.assignments[idx].timeStr = e.target.value;
                         } else {
                             e.target.value = this.assignments[idx].timeStr;
@@ -349,11 +361,9 @@ class MbzBatchCreator {
 
     applyTimeToAll() {
         const time = this.elements.deadlineTime?.value || '17:00:00';
-        // Validate
-        const timePattern = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])(?::([0-5][0-9]))?$/;
-        if (!timePattern.test(time)) return;
+        if (!TIME_PATTERN.test(time)) return;
 
-        const normalizedTime = time.split(':').length === 2 ? `${time}:00` : time;
+        const normalizedTime = normalizeTime(time);
 
         this.assignments.forEach((a) => {
             a.timeStr = normalizedTime;
@@ -451,28 +461,17 @@ class MbzBatchCreator {
             return;
         }
 
-        const formatTs = (ts) => {
-            const d = new Date(ts * 1000);
-            const pad = (n) => String(n).padStart(2, '0');
-            return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
-        };
-
-        const addCell = (row, text) => {
-            const cell = document.createElement('td');
-            cell.textContent = text;
-            row.appendChild(cell);
-        };
-
         tbody.replaceChildren();
-        data.forEach((a, i) => {
+        for (let i = 0; i < data.length; i++) {
+            const a = data[i];
             const row = document.createElement('tr');
-            addCell(row, i + 1);
-            addCell(row, a.name);
-            addCell(row, formatTs(a.activation_ts));
-            addCell(row, formatTs(a.due_ts));
-            addCell(row, formatTs(a.cutoff_ts));
+            for (const text of [i + 1, a.name, formatUtcTimestamp(a.activation_ts), formatUtcTimestamp(a.due_ts), formatUtcTimestamp(a.cutoff_ts)]) {
+                const cell = document.createElement('td');
+                cell.textContent = text;
+                row.appendChild(cell);
+            }
             tbody.appendChild(row);
-        });
+        }
     }
 
     updateCalendarHighlights() {
@@ -501,8 +500,6 @@ class MbzBatchCreator {
         const assignmentData = this.computeTimestamps();
         if (!assignmentData) return;
 
-        // Generate suggested filename
-        const pad = (n) => String(n).padStart(2, '0');
         const now = new Date();
         const ts = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
         const originalBasename = await window.electronAPI.pathBasename(this.mbzPath);
@@ -523,11 +520,10 @@ class MbzBatchCreator {
             this.setStatus('Generating modified MBZ...', 'info');
             this.elements.generateBtn.disabled = true;
 
-            const targetStartDate = this.elements.targetStartDateInput?.value || null;
-            let targetStartTimestamp = undefined;
-            if (targetStartDate && /^\d{4}-\d{2}-\d{2}$/.test(targetStartDate)) {
-                targetStartTimestamp = Math.floor(new Date(`${targetStartDate}T00:00:00Z`).getTime() / 1000);
-            }
+            const targetStartDate = this.elements.targetStartDateInput?.value;
+            const targetStartTimestamp = targetStartDate && /^\d{4}-\d{2}-\d{2}$/.test(targetStartDate)
+                ? Math.floor(new Date(`${targetStartDate}T00:00:00Z`).getTime() / 1000)
+                : undefined;
 
             const result = await window.electronAPI.modifyMbzAssignments({
                 inputMbzPath: this.mbzPath,
@@ -545,7 +541,6 @@ class MbzBatchCreator {
             console.error('Error generating MBZ:', error);
             this.setStatus(`Error: ${error.message}`, 'error');
         } finally {
-            this.elements.generateBtn.disabled = false;
             this.updateGenerateButtonState();
         }
     }
