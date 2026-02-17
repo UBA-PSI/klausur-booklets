@@ -14,7 +14,7 @@ class AppSwitcher {
       switchButtonSelector: '#app-mode-switch', // Button in the main header
       titleElementSelector: '#main-header .app-title', // Title element in the main header
       mainViewTitle: 'Booklet Generation Mode',
-      mbzViewTitle: 'Moodle Batch Assignment Creation Mode'
+      mbzViewTitle: 'MBZ Modifier Mode'
     }, options);
     
     // Keep track of the current view
@@ -46,10 +46,7 @@ class AppSwitcher {
     
     // Attach event listeners
     if (this.switchButton) {
-      this.switchButton.addEventListener('click', () => {
-        console.log('Switch button clicked! Current view:', this.currentView);
-        this.toggleView();
-      });
+      this.switchButton.addEventListener('click', () => this.toggleView());
     } else {
       console.error('Switch button not found!');
     }
@@ -60,45 +57,24 @@ class AppSwitcher {
    * @param {string} viewName - 'main' or 'mbz'
    */
   showView(viewName) {
-    // Update current view
     this.currentView = viewName;
-    
-    // Show/hide views
-    if (viewName === 'main') {
-      this.mainView.classList.add('active');
-      this.mbzView.classList.remove('active');
-      
-      // Update title and body class
-      document.body.classList.remove('mbz-mode');
-      if (this.titleElement) {
-        this.titleElement.textContent = this.options.mainViewTitle;
-      }
-      
-      // Update switch button text and title
-      if (this.switchButton) {
-        this.switchButton.textContent = 'Go to Moodle Assignment Creation'; // Updated text
-        this.switchButton.setAttribute('title', 'Switch to Moodle Batch Assignment Creation');
-      }
-    } else { // mbz view
-      this.mainView.classList.remove('active');
-      this.mbzView.classList.add('active');
-      
-      // Update title and body class
-      document.body.classList.add('mbz-mode');
-      if (this.titleElement) {
-        this.titleElement.textContent = this.options.mbzViewTitle;
-      }
-      
-      // Update switch button text and title
-      if (this.switchButton) {
-        this.switchButton.textContent = 'Go to Booklet Generation Mode'; // Updated text
-        this.switchButton.setAttribute('title', 'Switch to Booklet Generation');
-      }
+    const isMain = viewName === 'main';
+
+    this.mainView.classList.toggle('active', isMain);
+    this.mbzView.classList.toggle('active', !isMain);
+    document.body.classList.toggle('mbz-mode', !isMain);
+
+    if (this.titleElement) {
+      this.titleElement.textContent = isMain ? this.options.mainViewTitle : this.options.mbzViewTitle;
     }
-    
-    // Trigger a custom event for other components to react
-    window.dispatchEvent(new CustomEvent('viewChanged', { 
-      detail: { view: viewName } 
+    if (this.switchButton) {
+      const targetLabel = isMain ? 'MBZ Modifier' : 'Booklet Generation Mode';
+      this.switchButton.textContent = `Go to ${targetLabel}`;
+      this.switchButton.setAttribute('title', `Switch to ${targetLabel}`);
+    }
+
+    window.dispatchEvent(new CustomEvent('viewChanged', {
+      detail: { view: viewName }
     }));
   }
   

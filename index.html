@@ -186,7 +186,7 @@
         </div>
         <button id="app-mode-switch" class="btn btn-outline-primary app-switcher">
             <i class="bi bi-arrow-repeat me-1"></i>
-            Go to Moodle Assignment Creation
+            Go to MBZ Modifier
         </button>
     </div>
 
@@ -912,96 +912,79 @@
     <script src="node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="src/assets/vertical-calendar.js"></script>
     <script src="src/assets/vertical-calendar-controller.js"></script>
-    <script src="src/assets/calendar-fix.js"></script>
     <script src="src/assets/app-switcher.js"></script>
     <script src="src/assets/batch-creator.js"></script>
 
     <!-- Initialization Script -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // Initialize tooltips and popovers
-            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl);
+            // Initialize Bootstrap tooltips
+            document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+                new bootstrap.Tooltip(el);
             });
-            
+
             // Initialize AppSwitcher
             window.appSwitcher = new AppSwitcher({
                 mainViewSelector: '#main-view',
                 mbzViewSelector: '#mbz-creator-view',
-                switchButtonSelector: '#app-mode-switch', 
-                titleElementSelector: '#main-header .app-title', // Target title within main header
+                switchButtonSelector: '#app-mode-switch',
+                titleElementSelector: '#main-header .app-title',
                 mainViewTitle: 'Booklet Generation Mode',
-                mbzViewTitle: 'Moodle Batch Assignment Creation Mode'
+                mbzViewTitle: 'MBZ Modifier Mode'
             });
 
+            // Initialize MBZ creator lazily on first view switch
             let mbzCreatorInstance = null;
-            let calendarControllerInstance = null;
 
-            // Initialize MBZ creator only when its view becomes active
             window.addEventListener('viewChanged', async (event) => {
-                if (event.detail.view === 'mbz' && !mbzCreatorInstance) {
-                    const mbzContainer = document.getElementById('mbz-creator-view');
-                    if (mbzContainer) {
-                        mbzCreatorInstance = MbzBatchCreator.initialize(mbzContainer); // initialize returns the instance
-                        // The buildUI method is now async, wait for it if necessary
-                        await mbzCreatorInstance.buildUI(); 
-                        // Re-find elements and attach listeners *after* UI is built
-                        mbzCreatorInstance.findElements(); 
-                        mbzCreatorInstance.setupCollapse(); // Setup collapse after elements are found
-                        mbzCreatorInstance.initCalendar();
-                        mbzCreatorInstance.attachEventListeners();
-                        mbzCreatorInstance.updateGenerateButtonState();
-                        
-                        // Initialize calendar controller after MBZ UI and calendar are ready
-                        setTimeout(() => { 
-                            if (mbzCreatorInstance.calendar) {
-                                // Pass the mbzCreatorInstance to the controller's initialize method
-                                calendarControllerInstance = VerticalCalendarController.initialize(
-                                    mbzCreatorInstance.calendar, 
-                                    mbzCreatorInstance 
-                                );
-                                // Link the controller with the batch creator (optional if not used elsewhere)
-                                mbzCreatorInstance.setController(calendarControllerInstance);
-                            }
-                        }, 100); // Short delay might be needed for calendar rendering
-                    }
-                }
+                if (event.detail.view !== 'mbz' || mbzCreatorInstance) return;
+
+                const mbzContainer = document.getElementById('mbz-creator-view');
+                if (!mbzContainer) return;
+
+                mbzCreatorInstance = MbzBatchCreator.initialize(mbzContainer);
+                await mbzCreatorInstance.buildUI();
+                mbzCreatorInstance.findElements();
+                mbzCreatorInstance.setupCollapse();
+                mbzCreatorInstance.initCalendar();
+                mbzCreatorInstance.attachEventListeners();
+                mbzCreatorInstance.updateGenerateButtonState();
+
+                // Short delay for calendar rendering to complete before wiring up the controller
+                setTimeout(() => {
+                    if (!mbzCreatorInstance.calendar) return;
+                    const controller = VerticalCalendarController.initialize(
+                        mbzCreatorInstance.calendar,
+                        mbzCreatorInstance
+                    );
+                    mbzCreatorInstance.setController(controller);
+                }, 100);
             });
 
-            // Handle initial view based on hash
             if (window.location.hash === '#mbz') {
                 window.appSwitcher.showMbzView();
             }
-            
-            // Initialize modal functionality (if modal.js is removed)
-            function initializeModals() {
-                // Set up modal events for auto-saving config only (no focus management)
-                ['settingsModal', 'coverTemplateModal'].forEach(modalId => {
-                    const modalEl = document.getElementById(modalId);
-                    if (modalEl) {
-                        modalEl.addEventListener('hidden.bs.modal', () => {
-                            console.log(`[DEBUG] ${modalId}: Modal hidden event, saving config`);
-                            if (typeof window.saveConfig === 'function') {
-                                window.saveConfig();
-                            }
-                        });
-                    }
-                });
-                
-                // Convert legacy modals to bootstrap modals if needed
-                document.querySelectorAll('.modal:not(.fade)').forEach(modalEl => {
-                    console.log(`[DEBUG] Converting legacy modal to Bootstrap: ${modalEl.id}`);
-                    modalEl.classList.add('fade');
-                });
-                
-                // Make main container focusable as fallback focus target
-                const mainView = document.getElementById('main-view');
-                if (mainView && !mainView.hasAttribute('tabindex')) {
-                    mainView.setAttribute('tabindex', '-1');
+
+            // Modal auto-save and Bootstrap normalization
+            ['settingsModal', 'coverTemplateModal'].forEach(modalId => {
+                const modalEl = document.getElementById(modalId);
+                if (modalEl) {
+                    modalEl.addEventListener('hidden.bs.modal', () => {
+                        if (typeof window.saveConfig === 'function') {
+                            window.saveConfig();
+                        }
+                    });
                 }
+            });
+
+            document.querySelectorAll('.modal:not(.fade)').forEach(modalEl => {
+                modalEl.classList.add('fade');
+            });
+
+            const mainView = document.getElementById('main-view');
+            if (mainView && !mainView.hasAttribute('tabindex')) {
+                mainView.setAttribute('tabindex', '-1');
             }
-            initializeModals();
 
             document.addEventListener('hide.bs.modal', function (event) {
                 event.target.setAttribute('inert', '');

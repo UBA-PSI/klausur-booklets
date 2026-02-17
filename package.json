@@ -67,7 +67,6 @@
       "**/node_modules/sharp/**/*",
       "**/node_modules/@img/sharp-*/**",
       "**/node_modules/@hyzyla/pdfium/dist/pdfium.wasm",
-      "src/assets/mbz-templates/**/*",
       "src/assets/fonts/**/*",
       "bin/**/*"
     ],

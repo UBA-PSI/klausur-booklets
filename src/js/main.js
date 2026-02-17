@@ -57,10 +57,7 @@ const {
     createSaddleStitchBooklet
 } = require('./pdf-merger');
 
-// --- MBZ Batch Creator Logic ---
-const { modifyMoodleBackup } = require('../mbz-creator/lib/mbzCreator');
-const { generateAssignmentDates } = require('../mbz-creator/lib/dateUtils');
-// --- End MBZ Batch Creator Logic ---
+const { parseAssignmentsFromMbz, modifyMoodleBackup } = require('../mbz-creator/lib/mbzCreator');
 
 // Keep track of the main window
 let mainWindow = null;
@@ -2120,151 +2117,57 @@ ipcMain.handle('ghostscript:validate', async () => {
     }
 });
 
-ipcMain.handle('path-basename', async (event, filePath) => { // Corrected channel name
+ipcMain.handle('path-basename', (_event, filePath) => {
     return path.basename(filePath);
 });
 
-ipcMain.handle('path-dirname', (event, filePath) => { // Added missing handler
+ipcMain.handle('path-dirname', (_event, filePath) => {
     return path.dirname(filePath);
 });
 
-// Add handler for getUserDataPath
-ipcMain.handle('app:getUserDataPath', (event) => {
+ipcMain.handle('app:getUserDataPath', () => {
     return app.getPath('userData');
 });
-// --- End IPC Handlers for Dependencies --- 
 
-// --- IPC Handler to load HTML template ---
-ipcMain.handle('load-mbz-creator-html', async (event) => {
-  try {
-    // Corrected path: Go up one level from src/js to src, then find the file
-    const htmlPath = path.join(__dirname, '..', 'mbz_creator.html'); 
-    const htmlContent = fs.readFileSync(htmlPath, 'utf-8');
-    return htmlContent;
-  } catch (error) {
-    sendLogToRenderer('Error loading mbz_creator.html:');
-    throw new Error(`Could not load MBZ Creator template: ${error.message}`); // Rethrow to renderer
-  }
+// --- MBZ Modifier IPC Handlers ---
+
+ipcMain.handle('load-mbz-creator-html', async () => {
+    const htmlPath = path.join(__dirname, '..', 'mbz_creator.html');
+    return fs.promises.readFile(htmlPath, 'utf-8');
 });
-// --- End HTML Loader ---
 
-// --- IPC Handler for MBZ Batch Creation --- 
-ipcMain.handle('mbz:createBatchAssignments', async (event, incomingOptions) => {
-  sendLogToRenderer('IPC: Received mbz:createBatchAssignments with incoming options:');
-
-  // **Adapt incomingOptions to the format required by modifyMoodleBackup**
-  // Assumptions based on old createBatchAssignments signature and typical UI inputs:
-  // - incomingOptions.mbzFilePath: Path to template MBZ (INPUT)
-  // - incomingOptions.selectedDates: Array of Date objects or ISO strings? Assume ISO strings for robustness.
-  // - incomingOptions.timeHour, incomingOptions.timeMinute: Deadline time components.
-  // - incomingOptions.namePrefix: Assignment name prefix.
-  // - incomingOptions.outputDir: Optional output directory.
-  // - incomingOptions.outputFilename: Optional output filename.
-  // - Potentially missing: sectionTitle, targetStartDate - need defaults or UI additions?
-
-  try {
-    // 1. Prepare options for generateAssignmentDates
-    const submissionTime = `${String(incomingOptions.timeHour || 0).padStart(2, '0')}:${String(incomingOptions.timeMinute || 0).padStart(2, '0')}:00`;
-    const dateGenOpts = {
-        // Assuming selectedDates are ISO strings or YYYY-MM-DD strings
-        // If they are Date objects, need to format them first
-        submissionDates: incomingOptions.selectedDates?.map(d => typeof d === 'string' ? d.split('T')[0] : new Date(d).toISOString().split('T')[0]).join(','),
-        submissionTime: submissionTime,
-        extraTime: incomingOptions.gracePeriodMinutes, // Use grace period from options
-        assignmentNamePrefix: incomingOptions.namePrefix || 'Assignment',
-    };
-    const assignments = generateAssignmentDates(dateGenOpts);
-    if (!assignments || assignments.length === 0) {
-        throw new Error("Failed to generate assignment date data from selected dates.");
+ipcMain.handle('mbz:parseAssignments', async (_event, mbzPath) => {
+    try {
+        const assignments = await parseAssignmentsFromMbz(mbzPath);
+        return { success: true, assignments };
+    } catch (error) {
+        return { success: false, message: error.message || 'Failed to parse MBZ file.' };
     }
+});
 
-    // 2. Prepare options for modifyMoodleBackup
-    const outputDir = incomingOptions.outputDir || path.dirname(incomingOptions.mbzFilePath);
-    
-    // Use the provided filename from the save dialog if available, otherwise generate one
-    let outputFilename;
-    if (incomingOptions.outputFilename) {
-      outputFilename = incomingOptions.outputFilename;
-    } else {
-      outputFilename = `${path.basename(incomingOptions.mbzFilePath, '.mbz')}-modified-${Date.now()}.mbz`;
+ipcMain.handle('mbz:modifyAssignments', async (_event, options) => {
+    try {
+        await modifyMoodleBackup(options);
+        return { success: true, outputPath: options.outputMbzPath, message: 'MBZ file modified successfully.' };
+    } catch (error) {
+        return { success: false, message: error.message || 'An unknown error occurred.' };
     }
-    
-    const finalOutputPath = path.join(outputDir, outputFilename);
+});
 
-    const modifyOptions = {
-        inputMbzPath: incomingOptions.mbzFilePath,
-        outputMbzPath: finalOutputPath,
-        assignments: assignments,
-        sectionTitle: incomingOptions.sectionTitle, // TODO: Ensure this is passed from UI
-        targetStartTimestamp: null, // TODO: Add UI input for target start date?
-    };
-
-    // Optional: Set targetStartTimestamp if provided from UI (example)
-    if (incomingOptions.targetStartDate) { // Assuming targetStartDate is YYYY-MM-DD string
-         modifyOptions.targetStartTimestamp = Math.floor(new Date(`${incomingOptions.targetStartDate}T00:00:00Z`).getTime() / 1000);
+ipcMain.handle('fs-exists', async (_event, filePath) => {
+    try {
+        await fs.promises.access(filePath, fs.constants.F_OK);
+        return true;
+    } catch {
+        return false;
     }
-
-    sendLogToRenderer("Calling modifyMoodleBackup with options:");
-
-    // 3. Call the new function
-    await modifyMoodleBackup(modifyOptions);
-
-    // 4. Return success result
-    sendLogToRenderer(`modifyMoodleBackup completed successfully. Output: ${finalOutputPath}`);
-    return { success: true, outputPath: finalOutputPath, message: "MBZ file created successfully." };
-
-  } catch (error) {
-    sendLogToRenderer('Error during mbz:createBatchAssignments handling:');
-    return { success: false, message: error.message || 'An unknown error occurred.' };
-  }
-});
-// --- End IPC Handler for MBZ Batch Creation --- 
-
-// --- IPC Handlers ---
-
-// Function to safely get the path to the default MBZ template
-function getDefaultMbzTemplatePath() {
-  let templateMbzPath;
-  const templateFilename = 'moodle-4.5-2024100700.mbz'; // Define filename centrally
-  
-  if (app.isPackaged) {
-    // Packaged app: Path relative to resources dir, inside app.asar.unpacked
-    templateMbzPath = path.join(
-      process.resourcesPath,
-      'app.asar.unpacked',
-      'src',
-      'assets',
-      'mbz-templates',
-      templateFilename
-    );
-  } else {
-    // Development: Path relative to the project root (__dirname is src/js)
-    templateMbzPath = path.join(
-      __dirname,       // src/js
-      '..',            // src/
-      'assets',
-      'mbz-templates',
-      templateFilename
-    );
-  }
-  return templateMbzPath;
-}
-
-// Expose the template path getter via IPC
-ipcMain.handle('get-default-mbz-template-path', async () => {
-  return getDefaultMbzTemplatePath();
 });
 
-// Existing IPC handler for fs.exists
-ipcMain.handle('fs-exists', async (event, filePath) => {
-  return fs.promises.access(filePath, fs.constants.F_OK);
-});
-
-ipcMain.handle('get-app-version', () => { // New handler
+ipcMain.handle('get-app-version', () => {
     return app.getVersion();
 });
 
-ipcMain.handle('get-app-homepage', () => { // New handler for homepage
+ipcMain.handle('get-app-homepage', () => {
     try {
         const packageJson = require('../../package.json');
         return packageJson.homepage || 'https://github.com/UBA-PSI/klausur-booklets/';

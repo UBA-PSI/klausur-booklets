@@ -14,7 +14,6 @@ class VerticalCalendar {
     this.options = Object.assign({
       numMonths: 4,              // Number of months to display
       startDate: new Date(),     // Starting month to display
-      selectedDates: [],         // Initially selected dates
       onDateSelect: null,        // Callback when date is selected
       weekStartsOn: 1,           // 0: Sunday, 1: Monday, ..., 6: Saturday
       minDate: null,             // Minimum selectable date (null = no limit)
@@ -23,15 +22,10 @@ class VerticalCalendar {
       scrollable: true,          // Whether the calendar should scroll or fit
     }, options);
 
-    // Store internal state
     this.visibleStartDate = new Date(this.options.startDate);
-    this.visibleStartDate.setDate(1); // Set to first of the month
-    this.selectedDates = [...this.options.selectedDates]; // Keep for initial render check
-
-    // Normalize start date to first day of the month
+    this.visibleStartDate.setDate(1);
     this.visibleStartDate.setHours(0, 0, 0, 0);
-    
-    // Initialize the calendar
+
     this.init();
   }
 
@@ -65,9 +59,6 @@ class VerticalCalendar {
     this.container.innerHTML = '';
     this.container.classList.add('vertical-calendar');
 
-    // Inject necessary styles
-    this.injectStyles();
-    
     // Create header with navigation controls
     const header = document.createElement('div');
     header.classList.add('calendar-header');
@@ -111,103 +102,7 @@ class VerticalCalendar {
     this.container.dispatchEvent(new CustomEvent('calendarRendered'));
   }
 
-  /**
-   * Inject CSS styles for the calendar
-   */
-  injectStyles() {
-    const styleId = 'vertical-calendar-styles';
-    if (document.getElementById(styleId)) return; // Inject only once
-
-    const styles = document.createElement('style');
-    styles.id = styleId;
-    styles.textContent = `
-      .vertical-calendar .calendar-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 5px 10px;
-        border-bottom: 1px solid #eee;
-      }
-      .vertical-calendar .calendar-title {
-        font-weight: bold;
-      }
-      .vertical-calendar .weekday-header {
-        display: flex;
-        justify-content: space-around;
-        background-color: #f8f9fa;
-        border-bottom: 1px solid #eee;
-        padding: 5px 0;
-      }
-      .vertical-calendar .weekday-label {
-        flex: 1;
-        text-align: center;
-        font-size: 0.8em;
-        font-weight: bold;
-        color: #6c757d;
-      }
-      .vertical-calendar .calendar-week {
-        display: flex;
-        justify-content: space-around;
-        border-bottom: 1px solid #f1f1f1;
-      }
-      .vertical-calendar .calendar-day {
-        flex: 1;
-        text-align: center;
-        padding: 8px 0;
-        cursor: pointer;
-        position: relative;
-        border-right: 1px solid #f1f1f1;
-        min-height: 38px; /* Ensure consistent height */
-        display: flex; /* Use flex for centering */
-        justify-content: center; /* Center horizontally */
-        align-items: center; /* Center vertically */
-        font-size: 0.9em;
-      }
-      .vertical-calendar .calendar-day:last-child {
-        border-right: none;
-      }
-      .vertical-calendar .calendar-day.other-month {
-        color: #ccc;
-        cursor: default;
-      }
-      .vertical-calendar .calendar-day.past {
-        color: #aaa;
-        cursor: default;
-        background-color: #f9f9f9;
-      }
-      .vertical-calendar .calendar-day.today {
-        font-weight: bold;
-        background-color: #fffacd; /* Light yellow */
-      }
-      .vertical-calendar .calendar-day.selected {
-        /* Selection styling is now handled by calendar-fix.js */
-      }
-       .vertical-calendar .calendar-day.first-day-of-month {
-        /* Styles for the 1st day of the month */
-        display: flex;
-        flex-direction: column;
-        justify-content: center; /* Vertical center */
-        align-items: center;     /* Horizontal center */
-        line-height: 1;       /* Adjust line height */
-        padding-top: 4px;      
-        padding-bottom: 4px;
-        font-weight: bold; /* Make the day number bold */
-      }
-      .vertical-calendar .calendar-day.first-day-of-month .month-abbr {
-        font-size: 0.6em;      /* Smaller font for month */
-        font-weight: normal; /* Normal weight for abbr */
-        display: block;         /* Ensure it takes its own line */
-        margin-top: 1px;       
-        color: #555; /* Slightly muted color */
-      }
-      .vertical-calendar .calendar-day.even-month { background-color: #ffffff; }
-      .vertical-calendar .calendar-day.odd-month { background-color: #fdfdfd; }
-      .vertical-calendar .calendar-day.even-month.past { background-color: #f9f9f9; }
-      .vertical-calendar .calendar-day.odd-month.past { background-color: #f7f7f7; }
-
-    `;
-    //document.head.appendChild(styles);
-  }
+  // Calendar styles are defined in styles.css
 
   /**
    * Generate the date rows for the visible months
@@ -315,12 +210,6 @@ class VerticalCalendar {
               dayEl.classList.add('past');
           }
 
-          // Check if selected (initial render - calendar-fix will handle dynamic selection)
-          const isSelected = this.selectedDates.some(d => d.toDateString() === date.toDateString());
-          if (isSelected) {
-              // Add a base class, actual styling by calendar-fix.js
-              dayEl.classList.add('selected-base'); 
-          }
       }
       return dayEl;
   }
@@ -343,25 +232,21 @@ class VerticalCalendar {
   }
 
   /**
-   * Move to previous month
+   * Navigate by the given number of months (negative = backward)
    */
-  prevMonth() {
-    this.visibleStartDate.setMonth(this.visibleStartDate.getMonth() - 1);
-    // Create a new date object to trigger a re-render
+  navigateMonths(delta) {
+    this.visibleStartDate.setMonth(this.visibleStartDate.getMonth() + delta);
     this.visibleStartDate = new Date(this.visibleStartDate);
     this.render();
-    this.attachEventListeners(); // Important: reattach listeners after re-rendering
+    this.attachEventListeners();
   }
 
-  /**
-   * Move to next month
-   */
+  prevMonth() {
+    this.navigateMonths(-1);
+  }
+
   nextMonth() {
-    this.visibleStartDate.setMonth(this.visibleStartDate.getMonth() + 1);
-    // Create a new date object to trigger a re-render
-    this.visibleStartDate = new Date(this.visibleStartDate);
-    this.render();
-    this.attachEventListeners(); // Important: reattach listeners after re-rendering
+    this.navigateMonths(1);
   }
 }
 
