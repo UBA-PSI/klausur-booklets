@@ -55,16 +55,16 @@ class VerticalCalendarController {
                 content: attr(data-assignment-index);
                 position: absolute;
                 top: 1px;
-                right: 3px;
-                font-size: 10px;
+                right: 2px;
+                font-size: 9px;
                 color: #0a58ca;
                 font-weight: bold;
                 padding: 0 2px;
                 line-height: 1;
-                min-width: 8px;
                 text-align: center;
                 background-color: rgba(255, 255, 255, 0.6);
                 border-radius: 2px;
+                white-space: nowrap;
             }
 
             .calendar-day.assigned-date.active-assignment::after {
@@ -141,18 +141,29 @@ class VerticalCalendarController {
         const assignments = this.mbzCreator.assignments || [];
         const activeIdx = this.mbzCreator.activeAssignmentIndex;
 
+        // Collect assignment indices per date
+        const dateMap = new Map(); // dateStr -> { indices: number[], hasActive: bool }
         assignments.forEach((a, index) => {
             if (!a.dateStr) return;
-            const dayEl = this.calendar.container.querySelector(`.calendar-day[data-date="${a.dateStr}"]`);
+            let entry = dateMap.get(a.dateStr);
+            if (!entry) {
+                entry = { indices: [], hasActive: false };
+                dateMap.set(a.dateStr, entry);
+            }
+            entry.indices.push(index + 1);
+            if (index === activeIdx) entry.hasActive = true;
+        });
+
+        for (const [dateStr, { indices, hasActive }] of dateMap) {
+            const dayEl = this.calendar.container.querySelector(`.calendar-day[data-date="${dateStr}"]`);
             if (dayEl && !dayEl.classList.contains('other-month') && !dayEl.classList.contains('past')) {
                 dayEl.classList.add('assigned-date');
-                dayEl.dataset.assignmentIndex = index + 1;
-
-                if (index === activeIdx) {
+                dayEl.dataset.assignmentIndex = indices.join(', ');
+                if (hasActive) {
                     dayEl.classList.add('active-assignment');
                 }
             }
-        });
+        }
     }
 
     static initialize(calendar, mbzInstance) {

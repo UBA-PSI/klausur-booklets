@@ -46,6 +46,12 @@ class MbzBatchCreator {
             deadlineTime: this.container.querySelector('#deadlineTime'),
             gracePeriod: this.container.querySelector('#gracePeriod'),
             applyTimeAllBtn: this.container.querySelector('#apply-time-all-btn'),
+            openMode: this.container.querySelector('#openMode'),
+            openDuration: this.container.querySelector('#openDuration'),
+            renamePrefix: this.container.querySelector('#renamePrefix'),
+            renameAllBtn: this.container.querySelector('#rename-all-btn'),
+            previewSection: this.container.querySelector('#preview-section'),
+            previewTbody: this.container.querySelector('#preview-tbody'),
             targetStartDateInput: this.container.querySelector('#mbzTargetStartDate'),
             calendarContainer: this.container.querySelector('#vertical-calendar-container'),
             generateBtn: this.container.querySelector('#generate-btn'),
@@ -95,6 +101,7 @@ class MbzBatchCreator {
         this.elements.selectMbzBtn?.addEventListener('click', () => this.selectAndParseMbz());
         this.elements.generateBtn?.addEventListener('click', () => this.generateModifiedMbz());
         this.elements.applyTimeAllBtn?.addEventListener('click', () => this.applyTimeToAll());
+        this.elements.renameAllBtn?.addEventListener('click', () => this.renameAll());
 
         this.elements.deadlineTime?.addEventListener('blur', () => {
             const timeValue = this.elements.deadlineTime.value;
@@ -106,11 +113,12 @@ class MbzBatchCreator {
             }
         });
 
-        this.container.querySelectorAll('.info-toggle').forEach(toggle => {
-            toggle.addEventListener('click', (event) => {
-                event.stopPropagation();
-            });
-        });
+        // Update preview when settings change
+        const updatePreview = () => this.renderPreview();
+        this.elements.gracePeriod?.addEventListener('change', updatePreview);
+        this.elements.openMode?.addEventListener('change', updatePreview);
+        this.elements.openDuration?.addEventListener('change', updatePreview);
+
     }
 
     async selectAndParseMbz() {
@@ -161,6 +169,7 @@ class MbzBatchCreator {
             this.renderAssignmentList();
             this.showSections();
             this.updateGenerateButtonState();
+            this.renderPreview();
             this.setStatus(`Found ${this.assignments.length} assignment(s). Click a row, then click a calendar date to set its deadline.`, 'success');
 
             // Scroll calendar to the earliest assignment date
@@ -184,7 +193,7 @@ class MbzBatchCreator {
     }
 
     showSections() {
-        const sections = ['assignmentListSection', 'timeSettingsSection', 'advancedSettingsSection', 'generateSection'];
+        const sections = ['assignmentListSection', 'timeSettingsSection', 'previewSection', 'advancedSettingsSection', 'generateSection'];
         for (const key of sections) {
             if (this.elements[key]) this.elements[key].style.display = '';
         }
@@ -282,6 +291,7 @@ class MbzBatchCreator {
                             e.target.value = this.assignments[idx].timeStr;
                         }
                     }
+                    this.renderPreview();
                 });
             });
 
@@ -334,6 +344,7 @@ class MbzBatchCreator {
 
         this.updateCalendarHighlights();
         this.updateGenerateButtonState();
+        this.renderPreview();
     }
 
     applyTimeToAll() {
@@ -351,6 +362,116 @@ class MbzBatchCreator {
         // Update all time inputs
         this.elements.assignmentTbody?.querySelectorAll('input[data-field="timeStr"]').forEach(input => {
             input.value = normalizedTime;
+        });
+
+        this.renderPreview();
+    }
+
+    renameAll() {
+        const prefix = this.elements.renamePrefix?.value?.trim();
+        if (!prefix || this.assignments.length === 0) return;
+
+        this.assignments.forEach((a, i) => {
+            a.name = `${prefix} ${i + 1}`;
+        });
+
+        // Update all name inputs
+        this.elements.assignmentTbody?.querySelectorAll('input[data-field="name"]').forEach(input => {
+            const idx = parseInt(input.dataset.index, 10);
+            input.value = this.assignments[idx].name;
+        });
+
+        this.renderPreview();
+    }
+
+    /**
+     * Compute timestamps for all assignments based on current settings.
+     * Returns array of { moduleId, name, due_ts, cutoff_ts, activation_ts }.
+     * Returns null if not all assignments have dates.
+     */
+    computeTimestamps() {
+        if (this.assignments.length === 0 || !this.assignments.every(a => a.dateStr)) {
+            return null;
+        }
+
+        const gracePeriodMinutes = parseInt(this.elements.gracePeriod?.value || '5', 10);
+        const openMode = this.elements.openMode?.value || 'chain';
+        const openDurationDays = parseInt(this.elements.openDuration?.value || '7', 10);
+
+        // Group assignments by dateStr (preserving first-occurrence order)
+        const dateGroupMap = new Map();
+        for (const a of this.assignments) {
+            let group = dateGroupMap.get(a.dateStr);
+            if (!group) {
+                group = [];
+                dateGroupMap.set(a.dateStr, group);
+            }
+            group.push(a);
+        }
+        const groups = [...dateGroupMap.values()];
+
+        const result = [];
+        let prevGroupCutoff = null;
+
+        for (const group of groups) {
+            const [year, month, day] = group[0].dateStr.split('-').map(Number);
+            const timeParts = group[0].timeStr.split(':').map(Number);
+            const dueDate = new Date(Date.UTC(year, month - 1, day, timeParts[0] || 0, timeParts[1] || 0, timeParts[2] || 0));
+            const due_ts = Math.floor(dueDate.getTime() / 1000);
+            const cutoff_ts = due_ts + gracePeriodMinutes * 60;
+
+            const useChainedOpen = openMode === 'chain' && prevGroupCutoff !== null;
+            const activation_ts = useChainedOpen
+                ? prevGroupCutoff
+                : due_ts - openDurationDays * 86400;
+
+            for (const ga of group) {
+                result.push({
+                    moduleId: ga.moduleId,
+                    name: ga.name,
+                    due_ts,
+                    cutoff_ts,
+                    activation_ts,
+                });
+            }
+
+            prevGroupCutoff = cutoff_ts;
+        }
+
+        return result;
+    }
+
+    renderPreview() {
+        const tbody = this.elements.previewTbody;
+        if (!tbody) return;
+
+        const data = this.computeTimestamps();
+        if (!data) {
+            tbody.replaceChildren();
+            return;
+        }
+
+        const formatTs = (ts) => {
+            const d = new Date(ts * 1000);
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+        };
+
+        const addCell = (row, text) => {
+            const cell = document.createElement('td');
+            cell.textContent = text;
+            row.appendChild(cell);
+        };
+
+        tbody.replaceChildren();
+        data.forEach((a, i) => {
+            const row = document.createElement('tr');
+            addCell(row, i + 1);
+            addCell(row, a.name);
+            addCell(row, formatTs(a.activation_ts));
+            addCell(row, formatTs(a.due_ts));
+            addCell(row, formatTs(a.cutoff_ts));
+            tbody.appendChild(row);
         });
     }
 
@@ -377,37 +498,8 @@ class MbzBatchCreator {
     async generateModifiedMbz() {
         if (!this.mbzPath || this.assignments.length === 0) return;
 
-        const gracePeriodMinutes = parseInt(this.elements.gracePeriod?.value || '5', 10);
-
-        // Build assignment data with timestamps
-        const assignmentData = [];
-        for (let i = 0; i < this.assignments.length; i++) {
-            const a = this.assignments[i];
-            const [year, month, day] = a.dateStr.split('-').map(Number);
-            const timeParts = a.timeStr.split(':').map(Number);
-            const hour = timeParts[0] || 0;
-            const minute = timeParts[1] || 0;
-            const second = timeParts[2] || 0;
-
-            const dueDate = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
-            const due_ts = Math.floor(dueDate.getTime() / 1000);
-            const cutoff_ts = due_ts + gracePeriodMinutes * 60;
-
-            let activation_ts;
-            if (i === 0) {
-                activation_ts = Math.floor(Date.now() / 1000);
-            } else {
-                activation_ts = assignmentData[i - 1].cutoff_ts;
-            }
-
-            assignmentData.push({
-                moduleId: a.moduleId,
-                name: a.name,
-                due_ts,
-                cutoff_ts,
-                activation_ts,
-            });
-        }
+        const assignmentData = this.computeTimestamps();
+        if (!assignmentData) return;
 
         // Generate suggested filename
         const pad = (n) => String(n).padStart(2, '0');

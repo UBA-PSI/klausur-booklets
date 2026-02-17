@@ -33,6 +33,11 @@
           </div>
         </div>
 
+        <div class="d-flex align-items-center mb-3 gap-2">
+          <input type="text" class="form-control form-control-sm" id="renamePrefix" placeholder="Name prefix, e.g. Seite" style="max-width: 200px;">
+          <button id="rename-all-btn" class="btn btn-outline-secondary btn-sm text-nowrap">Rename All</button>
+        </div>
+
         <div class="table-responsive">
           <table class="table table-sm mb-0 assignment-table">
             <thead class="table-light">
@@ -62,15 +67,63 @@
             <button id="apply-time-all-btn" class="btn btn-outline-secondary btn-sm w-100">Apply to All</button>
           </div>
         </div>
-        <div class="row align-items-center">
+        <div class="row mb-3 align-items-center">
           <label for="gracePeriod" class="col-sm-4 col-form-label">Grace Period</label>
           <div class="col-sm-5 d-flex align-items-center">
             <input type="number" class="form-control" id="gracePeriod" value="5" min="0" style="width: 80px;">
             <span class="ms-2">minutes</span>
           </div>
         </div>
-        <div class="form-text mt-2">
-          Grace period extends the cutoff time after the displayed deadline.
+
+        <hr class="my-3">
+
+        <div class="row mb-3 align-items-center">
+          <label class="col-sm-4 col-form-label">Open Mode</label>
+          <div class="col-sm-8">
+            <select class="form-select form-select-sm" id="openMode">
+              <option value="chain" selected>Chain (opens when previous closes)</option>
+              <option value="fixed">Fixed duration before deadline</option>
+            </select>
+          </div>
+        </div>
+        <div class="row align-items-center">
+          <label for="openDuration" class="col-sm-4 col-form-label">Open Duration</label>
+          <div class="col-sm-5 d-flex align-items-center">
+            <input type="number" class="form-control" id="openDuration" value="7" min="1" style="width: 80px;">
+            <span class="ms-2">days</span>
+          </div>
+        </div>
+        <div class="form-text mt-2" id="openModeHelp">
+          <strong>Chain:</strong> Each group opens when the previous group's cutoff passes. First group opens this many days before its deadline.<br>
+          <strong>Fixed:</strong> Every group opens this many days before its own deadline.
+        </div>
+      </div>
+    </div>
+
+    <!-- Timestamp Preview (collapsed) -->
+    <div id="preview-section" class="card shadow-sm mb-3" style="display: none;">
+      <div class="card-header bg-light" data-bs-toggle="collapse" href="#previewBody" role="button" aria-expanded="false">
+        <div class="d-flex justify-content-between align-items-center">
+          <h5 class="card-title mb-0 fw-bold">Timestamp Preview</h5>
+          <i class="bi bi-chevron-down"></i>
+        </div>
+      </div>
+      <div class="collapse" id="previewBody">
+        <div class="card-body p-3">
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered mb-0 small">
+              <thead class="table-light">
+                <tr>
+                  <th>#</th>
+                  <th>Name</th>
+                  <th>Opens</th>
+                  <th>Closes</th>
+                  <th>Cutoff</th>
+                </tr>
+              </thead>
+              <tbody id="preview-tbody"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -108,7 +161,7 @@
       </div>
     </div>
 
-    <div style="height: 60px;">&nbsp;</div>
+    <div style="height: 60px;"></div>
   </div>
 
   <!-- Right Column: Vertical Calendar -->
