@@ -19,15 +19,6 @@ class MbzBatchCreator {
         this.elements = {};
         this.calendar = null;
         this.controller = null;
-
-        this.init();
-    }
-
-    init() {
-        // buildUI is async; callers must await it then call findElements/attachEventListeners.
-        // The constructor triggers it, but the initialization sequence in index.html
-        // properly awaits buildUI and re-initializes sub-components afterward.
-        this.buildUI();
     }
 
     async buildUI() {
