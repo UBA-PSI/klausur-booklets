@@ -1,6 +1,6 @@
-# Python MBZ Creator Script
+# Python MBZ Modifier Script
 
-The script `modify_moodle_backup.py` takes a Moodle backup, such as `src/mbz-templates/moodle-4.5-2024100700.mbz` and creates a *new* Moodle backup file (`.mbz`) containing all the individual page assignments tailored to your schedule and naming preferences.
+The script `modify_moodle_backup.py` takes an existing Moodle backup (`.mbz`) containing assignment activities and modifies the assignment names, deadlines, and timing to match your schedule and naming preferences. The result is a modified `.mbz` file ready for import into Moodle.
 
 *   **Open Terminal / Command Prompt:**
     *   **Windows:** Search for `cmd` or `PowerShell`.
@@ -16,12 +16,12 @@ The script `modify_moodle_backup.py` takes a Moodle backup, such as `src/mbz-tem
     python3 modify_moodle_backup.py moodle-4.5-2024100700.mbz -o <output_file.mbz> --section-title "Your Exact Section Name in Moodle" --target-start-date YYYY-MM-DD [Date Options] [Other Options]
     ```
 
-    The script allows you to create multiple assignments in a batch. You can still edit the details and deadlines in Moodle later, but this involves a lot of clicking and can be errorprone.
+    The script allows you to modify all assignments in a batch. You can still edit the details and deadlines in Moodle later, but this involves a lot of clicking and can be error-prone.
 
     **Key Parameters Explained:**
 
-    *   `moodle-4.5-2024100700.mbz`: The input template file (you may have to change this).
-    *   `-o <output_file.mbz>`: **Required.** Specifies the name of the *new* Moodle backup file to be created (e.g., `-o Fall2024_BookletAssignments.mbz`).
+    *   `moodle-4.5-2024100700.mbz`: The input `.mbz` file containing template assignments (exported from Moodle or from a previous semester).
+    *   `-o <output_file.mbz>`: **Required.** Specifies the name of the modified Moodle backup file to save (e.g., `-o Fall2024_BookletAssignments.mbz`).
     *   `--section-title "Your Exact Section Name"`: **Required.** Provide the *exact* title of the Moodle section you created in Step 3.1. Use quotes if the name has spaces. This tells Moodle where to put the assignments during import.
     *   `--target-start-date YYYY-MM-DD`: **Required.** This must match the start date of your **target Moodle course** where you'll import the assignments. This ensures that assignment due dates will be correctly preserved during import. The date format must be `YYYY-MM-DD` (e.g., `2024-09-01`).
     *   `--assignment-name-prefix "Prefix"`: (Optional, Default: `"Page"`). Sets the base name for assignments. The script adds a space and number (e.g., `"Page 1"`, `"Page 2"`). You could use `--assignment-name-prefix "Booklet Submission"` to get "Booklet Submission 1", etc. These names will be used for the assignments in Moodle.
