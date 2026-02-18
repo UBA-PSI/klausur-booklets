@@ -4,7 +4,7 @@
 [![downloads](https://img.shields.io/github/downloads/UBA-PSI/klausur-booklets/total)](https://github.com/UBA-PSI/klausur-booklets/releases)
 
 **Create personalized exam booklets from students' handwritten note pages in minutes.**
-Download the latest version for [**Windows**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.5.0/Booklet.Tool.1.5.0.exe) · [**macOS**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.5.0/Booklet.Tool-1.5.0.dmg) · [**Linux**](https://github.com/UBA-PSI/klausur-booklets/releases/tag/v1.5.0) and get started right away. [**Download test data**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.5.0/booklet-tool-testdata.zip) to try out the tool's features.
+Download the latest version for [**Windows**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.6.0/Booklet.Tool.1.6.0.exe) · [**macOS**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.6.0/Booklet.Tool-1.6.0.dmg) · [**Linux**](https://github.com/UBA-PSI/klausur-booklets/releases/tag/v1.6.0) and get started right away. [**Download test data**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.6.0/booklet-tool-testdata.zip) to try out the tool's features.
 
 The Booklet Tool is an Electron application (Windows, macOS, Linux) developed at the [Chair of Privacy and Security in Information Systems](https://psi.uni-bamberg.de/), University of Bamberg, within [Projekt DiKuLe](https://www.uni-bamberg.de/dikule/). The Booklet Tool helps instructors create personalized exam aids ("Klausur-Booklets") from student submissions.
 
@@ -396,7 +396,7 @@ This section documents the complete process for creating and publishing a new re
 
 Update README.md download links to point to the new version:
 ```markdown
-Download the latest version for [**Windows**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.5.0/Booklet.Tool.1.5.0.exe) · [**macOS**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.5.0/Booklet.Tool-1.5.0.dmg) · [**Linux**](https://github.com/UBA-PSI/klausur-booklets/releases/tag/v1.5.0)
+Download the latest version for [**Windows**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.6.0/Booklet.Tool.1.6.0.exe) · [**macOS**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.6.0/Booklet.Tool-1.6.0.dmg) · [**Linux**](https://github.com/UBA-PSI/klausur-booklets/releases/tag/v1.6.0)
 ```
 
 #### Troubleshooting
