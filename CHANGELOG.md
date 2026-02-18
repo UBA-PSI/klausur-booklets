@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.6.0] - 2026-02-18
+
+- [NEW] **MBZ Modifier (replaces MBZ Creator)**: Rebuilt as a modifier that takes an existing Moodle backup and lets you adjust all assignments at once, instead of generating a new backup from scratch. Load any `.mbz` file, and the tool discovers all assignment activities inside it.
+- [NEW] **Timestamp grouping**: Assignments on the same date are grouped automatically. The preview table shows all computed open/due/cutoff timestamps before saving.
+- [NEW] **Open modes (Chain / Fixed)**: Choose whether each assignment opens when the previous one closes (Chain) or a fixed number of days before its own deadline (Fixed).
+- [NEW] **Rename All**: Enter a prefix (e.g., "Page") and apply sequential names ("Page 1", "Page 2", ...) to all assignments in one click.
+- [NEW] **Timestamp preview table**: Expandable section showing all computed activation, due, and cutoff timestamps before saving.
+- [FIXED] **UTC timezone bug**: Times entered in the MBZ Modifier were interpreted as UTC, causing deadlines to appear shifted (e.g., 1 hour later in CET) after import into Moodle. All date handling now uses local time consistently.
+- [IMPROVED] Extracted shared helpers, removed redundant button-disable logic, simplified code (~240 lines removed).
+- [IMPROVED] Comprehensive test coverage for timestamp computation and MBZ roundtrip (parse, modify, re-parse).
+- [IMPROVED] Documentation rewritten to match the new MBZ Modifier workflow. CLI tools (`bin/modify-mbz-js`, `python-cli/`) deprecated in favor of the GUI.
+
 ## [1.5.0] - 2026-02-16
 
 - [SECURITY] **Electron upgrade 35 to 39**: Fixes critical CVEs (CVE-2025-10585, CVE-2025-55305, CVE-2026-0628) and adds macOS Tahoe compatibility. Removed deprecated `@electron/remote` dependency.
