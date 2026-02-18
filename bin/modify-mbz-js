@@ -1,5 +1,12 @@
 #!/usr/bin/env node
 
+// DEPRECATED: This CLI tool is no longer maintained. Use the MBZ Modifier
+// in the Booklet Tool GUI instead. The generateAssignmentDates import below
+// no longer exists in dateUtils.js, so this script will not work.
+console.error('Warning: This CLI tool is deprecated and no longer functional.');
+console.error('Use the MBZ Modifier in the Booklet Tool GUI instead.');
+process.exit(1);
+
 const yargs = require('yargs/yargs');
 const { hideBin } = require('yargs/helpers');
 const path = require('path');

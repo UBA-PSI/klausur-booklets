@@ -25,11 +25,10 @@ This tool facilitates the [Klausur-Booklet](https://psi.uni-bamberg.de/en/lehre/
 ## Quick Start for Instructors
 
 1. **Download** the latest release for your platform from the [Releases page](https://github.com/UBA-PSI/klausur-booklets/releases/latest) and unzip it.
-2. **Create** assignment activities in Moodle, export the section as a backup (`.mbz`), and download it.
-3. **Launch** *Booklet Tool*, click **Go to MBZ Modifier** (top right corner), load the `.mbz` file, and configure assignment names and deadlines.
-4. **Restore** the modified `.mbz` file in Moodle and tell students to upload their weekly pages.
-5. **After the last deadline** or at any time during the semester, download all submissions, unzip them into a single folder, select that folder in the Booklet Tool, and create booklets in three steps: **Convert to PDFs**, **Merge PDFs**, and **Create Booklets**.
-6. **Print** the generated A5 PDFs double‑sided and hand them out in the exam.
+2. **Set up assignments** in your LMS (Moodle or ILIAS) for students to submit their pages.
+3. **Moodle only:** Export the assignment section as a backup (`.mbz`), load it into the *Booklet Tool*'s **MBZ Modifier** (top right corner), configure names and deadlines, and restore the modified `.mbz` back into Moodle.
+4. **After the last deadline** or at any time during the semester, download all submissions, unzip them into a single folder, select that folder in the Booklet Tool, and create booklets in three steps: **Convert to PDFs**, **Merge PDFs**, and **Create Booklets**.
+5. **Print** the generated A5 PDFs double-sided and hand them out in the exam.
 
 _That's it  – no command line required._
 
@@ -185,7 +184,7 @@ While these measures help safeguard student data, instructors should still:
 |-----------|-----------------|------------|
 | Windows, macOS, or Linux | 64‑bit | Running the pre‑built desktop app |
 | Node.js | 18 LTS | For developers who want to build the application from source |
-| Python | 3.7 | Optional CLI for MBZ modification |
+| Python | 3.7 | Deprecated CLI for MBZ modification (use the GUI instead) |
 
 
 ### Notes for Linux (particularly Ubuntu 24.04)
@@ -433,19 +432,11 @@ git push origin v1.0.2
 
 PDF processing settings (like DPI) can be adjusted via the Settings button within the application.
 
-### Standalone Python MBZ Modifier (Optional)
+### Standalone Python MBZ Modifier (Deprecated)
 
-This repository also contains a standalone Python script for modifying Moodle Backup (MBZ) files, located in the `python-cli/` directory. This script provides similar functionality to the MBZ Modifier within the Electron app but runs directly from the command line.
+> **Note:** This CLI tool is deprecated. Use the MBZ Modifier in the Booklet Tool GUI instead, which provides a more complete feature set (timestamp preview, open modes, rename-all).
 
-- **Script:** `python-cli/modify_moodle_backup.py`
-- **Test:** `python-cli/test_modify_moodle.py`
-
-This Python tool is independent of the Electron application and does not require Node.js or the Electron environment. It uses only standard Python libraries and does not have external dependencies (no `requirements.txt` needed).
-
-To use it, run directly with Python 3.7+:
-```bash
-python3 python-cli/modify_moodle_backup.py --help
-```
+The `python-cli/` directory contains a standalone Python script (`modify_moodle_backup.py`) for modifying Moodle Backup (`.mbz`) files from the command line. It uses only standard Python libraries (Python 3.7+, no external dependencies).
 
 ## Changelog
 

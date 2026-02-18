@@ -1,4 +1,6 @@
-# Python MBZ Modifier Script
+# Python MBZ Modifier Script (Deprecated)
+
+> **Note:** This CLI tool is deprecated. Use the MBZ Modifier in the Booklet Tool GUI instead, which provides a more complete feature set (timestamp preview, open modes, rename-all).
 
 The script `modify_moodle_backup.py` takes an existing Moodle backup (`.mbz`) containing assignment activities and modifies the assignment names, deadlines, and timing to match your schedule and naming preferences. The result is a modified `.mbz` file ready for import into Moodle.
 
