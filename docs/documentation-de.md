@@ -60,7 +60,7 @@ Sie können die Aufgabenaktivitäten manuell in Moodle erstellen:
    * Fügen Sie Ihrem Booklet-Abschnitt eine neue Aufgabenaktivität hinzu
    * Konfigurieren Sie sie mit diesen empfohlenen Einstellungen:
      * Akzeptierte Dateitypen auf: `jpg,jpeg,png,pdf` setzen
-     * Abgaben auf 1 Datei beschränken
+     * **Abgaben auf 1 Datei beschränken** (jede Aufgabe sammelt genau eine Seite)
      * Maximale Dateigröße festlegen (z.B. 20 MB)
      * Angemessene Zeitpunkte für Fälligkeitsdatum, Letzte Abgabemöglichkeit und Abgabebeginn festlegen
      * **Wichtig:** "Offline-Bewertungstabelle" und "Feedbackdateien" im Abschnitt Feedback-Typen aktivieren
@@ -75,7 +75,7 @@ Sie können die Aufgabenaktivitäten manuell in Moodle erstellen:
      * Die Fälligkeitsdaten entsprechend anpassen
      * Änderungen speichern
 
-Obwohl dieser Ansatz funktioniert, erfordert er viele Klicks und kann zeitaufwändig und fehleranfällig sein, besonders bei der Anpassung mehrerer Fristen.
+Dieser Ansatz funktioniert, erfordert aber viele Klicks und kann fehleranfällig sein, besonders bei der Anpassung mehrerer Fristen. Der automatisierte Ansatz unten vermeidet das.
 
 #### Automatisierter Ansatz (Empfohlen)
 
@@ -91,19 +91,16 @@ Die folgende Anleitung beschreibt den Prozess mit dem MBZ Modifier des *Booklet 
 
 * Sie müssen die Berechtigung haben, Kurs-Backups in Ihrem Kurs wiederherzustellen
 * Sie benötigen eine Moodle-Backup-Datei (`.mbz`) mit Vorlagen-Aufgaben — entweder aus einem früheren Semester oder manuell erstellt (siehe Schritt 3.2)
-* Sie müssen einen dedizierten Abschnitt in Ihrem Kurs mit einem bestimmten Titel erstellen (Schritt 3.1)
 * Beim Import in einen anderen Kurs müssen Sie das Startdatum des Zielkurses kennen
 
-Die folgenden Schritte führen Sie durch diesen empfohlenen automatisierten Ansatz.
+Wir empfehlen, den Workflow zunächst in einem Testkurs auszuprobieren. In der Praxis funktioniert er aber zuverlässig.
 
 ### Schritt 3.1: Erste Moodle-Kurs-Einrichtung (Einmal pro Kurs)
 
 * Gehen Sie zu Ihrer Moodle-Kursseite.
 * Schalten Sie die Bearbeitung ein.
-* Fügen Sie einen neuen **Kursabschnitt** hinzu.
-* Geben Sie diesem Abschnitt einen klaren, beschreibenden Namen (z.B. "Klausur-Booklet", "Portfolio-Abgaben", "Laborberichte").
-* **WICHTIG:** Notieren Sie sich den **exakten Namen** dieses Abschnitts. Sie benötigen ihn genau für das Tool im nächsten Schritt.
-* **WICHTIG:** Beachten Sie das **Kursstartdatum** in Ihren Moodle-Kurseinstellungen. Sie benötigen dieses exakte Datum für das Booklet Tool im nächsten Schritt. Damit die automatisch erzeugten Aufgaben mit den richtigen Fristen angezeigt werden, stellen Sie sicher, dass Ihr Moodle-Kursstartdatum auf **00:00 (Mitternacht)** des ausgewählten Tages gesetzt ist. Wenn Ihr Kurs eine andere Startzeit verwendet, werden die Aufgabenfristen möglicherweise nicht korrekt ausgerichtet.
+* Fügen Sie einen neuen **Kursabschnitt** hinzu und geben Sie ihm einen beschreibenden Namen (z.B. "Klausur-Booklet", "Portfolio-Abgaben", "Laborberichte"). Beim automatisierten Ansatz ist der exakte Name nicht relevant — der MBZ-Import erstellt oder überschreibt den Abschnittsnamen aus dem Backup.
+* **WICHTIG:** Beachten Sie das **Kursstartdatum** in Ihren Moodle-Kurseinstellungen. Sie benötigen dieses exakte Datum für das Booklet Tool im nächsten Schritt. Damit die Aufgaben mit den richtigen Fristen angezeigt werden, stellen Sie sicher, dass Ihr Moodle-Kursstartdatum auf **00:00 (Mitternacht)** des ausgewählten Tages gesetzt ist. Wenn Ihr Kurs eine andere Startzeit verwendet, werden die Aufgabenfristen möglicherweise nicht korrekt ausgerichtet.
 
 ### Schritt 3.2: Aufgaben mit dem Booklet Tool vorbereiten und anpassen
 
@@ -112,7 +109,16 @@ Die folgenden Schritte führen Sie durch diesen empfohlenen automatisierten Ansa
 Sie benötigen eine Moodle-Backup-Datei (`.mbz`), die bereits Aufgabenaktivitäten enthält. Zwei Möglichkeiten:
 
 * **Aus einem früheren Semester:** Wenn Sie bereits Booklet-Aufgaben verwendet haben, exportieren Sie den relevanten Kursabschnitt als Backup aus Moodle (Kursverwaltung → Sicherung → nur den Booklet-Abschnitt auswählen).
-* **Ersteinrichtung:** Erstellen Sie die gewünschte Anzahl von Aufgabenaktivitäten manuell in Moodle (siehe den manuellen Ansatz oben für empfohlene Einstellungen). Exportieren Sie den Abschnitt anschließend als Moodle-Backup (`.mbz`). Dies müssen Sie nur einmal tun — Sie können diese Vorlage jedes Semester wiederverwenden und anpassen.
+* **Ersteinrichtung:**
+  1. Erstellen Sie eine Aufgabenaktivität in Moodle und konfigurieren Sie sie mit den richtigen Einstellungen:
+     * Akzeptierte Dateitypen auf: `jpg,jpeg,png,pdf` setzen
+     * **Abgaben auf 1 Datei beschränken** (jede Aufgabe sammelt genau eine Seite)
+     * Maximale Dateigröße festlegen (z.B. 20 MB)
+     * "Offline-Bewertungstabelle" und "Feedbackdateien" im Abschnitt Feedback-Typen aktivieren
+  2. Duplizieren Sie diese Aufgabe so oft wie nötig (z.B. 14 Mal für ein 14-wöchiges Semester). Moodle hängt an jedes Duplikat "(Kopie)" an — das ist in Ordnung, da der MBZ Modifier alle Aufgaben in einem Schritt umbenennt.
+  3. Exportieren Sie nur den Booklet-Abschnitt als Moodle-Backup (`.mbz`). Sie müssen die Duplikate nicht umbenennen oder Fristen setzen — das erledigt der MBZ Modifier.
+
+  Dies müssen Sie nur einmal tun. Sie können diese Vorlage-`.mbz`-Datei jedes Semester wiederverwenden und anpassen.
 
 #### Den MBZ Modifier verwenden
 
@@ -265,7 +271,7 @@ ILIAS bietet zwei Download-Formate:
 
 * **Das Tool modifiziert Dateien, ändert Moodle nicht direkt:** Das Booklet Tool *modifiziert* nur eine `.mbz`-Datei. Sie *müssen* immer die Moodle-Funktion "Wiederherstellen" (Schritt 3.3) verwenden, um die Aufgaben in Ihren Kurs zu bekommen.
 * **Verwenden Sie die RICHTIGE `.mbz` Datei:** Importieren Sie nur die vom MBZ Modifier *gespeicherte* Datei (z.B. `WI24_Booklets-modified.mbz`) in Moodle.
-* **Abschnittstitel:** Der Abschnittstitel in der `.mbz`-Datei wird aus dem Original-Backup übernommen. Stellen Sie sicher, dass er mit dem in Schritt 3.1 erstellten Moodle-Abschnittsnamen übereinstimmt.
+* **Abschnittstitel:** Der Abschnittstitel in der `.mbz`-Datei wird aus dem Original-Backup übernommen. Beim Import erstellt Moodle einen neuen Abschnitt mit diesem Namen oder fügt die Aufgaben in einen bestehenden gleichnamigen Abschnitt ein.
 * **Zielstartdatum:** Beim Import in einen anderen Kurs setzen Sie das Kursstartdatum in den erweiterten Einstellungen des MBZ Modifiers auf das Startdatum des Zielkurses. Wenn die Daten nicht übereinstimmen, verschiebt Moodle beim Import alle Aufgabenfristen.
 * **Moodle-Backups:** Erwägen Sie, ein Standard-Moodle-Backup Ihres Kurses *vor* der Wiederherstellung der Aufgaben zu erstellen – als Sicherheitsmaßnahme, falls der Import nicht wie gewünscht funktionieren sollte.
 * **Offline-Feedback und identische Namen:** Stellen Sie sicher, dass Ihre Vorlage-Aufgaben so konfiguriert sind, dass sie das Herunterladen von Bewertungstabellen (CSV-Dateien) ermöglichen. Diese Dateien werden für die Booklet-Generierung benötigt, wenn es Studierende mit identischem Namen gibt (siehe Abschnitt 5).
