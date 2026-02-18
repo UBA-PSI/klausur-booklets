@@ -129,7 +129,7 @@ Sie benötigen eine Moodle-Backup-Datei (`.mbz`), die bereits Aufgabenaktivität
 
 ### Schritt 3.3: Aufgaben in Moodle importieren
 
-Laden Sie die vom Tool generierte `.mbz`-Datei in Ihren Moodle-Kurs hoch.
+Laden Sie die vom MBZ Modifier gespeicherte `.mbz`-Datei in Ihren Moodle-Kurs hoch.
 
 * Gehen Sie in Ihrem Moodle-Kurs zu "Kursverwaltung" (oft ein Zahnradsymbol ⚙️) > "Wiederherstellen".
   * Stellen Sie sicher, dass Sie auf der Hauptseite des Kurses sind, also nicht gerade eine Aktivität bearbeiten.
@@ -137,7 +137,7 @@ Laden Sie die vom Tool generierte `.mbz`-Datei in Ihren Moodle-Kurs hoch.
 * Laden Sie die in Schritt 3.2 erstellte `.mbz`-Backup-Datei hoch (z.B. `WI24_Booklets.mbz`), indem sie sie in das Feld Sicherhungsdatei ziehen.
 * Folgen Sie den Moodle-Wiederherstellungsaufforderungen sorgfältig:
   * **Ziel:** Wählen Sie "In diesen Kurs wiederherstellen".
-  * **Importtyp:** Wählen Sie **"Den gesicherten Kurs mit einem bestehenden Kurs verschmelzen"**. Dies ist entscheidend, um die Aufgaben hinzuzufügen, ohne bestehende Inhalte zu löschen.
+  * **Importtyp:** Wählen Sie **"Den gesicherten Kurs mit einem bestehenden Kurs verschmelzen"**. Wenn Sie stattdessen "Inhalte löschen und dann wiederherstellen" wählen, entfernt Moodle alle bestehenden Kursinhalte.
   * **Einstellungen:** Stellen Sie sicher, dass "Aktivitäten und Materialien einbeziehen" aktiviert ist (normalerweise ist es das von vornherein, sodass nichts zu tun ist). Überprüfen Sie andere Einstellungen nach Bedarf (in der Regel sind keine weiteren Änderungen erforderlich, folgen Sie dem Workflow bis zum Start der Wiederherstellung).
   * **Vorschau:** Sie sehen die Aufgaben, die dem Kurs hinzugefügt werden sollen, und den Namen des Abschnitts, den Sie dem Tool angegeben haben.
   * Fahren Sie mit der Bestätigung fort und führen Sie die Wiederherstellung durch.
@@ -266,7 +266,7 @@ ILIAS bietet zwei Download-Formate:
 * **Das Tool modifiziert Dateien, ändert Moodle nicht direkt:** Das Booklet Tool *modifiziert* nur eine `.mbz`-Datei. Sie *müssen* immer die Moodle-Funktion "Wiederherstellen" (Schritt 3.3) verwenden, um die Aufgaben in Ihren Kurs zu bekommen.
 * **Verwenden Sie die RICHTIGE `.mbz` Datei:** Importieren Sie nur die vom MBZ Modifier *gespeicherte* Datei (z.B. `WI24_Booklets-modified.mbz`) in Moodle.
 * **Abschnittstitel:** Der Abschnittstitel in der `.mbz`-Datei wird aus dem Original-Backup übernommen. Stellen Sie sicher, dass er mit dem in Schritt 3.1 erstellten Moodle-Abschnittsnamen übereinstimmt.
-* **Zielstartdatum:** Beim Import in einen anderen Kurs setzen Sie das Kursstartdatum in den erweiterten Einstellungen des MBZ Modifiers auf das Startdatum des Zielkurses. Dies ist entscheidend dafür, dass die Aufgabenfristen beim Import korrekt erhalten bleiben.
+* **Zielstartdatum:** Beim Import in einen anderen Kurs setzen Sie das Kursstartdatum in den erweiterten Einstellungen des MBZ Modifiers auf das Startdatum des Zielkurses. Wenn die Daten nicht übereinstimmen, verschiebt Moodle beim Import alle Aufgabenfristen.
 * **Moodle-Backups:** Erwägen Sie, ein Standard-Moodle-Backup Ihres Kurses *vor* der Wiederherstellung der Aufgaben zu erstellen – als Sicherheitsmaßnahme, falls der Import nicht wie gewünscht funktionieren sollte.
 * **Offline-Feedback und identische Namen:** Stellen Sie sicher, dass Ihre Vorlage-Aufgaben so konfiguriert sind, dass sie das Herunterladen von Bewertungstabellen (CSV-Dateien) ermöglichen. Diese Dateien werden für die Booklet-Generierung benötigt, wenn es Studierende mit identischem Namen gibt (siehe Abschnitt 5).
 
@@ -274,7 +274,7 @@ ILIAS bietet zwei Download-Formate:
 
 ## 5. Umgang mit identischen Studierendennamen
 
-Eine Komplikation sind mehrere Studierende in Ihrem Moodle-Kurs mit exakt gleichem vollständigen Namen. Die Standardordnernamen, die beim Herunterladen von Abgaben erstellt werden (z.B. `Anna Schmidt_11112_assignsubmission_file_`), enthalten den Namen des Studierenden und eine Nummer. **Entscheidend ist, dass diese Nummer die spezifische *Abgabe* identifiziert, nicht den Studierenden.** Der gleiche Studierende wird über verschiedene Aufgaben hinweg *unterschiedliche* Abgabe-ID-Nummern haben.
+Eine Komplikation sind mehrere Studierende in Ihrem Moodle-Kurs mit exakt gleichem vollständigen Namen. Die Standardordnernamen, die beim Herunterladen von Abgaben erstellt werden (z.B. `Anna Schmidt_11112_assignsubmission_file_`), enthalten den Namen des Studierenden und eine Nummer. **Diese Nummer identifiziert die spezifische *Abgabe*, nicht den Studierenden.** Der gleiche Studierende wird über verschiedene Aufgaben hinweg *unterschiedliche* Abgabe-ID-Nummern haben.
 
 Daher ist es unzureichend, sich ausschließlich auf den Ordnernamen zu verlassen, um zwischen zwei Studierenden namens "Anna Schmidt" zu unterscheiden. Um dies zu lösen, verwendet das **Booklet Tool** Moodles **Bewertungstabellen**.
 
@@ -285,4 +285,4 @@ Daher ist es unzureichend, sich ausschließlich auf den Ordnernamen zu verlassen
 
 ## Schlussbemerkung
 
-Diese Anleitung beschreibt den allgemeinen Workflow für die Verwendung des Moodle-Booklet-Systems. Denken Sie daran, alle kursspezifischen Details (wie Prüfungsregeln bezüglich des Booklets) anzupassen und sich für den spezifischen Betrieb auf die eigene Dokumentation des Booklet Tools zu beziehen.
+Passen Sie kursspezifische Details (wie Prüfungsregeln bezüglich des Booklets) nach Bedarf an. Für Details zu bestimmten Funktionen nutzen Sie die eingebaute Hilfe des *Booklet Tools*.

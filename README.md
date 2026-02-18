@@ -25,10 +25,11 @@ This tool facilitates the [Klausur-Booklet](https://psi.uni-bamberg.de/en/lehre/
 ## Quick Start for Instructors
 
 1. **Download** the latest release for your platform from the [Releases page](https://github.com/UBA-PSI/klausur-booklets/releases/latest) and unzip it.
-2. **Launch** *Booklet Tool* and click **Go to Moodle Assignment Creation** to create the `.mbz` file for your course.
-3. **Restore** the obtained `.mbz` file in Moodle and tell students to upload their weekly pages.
-4. **After the last deadline** or at any time during the semester, download all submissions, unzip them into a single folder, select that folder in the Booklet Tool, and create booklets in three steps: **Convert to PDFs**, **Merge PDFs**, and **Create Booklets**.
-5. **Print** the generated A5 PDFs double‑sided and hand them out in the exam.
+2. **Create** assignment activities in Moodle, export the section as a backup (`.mbz`), and download it.
+3. **Launch** *Booklet Tool*, click **Go to MBZ Modifier** (top right corner), load the `.mbz` file, and configure assignment names and deadlines.
+4. **Restore** the modified `.mbz` file in Moodle and tell students to upload their weekly pages.
+5. **After the last deadline** or at any time during the semester, download all submissions, unzip them into a single folder, select that folder in the Booklet Tool, and create booklets in three steps: **Convert to PDFs**, **Merge PDFs**, and **Create Booklets**.
+6. **Print** the generated A5 PDFs double‑sided and hand them out in the exam.
 
 _That's it  – no command line required._
 
@@ -57,7 +58,7 @@ If you process student submissions that include scanned documents, annotated PDF
 
 **First Stage:** Set up Moodle for collection of booklet pages.
 
-- Use the Booklet Tool to generate a Moodle Backup (MBZ) file with multiple assignment activities to collect individual pages at certain deadlines.
+- The Booklet Tool includes an **MBZ Modifier** (accessible via the button in the top right corner of the main window) that lets you load a Moodle Backup (`.mbz`) file and configure all assignment deadlines and names at once.
 
 **Second Stage:** Create booklets.
 
@@ -73,11 +74,11 @@ If you process student submissions that include scanned documents, annotated PDF
 
 <table>
   <tr>
-    <td><img src="docs/moodle-assignment-creator.png" width="340" alt="Moodle assignment creator dialog"></td>
+    <td><img src="docs/moodle-assignment-creator.png" width="340" alt="MBZ Modifier dialog"></td>
     <td><img src="docs/settings-editor.png"            width="340" alt="Settings editor"></td>
   </tr>
   <tr>
-    <td align="center"><sub>Moodle Assignment Creator</sub></td>
+    <td align="center"><sub>MBZ Modifier</sub></td>
     <td align="center"><sub>Settings Editor</sub></td>
   </tr>
   <tr>
@@ -108,10 +109,8 @@ If you process student submissions that include scanned documents, annotated PDF
 
 Student notes are sensitive personal data and should not be uploaded to third-party services. The Booklet Tool has been designed with data protection considerations in mind:
 
-- All processing occurs locally on the instructor's machine
+- All processing occurs locally on the instructor's machine -- the application makes no network requests
 - No data is shared with third parties
-- The application makes no network requests
-- All functionality runs entirely locally
 
 While these measures help safeguard student data, instructors should still:
 - Check with their local data protection officers regarding the legal basis for processing
@@ -143,25 +142,17 @@ While these measures help safeguard student data, instructors should still:
 </details>
 
 <details>
-  <summary>Moodle-Specific Feature: MBZ Creation</summary>
+  <summary>Moodle-Specific Feature: MBZ Modifier</summary>
 
-  - **MBZ Creation:** The feature for automatically generating Moodle Backup (`.mbz`) files to set up assignment activities is specific to Moodle and does not support other Learning Management Systems like Ilias.
+  - The MBZ Modifier, which adjusts assignment deadlines and names in Moodle Backup (`.mbz`) files, is specific to Moodle and does not support other Learning Management Systems like ILIAS.
 </details>
 
 <details>
   <summary>At Least Two Assignments Needed</summary>
 
-  - **MBZ Assignment Limit:** Due to peculiarities in creating the MBZ files, you have to specify **at least two activities** when creating an MBZ file. Generating an MBZ for a single assignment is not possible and will result in an error during Moodle import.
+  - **MBZ Assignment Limit:** The template `.mbz` file must contain **at least two assignment activities**. An `.mbz` with a single assignment will result in an error during Moodle import.
 
 </details>
-
-<details>
-  <summary>Only One Deadline Per Day</summary>
-
-  - **Simplistic Design:** Due to limitations in the Booklet Tool, every day in the calendar can only have one assignment activity deadline. If you want students to be able to submit more than one page per day, you have to use different dates and make changes to the deadline in Moodle after importing the file.
-
-</details>
-
 
 <details>
   <summary>No Support for Booklet Preview/Distribution</summary>
@@ -444,7 +435,7 @@ PDF processing settings (like DPI) can be adjusted via the Settings button withi
 
 ### Standalone Python MBZ Modifier (Optional)
 
-This repository also contains a standalone Python script for modifying Moodle Backup (MBZ) files, located in the `python-cli/` directory. This script provides similar functionality to the MBZ creation feature within the Electron app but runs directly from the command line.
+This repository also contains a standalone Python script for modifying Moodle Backup (MBZ) files, located in the `python-cli/` directory. This script provides similar functionality to the MBZ Modifier within the Electron app but runs directly from the command line.
 
 - **Script:** `python-cli/modify_moodle_backup.py`
 - **Test:** `python-cli/test_modify_moodle.py`

@@ -94,7 +94,7 @@ class AppSwitcher {
   }
   
   /**
-   * Switch to MBZ creator view
+   * Switch to MBZ modifier view
    */
   showMbzView() {
     this.showView('mbz');

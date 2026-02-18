@@ -44,7 +44,7 @@ Discuss together, then **write and submit your own pages**. Submitting pages wri
 * Aim for **300 dpi** at A5 (~1770 × 2480 px).
 * Zoom to 100% and check readability before upload.
 
-## 7 Deadlines an Troubleshooting
+## 7 Deadlines and Troubleshooting
 
 * Deadlines appear next to each assignment. **Late uploads are not accepted.**
 * Upload early; last‑minute network issues are your risk.
