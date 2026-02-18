@@ -22,7 +22,7 @@
     "pdf-process": "node src/js/pdf-cmdline-processor.js",
     "test": "npm run test:ilias && npm run test:mbz",
     "test:ilias": "node testdata/ilias/test-ilias-preprocessor.js",
-    "test:mbz": "node src/mbz-creator/test/archive.test.js && node src/mbz-creator/test/assignmentFiles.test.js && node src/mbz-creator/test/idUtils.test.js && node src/mbz-creator/test/manifest.test.js",
+    "test:mbz": "node src/mbz-creator/test/archive.test.js && node src/mbz-creator/test/assignmentFiles.test.js && node src/mbz-creator/test/idUtils.test.js && node src/mbz-creator/test/manifest.test.js && node src/mbz-creator/test/dateUtils.test.js && node src/mbz-creator/test/mbzCreator.test.js",
     "sharp:win": "npm uninstall sharp && npm install --platform=win32 --arch=x64 sharp",
     "sharp:linux-x64": "npm uninstall sharp && npm install --platform=linux --arch=x64 sharp",
     "sharp:linux-arm64": "npm uninstall sharp && npm install --platform=linux --arch=arm64 sharp"

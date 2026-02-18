@@ -22,6 +22,54 @@ function formatLocalTimestamp(ts) {
     return `${formatLocalDate(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+// Keep in sync with dateUtils.js computeAssignmentTimestamps (Node-side copy for testing)
+function computeAssignmentTimestamps(assignments, { gracePeriodMinutes = 5, openMode = 'chain', openDurationDays = 7 } = {}) {
+    if (!assignments || assignments.length === 0 || !assignments.every(a => a.dateStr)) {
+        return null;
+    }
+
+    const dateGroupMap = new Map();
+    for (const a of assignments) {
+        let group = dateGroupMap.get(a.dateStr);
+        if (!group) {
+            group = [];
+            dateGroupMap.set(a.dateStr, group);
+        }
+        group.push(a);
+    }
+    const groups = [...dateGroupMap.values()];
+
+    const result = [];
+    let prevGroupCutoff = null;
+
+    for (const group of groups) {
+        const [year, month, day] = group[0].dateStr.split('-').map(Number);
+        const timeParts = group[0].timeStr.split(':').map(Number);
+        const dueDate = new Date(year, month - 1, day, timeParts[0] || 0, timeParts[1] || 0, timeParts[2] || 0);
+        const due_ts = Math.floor(dueDate.getTime() / 1000);
+        const cutoff_ts = due_ts + gracePeriodMinutes * 60;
+
+        const useChainedOpen = openMode === 'chain' && prevGroupCutoff !== null;
+        const activation_ts = useChainedOpen
+            ? prevGroupCutoff
+            : due_ts - openDurationDays * 86400;
+
+        for (const ga of group) {
+            result.push({
+                moduleId: ga.moduleId,
+                name: ga.name,
+                due_ts,
+                cutoff_ts,
+                activation_ts,
+            });
+        }
+
+        prevGroupCutoff = cutoff_ts;
+    }
+
+    return result;
+}
+
 class MbzBatchCreator {
     constructor(container, options = {}) {
         this.container = container;
@@ -400,55 +448,11 @@ class MbzBatchCreator {
      * Returns null if not all assignments have dates.
      */
     computeTimestamps() {
-        if (this.assignments.length === 0 || !this.assignments.every(a => a.dateStr)) {
-            return null;
-        }
-
-        const gracePeriodMinutes = parseInt(this.elements.gracePeriod?.value || '5', 10);
-        const openMode = this.elements.openMode?.value || 'chain';
-        const openDurationDays = parseInt(this.elements.openDuration?.value || '7', 10);
-
-        // Group assignments by dateStr (preserving first-occurrence order)
-        const dateGroupMap = new Map();
-        for (const a of this.assignments) {
-            let group = dateGroupMap.get(a.dateStr);
-            if (!group) {
-                group = [];
-                dateGroupMap.set(a.dateStr, group);
-            }
-            group.push(a);
-        }
-        const groups = [...dateGroupMap.values()];
-
-        const result = [];
-        let prevGroupCutoff = null;
-
-        for (const group of groups) {
-            const [year, month, day] = group[0].dateStr.split('-').map(Number);
-            const timeParts = group[0].timeStr.split(':').map(Number);
-            const dueDate = new Date(year, month - 1, day, timeParts[0] || 0, timeParts[1] || 0, timeParts[2] || 0);
-            const due_ts = Math.floor(dueDate.getTime() / 1000);
-            const cutoff_ts = due_ts + gracePeriodMinutes * 60;
-
-            const useChainedOpen = openMode === 'chain' && prevGroupCutoff !== null;
-            const activation_ts = useChainedOpen
-                ? prevGroupCutoff
-                : due_ts - openDurationDays * 86400;
-
-            for (const ga of group) {
-                result.push({
-                    moduleId: ga.moduleId,
-                    name: ga.name,
-                    due_ts,
-                    cutoff_ts,
-                    activation_ts,
-                });
-            }
-
-            prevGroupCutoff = cutoff_ts;
-        }
-
-        return result;
+        return computeAssignmentTimestamps(this.assignments, {
+            gracePeriodMinutes: parseInt(this.elements.gracePeriod?.value || '5', 10),
+            openMode: this.elements.openMode?.value || 'chain',
+            openDurationDays: parseInt(this.elements.openDuration?.value || '7', 10),
+        });
     }
 
     renderPreview() {
