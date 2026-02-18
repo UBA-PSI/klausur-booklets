@@ -83,9 +83,8 @@ async function main() {
     // Calculate target start timestamp if provided
     if (argv.targetStartDate) {
         try {
-            // Parse as UTC date
-            options.targetStartTimestamp = Math.floor(new Date(`${argv.targetStartDate}T00:00:00Z`).getTime() / 1000);
-            console.log(`Target start date specified: ${argv.targetStartDate} (UTC Timestamp: ${options.targetStartTimestamp})`);
+            options.targetStartTimestamp = Math.floor(new Date(`${argv.targetStartDate}T00:00:00`).getTime() / 1000);
+            console.log(`Target start date specified: ${argv.targetStartDate} (Timestamp: ${options.targetStartTimestamp})`);
         } catch (e) {
             console.error(`Error: Invalid format for --target-start-date '${argv.targetStartDate}'. Use YYYY-MM-DD.`);
             process.exit(1);

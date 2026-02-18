@@ -13,13 +13,13 @@ function normalizeTime(time) {
     return time.split(':').length === 2 ? `${time}:00` : time;
 }
 
-function formatUtcDate(date) {
-    return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
+function formatLocalDate(date) {
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-function formatUtcTimestamp(ts) {
+function formatLocalTimestamp(ts) {
     const d = new Date(ts * 1000);
-    return `${formatUtcDate(d)} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+    return `${formatLocalDate(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 class MbzBatchCreator {
@@ -175,8 +175,8 @@ class MbzBatchCreator {
                     return { ...a, dateStr: '', timeStr: '17:00:00' };
                 }
                 const d = new Date(a.duedate * 1000);
-                const dateStr = formatUtcDate(d);
-                const timeStr = `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
+                const dateStr = formatLocalDate(d);
+                const timeStr = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
                 return { ...a, dateStr, timeStr };
             });
 
@@ -426,7 +426,7 @@ class MbzBatchCreator {
         for (const group of groups) {
             const [year, month, day] = group[0].dateStr.split('-').map(Number);
             const timeParts = group[0].timeStr.split(':').map(Number);
-            const dueDate = new Date(Date.UTC(year, month - 1, day, timeParts[0] || 0, timeParts[1] || 0, timeParts[2] || 0));
+            const dueDate = new Date(year, month - 1, day, timeParts[0] || 0, timeParts[1] || 0, timeParts[2] || 0);
             const due_ts = Math.floor(dueDate.getTime() / 1000);
             const cutoff_ts = due_ts + gracePeriodMinutes * 60;
 
@@ -465,7 +465,7 @@ class MbzBatchCreator {
         for (let i = 0; i < data.length; i++) {
             const a = data[i];
             const row = document.createElement('tr');
-            for (const text of [i + 1, a.name, formatUtcTimestamp(a.activation_ts), formatUtcTimestamp(a.due_ts), formatUtcTimestamp(a.cutoff_ts)]) {
+            for (const text of [i + 1, a.name, formatLocalTimestamp(a.activation_ts), formatLocalTimestamp(a.due_ts), formatLocalTimestamp(a.cutoff_ts)]) {
                 const cell = document.createElement('td');
                 cell.textContent = text;
                 row.appendChild(cell);
@@ -522,7 +522,7 @@ class MbzBatchCreator {
 
             const targetStartDate = this.elements.targetStartDateInput?.value;
             const targetStartTimestamp = targetStartDate && /^\d{4}-\d{2}-\d{2}$/.test(targetStartDate)
-                ? Math.floor(new Date(`${targetStartDate}T00:00:00Z`).getTime() / 1000)
+                ? Math.floor(new Date(`${targetStartDate}T00:00:00`).getTime() / 1000)
                 : undefined;
 
             const result = await window.electronAPI.modifyMbzAssignments({
