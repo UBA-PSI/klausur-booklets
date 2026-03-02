@@ -217,10 +217,15 @@ ILIAS offers two download formats:
 *   Follow its instructions:
     *   Select the single **`booklet-submissions`** folder containing all the downloaded student submissions (from Step 3.5).
     *   Configure output options (e.g., cover page, dpi, file sizes).
+    *   **Name Detection (Moodle only):** Open Settings and check the *Name Detection* card. Three modes are available:
+        *   **Automatic** (default): Uses Grading Worksheet CSV columns if available, then email-based heuristics, then falls back to last-word-is-last-name.
+        *   **Registration list**: Provide a CSV with separate first name / last name columns (e.g., exported from your university's registration system). The tool auto-detects semicolon and comma delimiters and shows a validation result immediately after selecting the file.
+        *   **Heuristic only**: Always uses the last word of the folder name as the last name.
     *   Run the three-step generation process:
-        1.  **Convert to PDFs:** The tool processes each submitted file (PDF, JPG, PNG, HEIC) into a standardized A5 PDF page. Images are rotated if necessary. **Ambiguity Detection:** If a student submission folder (e.g., `Clara Clever_55551_assignsubmission_file_`) contains multiple valid files, the tool will pause and prompt you to select which specific file should be included in the final booklet for that page.
-        2.  **Merge PDFs:** Cover sheets are generated, and the converted A5 pages are merged in ascending order into one PDF per student.
+        1.  **Convert to PDFs:** The tool processes each submitted file (PDF, JPG, PNG, HEIC) into a standardized A5 PDF page. Images are rotated if necessary. A `sort-order.txt` file is written to the output directory – it controls the print order during merging and can be edited manually before proceeding. **Ambiguity Detection:** If a student submission folder (e.g., `Clara Clever_55551_assignsubmission_file_`) contains multiple valid files, the tool will pause and prompt you to select which specific file should be included in the final booklet for that page.
+        2.  **Merge PDFs:** Cover sheets are generated, and the converted A5 pages are merged according to the order in `sort-order.txt` into one PDF per student.
         3.  **Create Booklets:** The individual A5 pages are imposed pairwise onto A4 pages so that they can be stapled into a booklet when printed double-sided (binding on the short edge).
+    *   **Refresh sort-order.txt (Moodle, registration-list mode):** If you change the registration list CSV or name detection mode after converting, use the *Refresh sort-order.txt* link below the action buttons to regenerate the sort order from existing data without re-converting pages.
 *   **Output Location:** The final printable booklets (`<StudentIdentifier>.pdf`) are placed in a `booklets` subfolder relative to your output directory. Intermediate files (converted A5 pages, merged PDFs) are stored after the respective steps in subfolders `pages` and `pdfs` within the output directory.
 *   **Summary Report:** The tool also generates an HTML file named `summary.html` in the output directory. This file provides a convenient overview:
     *   Lists all students found.

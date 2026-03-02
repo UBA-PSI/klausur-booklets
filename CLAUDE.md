@@ -54,7 +54,7 @@ Supports multiple LMS folder naming conventions (configured in settings):
 - **ILIAS**: `FIRSTNAME_LASTNAME_USERNAME_STUDENTNUMBER`
 - Custom regex patterns
 
-Name collision resolution uses Moodle Grading Worksheet CSVs (parsed with csv-parse).
+Name collision resolution uses Moodle Grading Worksheet CSVs (parsed with csv-parse). CSV delimiter (`;` vs `,`) is auto-detected via `detectDelimiter()`. Registration list CSVs provide an alternative name source with `parseRegistrationList()` returning `{ map, recordCount }`. The `sort-order.txt` can be refreshed from existing `processed_files.json` without re-transforming via the `refresh-sort-order` IPC handler.
 
 ### Config
 

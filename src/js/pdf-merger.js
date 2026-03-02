@@ -349,6 +349,21 @@ function parseTextSegments(text, fontRegular, fontBold, fontSize, maxWidth) {
     return lines;
 }
 
+/**
+ * Apply a sort-order override to a studentInfo object.
+ * Tries fullName first, then falls back to the directory identifier.
+ * Returns true if an override was applied.
+ */
+function applySortOrderOverride(studentInfo, identifier, sortOrderOverrides) {
+    const override = sortOrderOverrides[studentInfo.fullName] || sortOrderOverrides[identifier];
+    if (override) {
+        studentInfo.lastName = override.lastName;
+        studentInfo.firstName = override.firstName;
+        return true;
+    }
+    return false;
+}
+
 async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent, options = {}, sendLog = console.log, onProgress = null) {
     sendLog('Starting PDF Merging Process...');
     const pdfsSubDirectory = path.join(outputDirectory, 'pdfs'); // pdfs still at root level
@@ -371,13 +386,44 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent,
     });
     sendLog(`Found ${studentIdentifiers.length} student identifier directories in ${pagesDirectory}.`);
 
-    // Collect student info and sort by last name for numbering
+    // Read sort-order.txt if present (provides name overrides AND print order)
+    const sortOrderPath = path.join(outputDirectory, 'sort-order.txt');
+    const sortOrderOverrides = {}; // folderName → { lastName, firstName }
+    const sortOrderSequence = []; // folderNames in file line order (= print order)
+    if (fs.existsSync(sortOrderPath)) {
+        try {
+            const sortOrderContent = fs.readFileSync(sortOrderPath, 'utf-8');
+            const sortOrderLines = sortOrderContent.split('\n');
+            for (const line of sortOrderLines) {
+                if (line.startsWith('#') || !line.trim()) continue;
+                const parts = line.split('\t');
+                if (parts.length >= 3) {
+                    const folderName = parts[0].trim();
+                    const lastName = parts[1].trim();
+                    const firstName = parts[2].trim();
+                    if (folderName) {
+                        if (!sortOrderOverrides[folderName]) {
+                            sortOrderOverrides[folderName] = { lastName, firstName };
+                            sortOrderSequence.push(folderName);
+                        } else {
+                            sendLog(`  Warning: Duplicate entry in sort-order.txt: "${folderName}" — using first occurrence.`);
+                        }
+                    }
+                }
+            }
+            sendLog(`Loaded ${Object.keys(sortOrderOverrides).length} entries from sort-order.txt (line order = print order)`);
+        } catch (err) {
+            sendLog(`  Warning: Could not read sort-order.txt: ${err.message}`);
+        }
+    }
+
+    // Collect student info
     const studentsWithInfo = [];
     for (const studentIdentifier of studentIdentifiers) {
         const studentDirPath = path.join(pagesDirectory, studentIdentifier);
         const infoFilePath = path.join(studentDirPath, 'processed_files.json');
         let studentInfo = { primaryIdentifier: studentIdentifier, fullName: studentIdentifier, lastName: studentIdentifier };
-        
+
         if (fs.existsSync(infoFilePath)) {
             try {
                 const data = JSON.parse(fs.readFileSync(infoFilePath, 'utf-8'));
@@ -388,7 +434,12 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent,
                 sendLog(`  Warning: Could not read student info for ${studentIdentifier}, using fallback`);
             }
         }
-        
+
+        // Apply sort-order.txt overrides (try fullName first, then directory name)
+        if (applySortOrderOverride(studentInfo, studentIdentifier, sortOrderOverrides)) {
+            sendLog(`  Applied sort-order override for ${studentInfo.fullName || studentIdentifier}: ${studentInfo.lastName}, ${studentInfo.firstName}`);
+        }
+
         studentsWithInfo.push({
             identifier: studentIdentifier,
             info: studentInfo,
@@ -396,14 +447,50 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent,
         });
     }
 
-    // Sort by last name for consistent numbering
-    studentsWithInfo.sort((a, b) => {
-        const lastNameA = a.info.lastName || a.identifier;
-        const lastNameB = b.info.lastName || b.identifier;
-        return lastNameA.localeCompare(lastNameB, 'de', { numeric: true });
-    });
-    
-    sendLog(`Sorted ${studentsWithInfo.length} students by last name for processing.`);
+    // Sort: use sort-order.txt line order if available, otherwise alphabetical by last name
+    if (sortOrderSequence.length > 0) {
+        // Build position lookup from sort-order.txt (by folderName and by fullName)
+        const positionMap = new Map();
+        for (let i = 0; i < sortOrderSequence.length; i++) {
+            positionMap.set(sortOrderSequence[i], i);
+        }
+
+        studentsWithInfo.sort((a, b) => {
+            const posA = positionMap.get(a.identifier) ?? positionMap.get(a.info.fullName);
+            const posB = positionMap.get(b.identifier) ?? positionMap.get(b.info.fullName);
+            const hasA = posA !== undefined;
+            const hasB = posB !== undefined;
+
+            // Students in sort-order.txt come first, in file line order
+            if (hasA && hasB) return posA - posB;
+            if (hasA && !hasB) return -1;
+            if (!hasA && hasB) return 1;
+
+            // Students not in sort-order.txt: alphabetical fallback
+            const lastNameA = a.info.lastName || a.identifier;
+            const lastNameB = b.info.lastName || b.identifier;
+            return lastNameA.localeCompare(lastNameB, 'de', { numeric: true });
+        });
+
+        let unmatchedCount = 0;
+        for (const s of studentsWithInfo) {
+            if ((positionMap.get(s.identifier) ?? positionMap.get(s.info.fullName)) === undefined) {
+                unmatchedCount++;
+            }
+        }
+        if (unmatchedCount > 0) {
+            sendLog(`  Warning: ${unmatchedCount} student(s) not found in sort-order.txt — appended alphabetically at the end.`);
+        }
+        sendLog(`Sorted ${studentsWithInfo.length} students by sort-order.txt line order for processing.`);
+    } else {
+        // No sort-order.txt or empty: alphabetical fallback
+        studentsWithInfo.sort((a, b) => {
+            const lastNameA = a.info.lastName || a.identifier;
+            const lastNameB = b.info.lastName || b.identifier;
+            return lastNameA.localeCompare(lastNameB, 'de', { numeric: true });
+        });
+        sendLog(`Sorted ${studentsWithInfo.length} students alphabetically by last name for processing.`);
+    }
 
     for (let i = 0; i < studentsWithInfo.length; i++) {
         if (await checkAborted()) {
@@ -445,6 +532,9 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent,
                 // Use studentInfo from the first processed entry when available (more detailed than folder-parsed info)
                 if (processedFilesData.length > 0 && processedFilesData[0].studentInfo) {
                     studentInfoForCover = processedFilesData[0].studentInfo;
+                    // studentInfoForCover is a separate object from the JSON; re-apply
+                    // sort-order overrides so the cover sheet reflects any manual edits.
+                    applySortOrderOverride(studentInfoForCover, studentIdentifier, sortOrderOverrides);
                 }
             } catch (err) {
                 sendLog(`  Error reading or parsing processed file info for ${studentIdentifier}: ${err.message}`);

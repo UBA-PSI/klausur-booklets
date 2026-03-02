@@ -73,6 +73,8 @@ let pendingTransformationData = null;
 let currentTransformationDpi = 300;
 let currentOutputDirectory = null;
 let someNumberToEmailMap = {}; // Global map for CSV lookup
+let csvNameFromCSV = {}; // Global map: someNumber → { firstName, lastName } from gradebook columns
+let csvNameHints = {}; // Global map: someNumber → { firstNameWordCount } from email analysis
 let iliasPreprocessingTempDir = null; // Track ILIAS temp directory for cleanup
 let effectiveInputDirectoryForMerging = null; // Track the effective input directory for missing pages detection
 
@@ -112,6 +114,8 @@ function resetGlobalState() {
     processedFileInfo = {};
     skippedFileLog = [];
     errorFileLog = [];
+    csvNameFromCSV = {};
+    csvNameHints = {};
 }
 
 /**
@@ -580,12 +584,68 @@ function parseFolderName(folderName, pattern) {
     return result;
 }
 
+// --- Shared CSV helpers ---
+
+/** Detect whether a CSV uses semicolons or commas as delimiter by inspecting the first non-empty line. */
+function detectDelimiter(csvContent) {
+    const firstLine = csvContent.split(/\r?\n/).find(l => l.trim().length > 0) || '';
+    const semicolons = (firstLine.match(/;/g) || []).length;
+    const commas = (firstLine.match(/,/g) || []).length;
+    return semicolons > commas ? ';' : ',';
+}
+
+/** Build csv-parse options with auto-detected delimiter. */
+function getCsvParseOptions(csvContent) {
+    return {
+        columns: true,
+        skip_empty_lines: true,
+        trim: true,
+        relax_column_count: true,
+        delimiter: detectDelimiter(csvContent)
+    };
+}
+
+const FIRST_NAME_ALIASES = ['vorname', 'first name', 'firstname', 'given name'];
+const LAST_NAME_ALIASES = ['nachname', 'surname', 'last name', 'lastname', 'familienname', 'family name'];
+
+/** Normalize a name string for fuzzy matching (lowercase, collapse whitespace, NFC). */
+function normalizeName(s) {
+    return s.normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Detect firstName/lastName header names from a lowercase-normalized header list.
+ * Returns { firstNameHeader, lastNameHeader } — either may be undefined.
+ */
+function detectNameHeaders(headers) {
+    return {
+        firstNameHeader: headers.find(h => FIRST_NAME_ALIASES.includes(h)),
+        lastNameHeader: headers.find(h => LAST_NAME_ALIASES.includes(h))
+    };
+}
+
+/**
+ * Build a map from normalized header name → original header key.
+ * Allows O(1) record value lookups instead of per-row .find() scans.
+ */
+function buildHeaderKeyMap(originalHeaders, ...normalizedNames) {
+    const map = {};
+    for (const name of normalizedNames) {
+        if (name) {
+            map[name] = originalHeaders.find(k => k.trim().toLowerCase() === name);
+        }
+    }
+    return map;
+}
+
 // Extract CSV parsing to a separate function that can be reused
 async function parseCSVsInDirectory(mainDirectory) {
     const emailMappings = {};
+    const nameFromCSV = {}; // someNumber → { firstName, lastName }
+    const nameHints = {}; // someNumber → { firstNameWordCount }
     const pagesWithCSV = new Set(); // Track which pages have CSV files
     const pagesWithoutCSV = new Set(); // Track which pages don't have CSV files
-    
+
     console.log("Starting CSV parsing process...");
 
     // Get page directories
@@ -629,29 +689,25 @@ async function parseCSVsInDirectory(mainDirectory) {
                     console.log(`CSV file size: ${csvContent.length} bytes`);
                     console.log(`CSV first 100 chars: ${csvContent.substring(0, 100).replace(/\n/g, '\\n')}...`);
                     
-                    const records = parse(csvContent, {
-                        columns: true, 
-                        skip_empty_lines: true,
-                        trim: true,
-                        relax_column_count: true // Be more lenient with CSV format
-                    });
-                    
+                    const records = parse(csvContent, getCsvParseOptions(csvContent));
+
                     console.log(`Parsed ${records.length} records from CSV`);
                     if (records.length > 0) {
                         console.log(`Available headers: ${Object.keys(records[0] || {}).join(', ')}`);
                     }
-                    
+
                     // Find header names flexibly (case-insensitive, trim)
                     const headers = Object.keys(records[0] || {}).map(h => h.trim().toLowerCase());
                     const idHeader = headers.find(h => h.includes('id'));
-                    const emailHeader = headers.find(h => 
-                        h.includes('email') || 
-                        h.includes('e-mail') || 
-                        h.includes('mail-adresse') || 
+                    const emailHeader = headers.find(h =>
+                        h.includes('email') ||
+                        h.includes('e-mail') ||
+                        h.includes('mail-adresse') ||
                         h === 'e-mail-adresse'
                     );
-                    
-                    console.log(`Found headers - ID: ${idHeader || 'NOT FOUND'}, Email: ${emailHeader || 'NOT FOUND'}`);
+                    const { firstNameHeader, lastNameHeader } = detectNameHeaders(headers);
+
+                    console.log(`Found headers - ID: ${idHeader || 'NOT FOUND'}, Email: ${emailHeader || 'NOT FOUND'}, FirstName: ${firstNameHeader || 'NOT FOUND'}, LastName: ${lastNameHeader || 'NOT FOUND'}`);
 
                     if (!idHeader || !emailHeader) {
                         console.warn(`CSV ${csvFile} in ${pageDir} is missing required headers (ID-like and Email-like). Skipping.`);
@@ -660,11 +716,15 @@ async function parseCSVsInDirectory(mainDirectory) {
                         pagesWithoutCSV.add(pageDir);
                         continue;
                     }
-                    
+
+                    // Build header-to-key map once (avoids per-row .find() scans)
+                    const originalHeaders = Object.keys(records[0] || {});
+                    const keyMap = buildHeaderKeyMap(originalHeaders, idHeader, emailHeader, firstNameHeader, lastNameHeader);
+
                     let mappingsFound = 0;
                     records.forEach(record => {
-                        const rawId = record[Object.keys(record).find(k => k.trim().toLowerCase() === idHeader)];
-                        const email = record[Object.keys(record).find(k => k.trim().toLowerCase() === emailHeader)];
+                        const rawId = record[keyMap[idHeader]];
+                        const email = record[keyMap[emailHeader]];
                         if (rawId && email) {
                             // Extract any numeric sequence from the ID
                             const match = String(rawId).match(/\d+/);
@@ -674,11 +734,38 @@ async function parseCSVsInDirectory(mainDirectory) {
                                     emailMappings[someNumber] = email;
                                     mappingsFound++;
                                 }
+
+                                // Extract firstName/lastName from dedicated columns
+                                if (firstNameHeader && lastNameHeader && !nameFromCSV[someNumber]) {
+                                    const fn = record[keyMap[firstNameHeader]];
+                                    const ln = record[keyMap[lastNameHeader]];
+                                    if (fn && ln) {
+                                        nameFromCSV[someNumber] = { firstName: fn.trim(), lastName: ln.trim() };
+                                    }
+                                }
+
+                                // Derive name hints from email (e.g. vorname1-vorname2.nachname@domain)
+                                if (!nameHints[someNumber] && email) {
+                                    const localPart = email.split('@')[0];
+                                    if (localPart && localPart.includes('.') && !localPart.includes('_')) {
+                                        const beforeDot = localPart.split('.')[0];
+                                        const firstNameWordCount = beforeDot.split('-').length;
+                                        if (firstNameWordCount > 1) {
+                                            nameHints[someNumber] = { firstNameWordCount };
+                                        }
+                                    }
+                                }
                             }
                         }
                     });
                     console.log(`Added ${mappingsFound} new email mappings from ${csvFile}`);
                     console.log(`Total email mappings: ${Object.keys(emailMappings).length}`);
+                    if (Object.keys(nameFromCSV).length > 0) {
+                        console.log(`Name-from-CSV entries: ${Object.keys(nameFromCSV).length}`);
+                    }
+                    if (Object.keys(nameHints).length > 0) {
+                        console.log(`Email-based name hints: ${Object.keys(nameHints).length}`);
+                    }
                 } catch (csvParseErr) {
                     console.error(`Error parsing CSV file ${csvPath}:`, csvParseErr);
                     // CSV parsing failed, so this page doesn't have usable CSV
@@ -700,13 +787,210 @@ async function parseCSVsInDirectory(mainDirectory) {
     console.log(`Pages without CSV: ${Array.from(pagesWithoutCSV).join(', ')}`);
     console.log("Finished scanning all page directories for CSVs.");
     
-    // Return both the mappings and information about CSV coverage
-    return { 
-        emailMappings, 
-        pagesWithCSV, 
-        pagesWithoutCSV, 
-        allPages: new Set([...pagesWithCSV, ...pagesWithoutCSV]) 
+    // Return all mappings and information about CSV coverage
+    return {
+        emailMappings,
+        nameFromCSV,
+        nameHints,
+        pagesWithCSV,
+        pagesWithoutCSV,
+        allPages: new Set([...pagesWithCSV, ...pagesWithoutCSV])
     };
+}
+
+/**
+ * Parse a registration list CSV with separate first/last name columns.
+ * Returns { map, recordCount } where map is normalizedFullName → { firstName, lastName }
+ * and recordCount is the actual number of CSV rows (not map keys, which are doubled for both name orders).
+ */
+function parseRegistrationList(csvPath) {
+    const map = {};
+    let recordCount = 0;
+    try {
+        const csvContent = fs.readFileSync(csvPath, 'utf-8');
+        const records = parse(csvContent, getCsvParseOptions(csvContent));
+
+        if (records.length === 0) return { map, recordCount };
+
+        const headers = Object.keys(records[0]).map(h => h.trim().toLowerCase());
+        const originalHeaders = Object.keys(records[0]);
+        const { firstNameHeader, lastNameHeader } = detectNameHeaders(headers);
+
+        if (!firstNameHeader || !lastNameHeader) {
+            sendLogToRenderer(`WARNING: Registration list CSV missing firstName/lastName columns. Found headers: ${headers.join(', ')}`);
+            return { map, recordCount };
+        }
+
+        const keyMap = buildHeaderKeyMap(originalHeaders, firstNameHeader, lastNameHeader);
+        records.forEach((record, index) => {
+            const fn = (record[keyMap[firstNameHeader]] || '').trim();
+            const ln = (record[keyMap[lastNameHeader]] || '').trim();
+            if (fn && ln) {
+                recordCount++;
+                const entry = { firstName: fn, lastName: ln, csvIndex: index };
+                // Store under both name orders (Moodle uses "Nachname Vorname", CSV usually "Vorname Nachname")
+                const keyFnLn = normalizeName(`${fn} ${ln}`);
+                const keyLnFn = normalizeName(`${ln} ${fn}`);
+                if (!map[keyFnLn]) map[keyFnLn] = entry;
+                if (!map[keyLnFn]) map[keyLnFn] = entry;
+            }
+        });
+
+        console.log(`Parsed registration list: ${recordCount} records (${Object.keys(map).length} lookup keys) from ${csvPath}`);
+    } catch (err) {
+        console.error(`Error parsing registration list ${csvPath}:`, err);
+    }
+    return { map, recordCount };
+}
+
+/**
+ * Apply name corrections to transformation tasks based on the selected detection mode.
+ * Modifies tasks in place, setting corrected firstName/lastName and nameSource on studentInfo.
+ */
+function applyNameCorrections(tasks, nameFromCSV, nameHints, registrationListMap, mode) {
+    let correctedCount = 0;
+    for (const task of tasks) {
+        const info = task.studentInfo;
+        if (!info) continue;
+
+        // Skip tasks already corrected in a previous pass
+        if (info.nameSource && info.nameSource !== 'heuristic') continue;
+
+        let corrected = false;
+
+        if (mode === 'auto' || mode === 'registration-list') {
+            // Priority 1 (auto): Gradebook columns (nameFromCSV by someNumber)
+            if (mode === 'auto' && info.someNumber && nameFromCSV[info.someNumber]) {
+                const csv = nameFromCSV[info.someNumber];
+                info.firstName = csv.firstName;
+                info.lastName = csv.lastName;
+                info.nameSource = 'gradebook';
+                corrected = true;
+            }
+
+            // Priority 1 (registration-list): Match by normalized full name
+            if (!corrected && mode === 'registration-list' && registrationListMap && info.fullName) {
+                const normalizedKey = normalizeName(info.fullName);
+                const match = registrationListMap[normalizedKey];
+                if (match) {
+                    info.firstName = match.firstName;
+                    info.lastName = match.lastName;
+                    info.nameSource = 'registration';
+                    info.csvIndex = match.csvIndex;
+                    corrected = true;
+                }
+            }
+
+            // Priority 2 (auto only): Email-based hints (firstNameWordCount)
+            if (!corrected && mode === 'auto' && info.someNumber && nameHints[info.someNumber] && info.fullName) {
+                const hint = nameHints[info.someNumber];
+                const words = info.fullName.trim().split(/\s+/);
+                if (hint.firstNameWordCount > 0 && hint.firstNameWordCount < words.length) {
+                    info.firstName = words.slice(0, hint.firstNameWordCount).join(' ');
+                    info.lastName = words.slice(hint.firstNameWordCount).join(' ');
+                    info.nameSource = 'email';
+                    corrected = true;
+                }
+            }
+        }
+
+        // No correction applied → mark as heuristic
+        if (!corrected) {
+            info.nameSource = 'heuristic';
+        } else {
+            correctedCount++;
+        }
+    }
+    if (correctedCount > 0) {
+        sendLogToRenderer(`Name corrections applied: ${correctedCount} of ${tasks.length} tasks corrected.`);
+    }
+}
+
+/**
+ * Load registration list (if configured) and apply name corrections to tasks.
+ * Encapsulates the config-reading + correction logic used in both transformation handlers.
+ */
+function applyNameCorrectionsFromConfig(tasks, config) {
+    const nameMode = config.nameDetectionMode || 'auto';
+    let registrationListMap = null;
+    if (nameMode === 'registration-list' && config.registrationListPath) {
+        const { map, recordCount } = parseRegistrationList(config.registrationListPath);
+        registrationListMap = map;
+        sendLogToRenderer(`Loaded registration list with ${recordCount} entries`);
+    }
+    applyNameCorrections(tasks, csvNameFromCSV, csvNameHints, registrationListMap, nameMode);
+}
+
+/**
+ * Write sort-order.txt to the output directory for manual review/editing.
+ * Format: tab-separated with columns: FolderName, LastName, FirstName, Source
+ *
+ * The line order in this file IS the print order used by the merge step.
+ * In registration-list mode, entries are ordered by CSV row (csvIndex);
+ * entries without a CSV match (heuristic) are appended alphabetically at the end.
+ * In auto/gradebook mode, entries are sorted alphabetically by last name.
+ */
+function writeSortOrderFile(outputDirectory, tasks, nameMode) {
+    const pagesDir = path.join(outputDirectory, 'pages');
+    if (!fs.existsSync(pagesDir)) {
+        sendLogToRenderer('WARN: sort-order.txt not written — pages directory missing.');
+        return;
+    }
+
+    // Collect unique students from tasks
+    const studentMap = new Map();
+    for (const task of tasks) {
+        const info = task.studentInfo;
+        if (!info) continue;
+        const id = info.primaryIdentifier;
+        if (!studentMap.has(id)) {
+            studentMap.set(id, {
+                folderName: id,
+                lastName: info.lastName || '',
+                firstName: info.firstName || '',
+                source: info.nameSource || 'heuristic',
+                csvIndex: info.csvIndex
+            });
+        }
+    }
+
+    const entries = [...studentMap.values()];
+    if (nameMode === 'registration-list') {
+        // CSV-matched entries first (by CSV row order), heuristic entries last (alphabetical)
+        entries.sort((a, b) => {
+            const aHas = a.csvIndex !== undefined;
+            const bHas = b.csvIndex !== undefined;
+            if (aHas && bHas) return a.csvIndex - b.csvIndex;
+            if (aHas) return -1;
+            if (bHas) return 1;
+            return a.lastName.localeCompare(b.lastName, 'de', { numeric: true });
+        });
+        const heuristicCount = entries.filter(e => e.csvIndex === undefined).length;
+        if (heuristicCount > 0) {
+            sendLogToRenderer(`sort-order.txt: ${heuristicCount} heuristic entry/entries appended at the end (not found in registration list).`);
+        }
+    } else {
+        // auto / gradebook: alphabetical by last name
+        entries.sort((a, b) =>
+            a.lastName.localeCompare(b.lastName, 'de', { numeric: true })
+        );
+    }
+
+    const lines = [
+        '# Druckreihenfolge – Zeilenreihenfolge = Druckreihenfolge beim Zusammenfügen.',
+        '# Zeilen können manuell umsortiert werden. Wird beim Merge-Schritt verwendet.',
+        '# Ordnername\tNachname\tVorname\tQuelle'
+    ];
+    for (const e of entries) {
+        lines.push(`${e.folderName}\t${e.lastName}\t${e.firstName}\t${e.source}`);
+    }
+
+    const sortOrderPath = path.join(outputDirectory, 'sort-order.txt');
+    if (fs.existsSync(sortOrderPath)) {
+        sendLogToRenderer('Note: Overwriting existing sort-order.txt (previous manual edits will be lost).');
+    }
+    fs.writeFileSync(sortOrderPath, lines.join('\n'), 'utf-8');
+    sendLogToRenderer(`Wrote sort-order.txt with ${entries.length} entries to ${sortOrderPath}`);
 }
 
 // Function to prepare transformations and handle ambiguities
@@ -721,7 +1005,15 @@ async function prepareTransformations(mainDirectory, outputDirectory, folderPatt
     // Use the shared CSV parsing function
     const csvResult = await parseCSVsInDirectory(mainDirectory); // Assign the whole result object
     someNumberToEmailMap = csvResult.emailMappings; // Extract the email mappings
+    csvNameFromCSV = csvResult.nameFromCSV; // Extract gradebook name columns
+    csvNameHints = csvResult.nameHints; // Extract email-based name hints
     sendLogToRenderer(`Loaded ${Object.keys(someNumberToEmailMap).length} email mappings from CSVs (Pages with CSV: ${csvResult.pagesWithCSV.size}, without: ${csvResult.pagesWithoutCSV.size})`);
+    if (Object.keys(csvNameFromCSV).length > 0) {
+        sendLogToRenderer(`Found ${Object.keys(csvNameFromCSV).length} students with separate first/last name columns in gradebook`);
+    }
+    if (Object.keys(csvNameHints).length > 0) {
+        sendLogToRenderer(`Derived ${Object.keys(csvNameHints).length} email-based name hints`);
+    }
     
     const transformationTasks = [];
     const ambiguities = [];
@@ -1192,14 +1484,19 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
         if (isMoodleMode && tasks.length > 0) {
             resolveMoodleCollisions(tasks, someNumberToEmailMap, outputDirectory);
         }
-        
+
+        // 2b. Apply name corrections (multi-part last names, email-based hints, registration list)
+        if (isMoodleMode && tasks.length > 0) {
+            applyNameCorrectionsFromConfig(tasks, config);
+        }
+
         // 3. Perform Final Collision Check (throws error if issues found)
         performFinalCollisionCheck(tasks, isMoodleMode);
 
         // 4. Handle Ambiguities or Process Directly
         if (ambiguities.length > 0) {
             // Store data for later resolution
-            pendingTransformationData = { unambiguousTasks: tasks, ambiguities, outputDirectory }; 
+            pendingTransformationData = { unambiguousTasks: tasks, ambiguities, outputDirectory };
             sendLogToRenderer("IPC: Ambiguities found. Requesting resolution from renderer.");
             if (canSendToRenderer()) {
                 mainWindow.webContents.send('request-ambiguity-resolution', ambiguities);
@@ -1213,6 +1510,7 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
 
             // Generate summary only if processing was not aborted
             if (!global.abortProcessingFlag) {
+                writeSortOrderFile(outputDirectory, tasks, config.nameDetectionMode || 'auto');
                 await generateAndSendSummary(outputDirectory);
                 await generateSummaryHtml(outputDirectory);
             }
@@ -1292,13 +1590,20 @@ ipcMain.handle('resolve-ambiguity', async (event, selectedIdentifiers) => {
     }
 
     sendLogToRenderer(`Added ${resolvedCount} tasks from resolved ambiguities. Total tasks to process: ${tasksToProcess.length}`);
-    
+
+    // Apply name corrections to newly resolved tasks (unambiguous tasks already have corrections)
+    const isMoodleMode = folderPattern?.startsWith('FULLNAMEWITHSPACES');
+    if (isMoodleMode && tasksToProcess.length > 0) {
+        applyNameCorrectionsFromConfig(tasksToProcess, config);
+    }
+
     // Process the combined list of unambiguous and resolved tasks
     try {
         const resultMessage = await processTasksDirectly(tasksToProcess, pendingTransformationData.outputDirectory, currentTransformationDpi, { marginMinMm: config.marginMinMm ?? 3.5 });
 
         // Generate summary only if processing was not aborted
         if (!global.abortProcessingFlag) {
+            writeSortOrderFile(pendingTransformationData.outputDirectory, tasksToProcess, config.nameDetectionMode || 'auto');
             await generateAndSendSummary(pendingTransformationData.outputDirectory);
             await generateSummaryHtml(pendingTransformationData.outputDirectory);
         }
@@ -1450,7 +1755,7 @@ async function generateSummaryHtml(outputDirectory) {
     studentData.sort((a, b) => {
         const lastName1 = a.info.lastName || a.identifier;
         const lastName2 = b.info.lastName || b.identifier;
-        return lastName1.localeCompare(lastName2);
+        return lastName1.localeCompare(lastName2, 'de', { numeric: true });
     });
 
     // Calculate summary statistics
@@ -2114,6 +2419,101 @@ ipcMain.handle('ghostscript:validate', async () => {
         return { available: false, path: gsPath, error: 'Ghostscript executable not found or not working' };
     } catch (error) {
         return { available: false, path: gsPath, error: error.message };
+    }
+});
+
+ipcMain.handle('validate-registration-list', async (_event, csvPath) => {
+    try {
+        if (!csvPath || !fs.existsSync(csvPath)) {
+            return { valid: false, error: 'File not found.' };
+        }
+        const csvContent = fs.readFileSync(csvPath, 'utf-8');
+        const delimiter = detectDelimiter(csvContent);
+        const records = parse(csvContent, getCsvParseOptions(csvContent));
+
+        if (records.length === 0) {
+            return { valid: false, delimiter, headers: [], error: 'CSV contains no records.' };
+        }
+
+        const originalHeaders = Object.keys(records[0]);
+        const headers = originalHeaders.map(h => h.trim().toLowerCase());
+        const { firstNameHeader, lastNameHeader } = detectNameHeaders(headers);
+
+        if (!firstNameHeader || !lastNameHeader) {
+            return {
+                valid: false,
+                delimiter,
+                headers: originalHeaders,
+                error: `First name / last name columns not found. Available columns: ${originalHeaders.join(', ')}`
+            };
+        }
+
+        const keyMap = buildHeaderKeyMap(originalHeaders, firstNameHeader, lastNameHeader);
+        const sampleEntries = records.slice(0, 5).map(r => ({
+            firstName: (r[keyMap[firstNameHeader]] || '').trim(),
+            lastName: (r[keyMap[lastNameHeader]] || '').trim()
+        }));
+
+        return {
+            valid: true,
+            entryCount: records.length,
+            headers: originalHeaders,
+            delimiter,
+            sampleEntries
+        };
+    } catch (err) {
+        return { valid: false, error: err.message };
+    }
+});
+
+ipcMain.handle('refresh-sort-order', async (_event, outputDirectory) => {
+    try {
+        const config = loadConfig();
+        const nameMode = config.nameDetectionMode || 'auto';
+        const pagesDir = path.join(outputDirectory, 'pages');
+
+        if (!fs.existsSync(pagesDir)) {
+            return { success: false, error: 'Pages directory not found.' };
+        }
+
+        const studentDirs = fs.readdirSync(pagesDir).filter(item =>
+            fs.statSync(path.join(pagesDir, item)).isDirectory()
+        );
+
+        // Rebuild task-like objects from processed_files.json
+        const tasks = [];
+        for (const studentDir of studentDirs) {
+            const infoPath = path.join(pagesDir, studentDir, 'processed_files.json');
+            if (!fs.existsSync(infoPath)) continue;
+            try {
+                const data = JSON.parse(fs.readFileSync(infoPath, 'utf-8'));
+                if (data.processedFiles && data.processedFiles.length > 0) {
+                    const info = data.processedFiles[0].studentInfo;
+                    if (info) {
+                        tasks.push({ studentInfo: { ...info } });
+                    }
+                }
+            } catch (readErr) {
+                sendLogToRenderer(`WARN: Could not read ${infoPath}: ${readErr.message}`);
+            }
+        }
+
+        if (tasks.length === 0) {
+            return { success: false, error: 'No processed_files.json with studentInfo found.' };
+        }
+
+        // Apply name corrections from current config (re-reads registration list)
+        applyNameCorrectionsFromConfig(tasks, config);
+
+        writeSortOrderFile(outputDirectory, tasks, nameMode);
+
+        const heuristicCount = tasks.filter(t =>
+            !t.studentInfo?.nameSource || t.studentInfo.nameSource === 'heuristic'
+        ).length;
+
+        return { success: true, entryCount: tasks.length, heuristicCount };
+    } catch (err) {
+        return { success: false, error: err.message };
     }
 });
 

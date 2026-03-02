@@ -31,6 +31,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getAppHomepage: () => ipcRenderer.invoke('get-app-homepage'),
     selectGhostscriptExecutable: () => ipcRenderer.invoke('ghostscript:selectExecutable'),
     validateGhostscript: () => ipcRenderer.invoke('ghostscript:validate'),
+    validateRegistrationList: (csvPath) => ipcRenderer.invoke('validate-registration-list', csvPath),
+    refreshSortOrder: (outputDirectory) => ipcRenderer.invoke('refresh-sort-order', outputDirectory),
     getPlatform: () => ipcRenderer.invoke('get-platform'),
     openExternal: (url) => ipcRenderer.invoke('open-external-url', url),
 

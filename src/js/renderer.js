@@ -94,6 +94,8 @@ window.electronAPI.onLoadConfig((loadedConfig) => {
     config = loadedConfig || {};
     applyConfigToUI();
     validateGhostscriptInSettings();
+    validateRegistrationListInSettings();
+    updateSortOrderVisibility();
     showGsRecommendationBanner();
 
     // Persist migration of 'bundled' -> 'system' if it changed
@@ -113,6 +115,24 @@ function showGsRecommendationBanner() {
 
     const isUsingGhostscript = config.pdfRenderer === 'ghostscript';
     banner.classList.toggle('d-none', isUsingGhostscript);
+}
+
+/**
+ * Shows/hides the name detection card based on Moodle mode,
+ * and the registration list picker based on selected mode.
+ */
+function updateNameDetectionVisibility() {
+    const pattern = document.getElementById('foldername-pattern')?.value || '';
+    const isMoodle = pattern.startsWith('FULLNAMEWITHSPACES');
+    const card = document.getElementById('nameDetectionCard');
+    if (card) {
+        card.style.display = isMoodle ? 'block' : 'none';
+    }
+    const regPicker = document.getElementById('registrationListPicker');
+    const selectedMode = document.querySelector('input[name="nameDetectionMode"]:checked')?.value;
+    if (regPicker) {
+        regPicker.style.display = selectedMode === 'registration-list' ? 'block' : 'none';
+    }
 }
 
 /**
@@ -209,6 +229,95 @@ async function validateGhostscriptInSettings() {
     }
 }
 
+/**
+ * Validates the current registration list CSV and shows status in Settings UI.
+ */
+async function validateRegistrationListInSettings() {
+    const selectedMode = document.querySelector('input[name="nameDetectionMode"]:checked')?.value;
+    const statusEl = document.getElementById('registrationListStatus');
+    const statusTextEl = document.getElementById('registrationListStatusText');
+    if (!statusEl || !statusTextEl) return;
+
+    if (selectedMode !== 'registration-list') {
+        statusEl.style.display = 'none';
+        return;
+    }
+
+    const csvPath = document.getElementById('registrationListPath')?.value;
+    if (!csvPath) {
+        statusEl.style.display = 'none';
+        return;
+    }
+
+    statusEl.className = 'alert alert-info py-2 mt-2';
+    statusEl.style.display = 'block';
+    statusTextEl.textContent = 'Validating CSV...';
+
+    try {
+        const result = await window.electronAPI.validateRegistrationList(csvPath);
+        statusTextEl.textContent = '';
+
+        if (result.valid) {
+            statusEl.className = 'alert alert-success py-2 mt-2';
+            const icon = document.createElement('i');
+            icon.className = 'bi bi-check-circle me-1';
+            statusTextEl.appendChild(icon);
+            statusTextEl.appendChild(document.createTextNode(
+                `${result.entryCount} entries loaded, delimiter: `
+            ));
+            const delimCode = document.createElement('code');
+            delimCode.textContent = result.delimiter === ';' ? ';' : ',';
+            statusTextEl.appendChild(delimCode);
+            if (result.sampleEntries && result.sampleEntries.length > 0) {
+                const sample = result.sampleEntries.slice(0, 3)
+                    .map(e => `${e.lastName}, ${e.firstName}`).join(' | ');
+                statusTextEl.appendChild(document.createElement('br'));
+                const small = document.createElement('small');
+                small.className = 'text-muted';
+                small.textContent = `Sample: ${sample}`;
+                statusTextEl.appendChild(small);
+            }
+        } else {
+            statusEl.className = 'alert alert-danger py-2 mt-2';
+            const icon = document.createElement('i');
+            icon.className = 'bi bi-exclamation-triangle me-1';
+            statusTextEl.appendChild(icon);
+            statusTextEl.appendChild(document.createTextNode(result.error || 'Unknown error'));
+        }
+    } catch (error) {
+        statusEl.className = 'alert alert-danger py-2 mt-2';
+        statusTextEl.textContent = `Validation error: ${error.message}`;
+    }
+}
+
+/**
+ * Shows the sort-order refresh button when registration-list mode is active,
+ * otherwise shows a hint text about heuristic sort order.
+ */
+function updateSortOrderVisibility() {
+    const refreshBtn = document.getElementById('refreshSortOrderBtn');
+    const helpBtn = document.getElementById('sortOrderHelpBtn');
+    const hintText = document.getElementById('sortOrderHintText');
+    const container = document.getElementById('sortOrderContainer');
+    if (!container) return;
+
+    const pattern = document.getElementById('foldername-pattern')?.value || '';
+    const isMoodle = pattern.startsWith('FULLNAMEWITHSPACES');
+
+    if (!isMoodle) {
+        container.style.display = 'none';
+        return;
+    }
+
+    container.style.display = 'block';
+    const nameMode = config.nameDetectionMode || 'auto';
+    const isRegList = nameMode === 'registration-list';
+
+    if (refreshBtn) refreshBtn.style.display = isRegList ? 'inline-block' : 'none';
+    if (helpBtn) helpBtn.style.display = isRegList ? 'inline-block' : 'none';
+    if (hintText) hintText.style.display = isRegList ? 'none' : 'inline';
+}
+
 function saveConfig() {
     console.log('[DEBUG] saveConfig() in renderer.js called.');
     // Get the current values from the UI
@@ -227,6 +336,13 @@ function saveConfig() {
         config.coverTemplateContent = coverTemplateTextarea.value;
     }
     
+    // Save name detection mode
+    const nameDetectionRadio = document.querySelector('input[name="nameDetectionMode"]:checked');
+    if (nameDetectionRadio) {
+        config.nameDetectionMode = nameDetectionRadio.value;
+    }
+    config.registrationListPath = document.getElementById('registrationListPath')?.value || '';
+
     // Save PDF output settings
     const marginValue = parseFloat(document.getElementById('marginMinMm').value);
     config.marginMinMm = isNaN(marginValue) ? 3.5 : marginValue;
@@ -267,6 +383,16 @@ function applyConfigToUI() {
             if (customRadio) customRadio.checked = true;
         }
     }
+
+    // Name detection mode
+    const nameDetectionMode = config.nameDetectionMode || 'auto';
+    const nameDetectRadio = document.getElementById(`nameDetect-${nameDetectionMode}`);
+    if (nameDetectRadio) nameDetectRadio.checked = true;
+    if (config.registrationListPath) {
+        const regListInput = document.getElementById('registrationListPath');
+        if (regListInput) regListInput.value = config.registrationListPath;
+    }
+    updateNameDetectionVisibility();
 
     // Cover template
     const coverTemplateTextarea = document.getElementById('coverTemplateContentInput');
@@ -881,6 +1007,33 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    const refreshSortOrderBtn = document.getElementById('refreshSortOrderBtn');
+    if (refreshSortOrderBtn) {
+        refreshSortOrderBtn.addEventListener('click', async () => {
+            const outputDir = document.getElementById('outputDirectoryPath').value;
+            if (!outputDir) {
+                updateStatus('error', 'Output directory not set.');
+                return;
+            }
+            logProcessMessage('UI: Refreshing sort-order.txt from existing data...');
+            try {
+                const result = await window.electronAPI.refreshSortOrder(outputDir);
+                if (result.success) {
+                    let msg = `sort-order.txt updated: ${result.entryCount} entries`;
+                    if (result.heuristicCount > 0) {
+                        msg += ` (${result.heuristicCount} heuristic)`;
+                    }
+                    updateStatus('success', msg);
+                    logProcessMessage(msg);
+                } else {
+                    updateStatus('error', result.error || 'Failed to update sort-order.txt');
+                }
+            } catch (error) {
+                updateStatus('error', `Error: ${error.message}`);
+            }
+        });
+    }
+
     const startMergingBtn = document.getElementById('startMergingBtn');
     if (startMergingBtn) {
         startMergingBtn.addEventListener('click', async () => {
@@ -954,10 +1107,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.target.value !== 'custom') {
                 patternInput.value = e.target.value;
                 config.foldernamePattern = e.target.value;
-                // Consider saving config here or on modal close
-                saveConfig(); 
+                saveConfig();
             }
-            // If switching to custom, don't change input, just let user type
+            updateNameDetectionVisibility();
+            updateSortOrderVisibility();
         });
     });
     // Also update pattern input if custom is selected and text is entered
@@ -967,6 +1120,36 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('pattern-custom').checked = true;
             config.foldernamePattern = patternInput.value;
             saveConfig();
+            updateNameDetectionVisibility();
+            updateSortOrderVisibility();
+        });
+    }
+
+    // Name detection mode radio buttons
+    document.querySelectorAll('input[name="nameDetectionMode"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            updateNameDetectionVisibility();
+            saveConfig();
+            validateRegistrationListInSettings();
+            updateSortOrderVisibility();
+        });
+    });
+
+    // Registration list file picker
+    const selectRegListBtn = document.getElementById('selectRegistrationListBtn');
+    if (selectRegListBtn) {
+        selectRegListBtn.addEventListener('click', async () => {
+            const result = await window.electronAPI.showOpenDialog({
+                title: 'Select Registration List (CSV)',
+                filters: [{ name: 'CSV Files', extensions: ['csv'] }],
+                properties: ['openFile']
+            });
+            if (!result.canceled && result.filePaths?.length > 0) {
+                document.getElementById('registrationListPath').value = result.filePaths[0];
+                config.registrationListPath = result.filePaths[0];
+                saveConfig();
+                validateRegistrationListInSettings();
+            }
         });
     }
 

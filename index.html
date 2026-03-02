@@ -333,6 +333,18 @@
                             <i class="bi bi-journal-check me-1"></i> 4. Create Booklets
                         </button>
                     </div>
+                    <div id="sortOrderContainer" class="mt-2 text-end" style="display: none;">
+                        <small id="sortOrderHintText" class="text-muted">
+                            Sort order is inferred heuristically. Change in <a href="#" onclick="openModal(); return false;">Settings</a> to use a registration list.
+                            <a href="#" class="text-muted" data-bs-toggle="modal" data-bs-target="#sortOrderHelpModal" title="What is this?"><i class="bi bi-question-circle"></i></a>
+                        </small>
+                        <button id="refreshSortOrderBtn" class="btn btn-link btn-sm text-secondary text-decoration-none" style="display: none;" title="Regenerate sort-order.txt from existing data using current settings">
+                            <i class="bi bi-arrow-repeat me-1"></i>Refresh sort-order.txt
+                        </button>
+                        <button id="sortOrderHelpBtn" class="btn btn-link btn-sm text-secondary text-decoration-none p-0 ms-1" style="display: none;" data-bs-toggle="modal" data-bs-target="#sortOrderHelpModal" title="What is this?">
+                            <i class="bi bi-question-circle"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -517,6 +529,50 @@
                                         <p class="mb-0"><strong>Identifier Priority:</strong> Student Number > Username >
                                             Full Name > Original Folder Name</p>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Name Detection Card (Moodle only) -->
+                    <div class="card mb-3" id="nameDetectionCard" style="display: none;">
+                        <div class="card-header py-2">
+                            <h6 class="mb-0">
+                                <i class="bi bi-person-lines-fill text-primary me-1"></i>Name Detection <span class="text-muted small fw-normal">(Moodle only)</span>
+                            </h6>
+                        </div>
+                        <div class="card-body py-2">
+                            <p class="small">Moodle folders contain the full name as a single string. This setting controls how first and last names are split (affects booklet sort order). ILIAS folders already separate first/last name, so this setting does not apply. In &ldquo;Automatic&rdquo; mode the Grading Worksheet CSV is used &ndash; placing the CSV in a single page folder (e.g.&nbsp;Page&nbsp;1) is sufficient.</p>
+                            <div class="mb-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" id="nameDetect-auto" name="nameDetectionMode" value="auto" checked>
+                                    <label class="form-check-label" for="nameDetect-auto">
+                                        Automatic <span class="text-muted small">(Grading Worksheet CSV in page folders &rarr; email &rarr; heuristic)</span>
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" id="nameDetect-registration-list" name="nameDetectionMode" value="registration-list">
+                                    <label class="form-check-label" for="nameDetect-registration-list">
+                                        Registration list <span class="text-muted small">(CSV with last name / first name columns)</span>
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" id="nameDetect-heuristic" name="nameDetectionMode" value="heuristic">
+                                    <label class="form-check-label" for="nameDetect-heuristic">
+                                        Heuristic only <span class="text-muted small">(last word = last name)</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div id="registrationListPicker" class="mt-2" style="display: none;">
+                                <div class="input-group input-group-sm">
+                                    <input type="text" id="registrationListPath" class="form-control" placeholder="Path to registration list CSV..." readonly>
+                                    <button class="btn btn-outline-secondary" type="button" id="selectRegistrationListBtn">
+                                        <i class="bi bi-folder2-open me-1"></i>Browse...
+                                    </button>
+                                </div>
+                                <div class="form-text">CSV with columns &ldquo;Nachname&rdquo;/&ldquo;Vorname&rdquo; (or &ldquo;Surname&rdquo;/&ldquo;First Name&rdquo;). Matching by full name.</div>
+                                <div id="registrationListStatus" class="alert py-2 mt-2" style="display: none;">
+                                    <span id="registrationListStatusText"></span>
                                 </div>
                             </div>
                         </div>
@@ -905,6 +961,30 @@
         </div>
     </div>
     <!-- END More Info Modal -->
+
+    <!-- Sort Order Help Modal -->
+    <div id="sortOrderHelpModal" class="modal fade" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-light border-bottom p-3">
+                    <h5 class="modal-title">
+                        <i class="bi bi-arrow-repeat text-primary me-2"></i>Refresh sort-order.txt
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-3">
+                    <p>The file <code>sort-order.txt</code> controls the print order when merging student booklets. It is generated automatically during the <strong>Convert to PDFs</strong> step.</p>
+                    <p>This is mainly relevant for <strong>Moodle</strong> submissions, where folder names contain the full name as a single string and first/last name must be inferred. (ILIAS folders already separate first and last name, so sort order works out of the box.)</p>
+                    <p>By default, sort order is inferred heuristically (last word = last name). When the <em>Name Detection</em> mode in Settings is set to <strong>Registration list</strong>, students are matched against a CSV and sorted by their position in that list instead.</p>
+                    <p>The <strong>Refresh sort-order.txt</strong> link &ndash; visible only in registration-list mode &ndash; reads the existing <code>processed_files.json</code> data from each student folder and regenerates <code>sort-order.txt</code> using the current settings. No pages are re-converted. This is useful when you changed the registration list CSV or name detection mode after converting.</p>
+                    <p class="mb-0 text-muted small"><i class="bi bi-gear me-1"></i>The name detection mode and registration list CSV can be configured in <strong>Settings</strong>.</p>
+                </div>
+                <div class="modal-footer bg-light border-top p-3">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Script Includes -->
     <script src="src/js/renderer.js"></script>

@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.7.0] - 2026-03-02
+
+- [NEW] **Name detection modes**: New settings card (Moodle only) with three modes for determining first/last name from folder names: *Automatic* (gradebook columns → email heuristic → fallback), *Registration list* (CSV with separate name columns), and *Heuristic only* (last word = last name).
+- [NEW] **sort-order.txt**: After conversion, a tab-separated `sort-order.txt` is written to the output directory listing each student's detected last/first name and source. Editable before merging – manual corrections are applied during the merge step.
+- [NEW] **Refresh sort-order.txt**: A link below the action buttons (visible in Moodle registration-list mode) regenerates `sort-order.txt` from existing `processed_files.json` data without re-converting pages. Useful after changing the registration list CSV or name detection mode.
+- [NEW] **Registration list validation**: When selecting a registration list CSV in Settings, the file is validated immediately. A status indicator shows the number of entries, detected delimiter, and sample names – or an error if columns are missing.
+- [NEW] **CSV delimiter autodetection**: Registration list CSVs and grading worksheet CSVs now auto-detect whether the delimiter is a semicolon or comma. Previously, semicolon-separated CSVs (common in European locales) were silently misparsed.
+- [NEW] **Gradebook name columns**: When the Moodle grading worksheet CSV contains separate first name/last name columns, these are used directly for name splitting instead of heuristics.
+- [NEW] **Email-based name hints**: For students with hyphenated first names (e.g., `hans-peter.mueller@…`), the email structure is used to determine where the first name ends.
+- [FIXED] **German locale sorting**: Summary HTML now sorts with `localeCompare('de', { numeric: true })`, consistent with the merge step.
+
 ## [1.6.0] - 2026-02-18
 
 - [NEW] **MBZ Modifier (replaces MBZ Creator)**: Rebuilt as a modifier that takes an existing Moodle backup and lets you adjust all assignments at once, instead of generating a new backup from scratch. Load any `.mbz` file, and the tool discovers all assignment activities inside it.

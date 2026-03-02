@@ -4,7 +4,7 @@
 [![downloads](https://img.shields.io/github/downloads/UBA-PSI/klausur-booklets/total)](https://github.com/UBA-PSI/klausur-booklets/releases)
 
 **Create personalized exam booklets from students' handwritten note pages in minutes.**
-Download the latest version for [**Windows**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.6.0/Booklet.Tool.1.6.0.exe) · [**macOS**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.6.0/Booklet.Tool-1.6.0.dmg) · [**Linux**](https://github.com/UBA-PSI/klausur-booklets/releases/tag/v1.6.0) and get started right away. [**Download test data**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.6.0/booklet-tool-testdata.zip) to try out the tool's features.
+Download the latest version for [**Windows**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.7.0/Booklet.Tool.1.7.0.exe) · [**macOS**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.7.0/Booklet.Tool-1.7.0.dmg) · [**Linux**](https://github.com/UBA-PSI/klausur-booklets/releases/tag/v1.7.0) and get started right away. [**Download test data**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.7.0/booklet-tool-testdata.zip) to try out the tool's features.
 
 The Booklet Tool is an Electron application (Windows, macOS, Linux) developed at the [Chair of Privacy and Security in Information Systems](https://psi.uni-bamberg.de/), University of Bamberg, within [Projekt DiKuLe](https://www.uni-bamberg.de/dikule/). The Booklet Tool helps instructors create personalized exam aids ("Klausur-Booklets") from student submissions.
 
@@ -169,11 +169,11 @@ While these measures help safeguard student data, instructors should still:
 </details>
 
 <details>
-  <summary>Naive First/Last Name Splitting (Moodle)</summary>
+  <summary>First/Last Name Splitting (Moodle)</summary>
 
-  - When parsing Moodle folder names (e.g., `Firstname Middlename Lastname_SOMENUMBER_...`), the tool assumes the part after the *last* space is the student's last name.
-  - This naive logic will lead to incorrect last names (and consequently, incorrect cover sheets and summary sorting) for students whose actual last name contains spaces (e.g., "van der Berg", "de la Cruz").
-  - Currently, there is no workaround for this other than manually correcting the cover sheets with a PDF editor if needed.
+  - When parsing Moodle folder names (e.g., `Firstname Middlename Lastname_SOMENUMBER_...`), the tool needs to determine where the first name ends and the last name begins. In the default *Automatic* mode, it first tries the Grading Worksheet CSV (if available), then falls back to a heuristic (last word = last name).
+  - The heuristic will produce incorrect results for students whose last name contains spaces (e.g., "van der Berg", "de la Cruz").
+  - **Workaround:** Use the *Registration list* name detection mode in Settings and provide a CSV with separate first name / last name columns (e.g., exported from your university's registration system). The tool auto-detects semicolon and comma delimiters. After converting, you can use the *Refresh sort-order.txt* link to regenerate the sort order without re-converting pages.
 </details>
 
 
@@ -396,7 +396,7 @@ This section documents the complete process for creating and publishing a new re
 
 Update README.md download links to point to the new version:
 ```markdown
-Download the latest version for [**Windows**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.6.0/Booklet.Tool.1.6.0.exe) · [**macOS**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.6.0/Booklet.Tool-1.6.0.dmg) · [**Linux**](https://github.com/UBA-PSI/klausur-booklets/releases/tag/v1.6.0)
+Download the latest version for [**Windows**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.7.0/Booklet.Tool.1.7.0.exe) · [**macOS**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.7.0/Booklet.Tool-1.7.0.dmg) · [**Linux**](https://github.com/UBA-PSI/klausur-booklets/releases/tag/v1.7.0)
 ```
 
 #### Troubleshooting
