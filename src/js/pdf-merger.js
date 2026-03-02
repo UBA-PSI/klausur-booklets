@@ -448,6 +448,12 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent,
     }
 
     // Sort: use sort-order.txt line order if available, otherwise alphabetical by last name
+    function compareByLastName(a, b) {
+        const lastNameA = a.info.lastName || a.identifier;
+        const lastNameB = b.info.lastName || b.identifier;
+        return lastNameA.localeCompare(lastNameB, 'de', { numeric: true });
+    }
+
     if (sortOrderSequence.length > 0) {
         // Build position lookup from sort-order.txt (by folderName and by fullName)
         const positionMap = new Map();
@@ -455,9 +461,13 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent,
             positionMap.set(sortOrderSequence[i], i);
         }
 
+        function getPosition(student) {
+            return positionMap.get(student.identifier) ?? positionMap.get(student.info.fullName);
+        }
+
         studentsWithInfo.sort((a, b) => {
-            const posA = positionMap.get(a.identifier) ?? positionMap.get(a.info.fullName);
-            const posB = positionMap.get(b.identifier) ?? positionMap.get(b.info.fullName);
+            const posA = getPosition(a);
+            const posB = getPosition(b);
             const hasA = posA !== undefined;
             const hasB = posB !== undefined;
 
@@ -467,28 +477,17 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent,
             if (!hasA && hasB) return 1;
 
             // Students not in sort-order.txt: alphabetical fallback
-            const lastNameA = a.info.lastName || a.identifier;
-            const lastNameB = b.info.lastName || b.identifier;
-            return lastNameA.localeCompare(lastNameB, 'de', { numeric: true });
+            return compareByLastName(a, b);
         });
 
-        let unmatchedCount = 0;
-        for (const s of studentsWithInfo) {
-            if ((positionMap.get(s.identifier) ?? positionMap.get(s.info.fullName)) === undefined) {
-                unmatchedCount++;
-            }
-        }
+        const unmatchedCount = studentsWithInfo.filter(s => getPosition(s) === undefined).length;
         if (unmatchedCount > 0) {
             sendLog(`  Warning: ${unmatchedCount} student(s) not found in sort-order.txt — appended alphabetically at the end.`);
         }
         sendLog(`Sorted ${studentsWithInfo.length} students by sort-order.txt line order for processing.`);
     } else {
         // No sort-order.txt or empty: alphabetical fallback
-        studentsWithInfo.sort((a, b) => {
-            const lastNameA = a.info.lastName || a.identifier;
-            const lastNameB = b.info.lastName || b.identifier;
-            return lastNameA.localeCompare(lastNameB, 'de', { numeric: true });
-        });
+        studentsWithInfo.sort(compareByLastName);
         sendLog(`Sorted ${studentsWithInfo.length} students alphabetically by last name for processing.`);
     }
 

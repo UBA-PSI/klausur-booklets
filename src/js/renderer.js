@@ -117,13 +117,17 @@ function showGsRecommendationBanner() {
     banner.classList.toggle('d-none', isUsingGhostscript);
 }
 
+/** Check whether the current folder name pattern is a Moodle pattern. */
+function isMoodlePatternActive() {
+    return (document.getElementById('foldername-pattern')?.value || '').startsWith('FULLNAMEWITHSPACES');
+}
+
 /**
  * Shows/hides the name detection card based on Moodle mode,
  * and the registration list picker based on selected mode.
  */
 function updateNameDetectionVisibility() {
-    const pattern = document.getElementById('foldername-pattern')?.value || '';
-    const isMoodle = pattern.startsWith('FULLNAMEWITHSPACES');
+    const isMoodle = isMoodlePatternActive();
     const card = document.getElementById('nameDetectionCard');
     if (card) {
         card.style.display = isMoodle ? 'block' : 'none';
@@ -301,10 +305,7 @@ function updateSortOrderVisibility() {
     const container = document.getElementById('sortOrderContainer');
     if (!container) return;
 
-    const pattern = document.getElementById('foldername-pattern')?.value || '';
-    const isMoodle = pattern.startsWith('FULLNAMEWITHSPACES');
-
-    if (!isMoodle) {
+    if (!isMoodlePatternActive()) {
         container.style.display = 'none';
         return;
     }

@@ -589,8 +589,10 @@ function parseFolderName(folderName, pattern) {
 /** Detect whether a CSV uses semicolons or commas as delimiter by inspecting the first non-empty line. */
 function detectDelimiter(csvContent) {
     const firstLine = csvContent.split(/\r?\n/).find(l => l.trim().length > 0) || '';
-    const semicolons = (firstLine.match(/;/g) || []).length;
-    const commas = (firstLine.match(/,/g) || []).length;
+    // Strip quoted segments to avoid counting delimiters inside quotes
+    const stripped = firstLine.replace(/"[^"]*"/g, '""');
+    const semicolons = (stripped.match(/;/g) || []).length;
+    const commas = (stripped.match(/,/g) || []).length;
     return semicolons > commas ? ';' : ',';
 }
 
@@ -1506,7 +1508,7 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
             return { status: 'ambiguity_detected', message: 'Ambiguity detected. Please resolve conflicts.' };
         } else {
             // Process tasks directly (includes saving processed info)
-            const resultMessage = await processTasksDirectly(tasks, outputDirectory, dpi, { marginMinMm: config.marginMinMm });
+            const resultMessage = await processTasksDirectly(tasks, outputDirectory, dpi, { marginMinMm: config.marginMinMm ?? 3.5 });
 
             // Generate summary only if processing was not aborted
             if (!global.abortProcessingFlag) {
@@ -2429,11 +2431,17 @@ ipcMain.handle('validate-registration-list', async (_event, csvPath) => {
         }
         const csvContent = fs.readFileSync(csvPath, 'utf-8');
         const delimiter = detectDelimiter(csvContent);
-        const records = parse(csvContent, getCsvParseOptions(csvContent));
+        // Parse only the first few lines for validation (header + up to 5 data rows)
+        const previewLines = csvContent.split(/\r?\n/).slice(0, 7).join('\n');
+        const records = parse(previewLines, getCsvParseOptions(previewLines));
 
         if (records.length === 0) {
             return { valid: false, delimiter, headers: [], error: 'CSV contains no records.' };
         }
+
+        // Count total records from the full file without parsing all rows
+        const totalLines = csvContent.split(/\r?\n/).filter(l => l.trim().length > 0);
+        const entryCount = Math.max(0, totalLines.length - 1); // subtract header row
 
         const originalHeaders = Object.keys(records[0]);
         const headers = originalHeaders.map(h => h.trim().toLowerCase());
@@ -2456,7 +2464,7 @@ ipcMain.handle('validate-registration-list', async (_event, csvPath) => {
 
         return {
             valid: true,
-            entryCount: records.length,
+            entryCount,
             headers: originalHeaders,
             delimiter,
             sampleEntries
@@ -2484,7 +2492,6 @@ ipcMain.handle('refresh-sort-order', async (_event, outputDirectory) => {
         const tasks = [];
         for (const studentDir of studentDirs) {
             const infoPath = path.join(pagesDir, studentDir, 'processed_files.json');
-            if (!fs.existsSync(infoPath)) continue;
             try {
                 const data = JSON.parse(fs.readFileSync(infoPath, 'utf-8'));
                 if (data.processedFiles && data.processedFiles.length > 0) {
@@ -2494,7 +2501,9 @@ ipcMain.handle('refresh-sort-order', async (_event, outputDirectory) => {
                     }
                 }
             } catch (readErr) {
-                sendLogToRenderer(`WARN: Could not read ${infoPath}: ${readErr.message}`);
+                if (readErr.code !== 'ENOENT') {
+                    sendLogToRenderer(`WARN: Could not read ${infoPath}: ${readErr.message}`);
+                }
             }
         }
 
