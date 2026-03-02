@@ -218,15 +218,57 @@ ILIAS bietet zwei Download-Formate:
 * Befolgen Sie die folgenden Anweisungen:
   * Den gerade vorbereiteten Ordner **booklet-submissions** auswählen, der alle heruntergeladenen Studierendenabgaben enthält (aus Schritt 3.5).
   * Ausgabeoptionen konfigurieren (z.B. Deckblatt, dpi, Dateigrößen).
-  * **Namenserkennung (nur Moodle):** Öffnen Sie die Einstellungen und prüfen Sie die Karte *Name Detection*. Drei Modi stehen zur Verfügung:
-    * **Automatic** (Standard): Nutzt Grading-Worksheet-CSV-Spalten, falls verfügbar, dann E-Mail-basierte Heuristiken, dann Fallback auf letztes-Wort-ist-Nachname.
-    * **Registration list**: Stellen Sie eine CSV mit getrennten Vor- und Nachnamensspalten bereit (z.B. aus dem Prüfungsverwaltungssystem Ihrer Hochschule exportiert). Das Tool erkennt Semikolon- und Komma-Trennzeichen automatisch und zeigt nach der Dateiauswahl sofort ein Validierungsergebnis an.
-    * **Heuristic only**: Verwendet immer das letzte Wort des Ordnernamens als Nachname.
+  * **Namenserkennung (nur Moodle):** Moodle-Ordnernamen enthalten den vollständigen Namen als einzelne Zeichenkette (z.B. `Anna Maria Schmidt_12345_assignsubmission_file_`). Das Tool muss diesen in Vor- und Nachname aufteilen – für Deckblätter, Zusammenfassungen und die Druckreihenfolge. Öffnen Sie die Einstellungen und prüfen Sie die Karte *Name Detection*:
+
+    * **Automatic** (Standard, empfohlen wenn Grading-Worksheets vorhanden): Das Tool liest die Moodle-Grading-Worksheet-CSVs, die Sie in den Page-Ordnern abgelegt haben (siehe Abschnitt 5). Falls die CSV separate Vor- und Nachnamenspalten enthält, werden diese direkt verwendet. Andernfalls werden Namenshinweise aus E-Mail-Adressen abgeleitet (z.B. verrät `anna-maria.schmidt@…` einen zweiteiligen Vornamen). Als letzter Fallback wird das letzte Wort des Ordnernamens als Nachname verwendet. Dieser Modus benötigt keine zusätzlichen Dateien über die Grading-Worksheets hinaus, die Sie ggf. bereits für die Namenskollisionserkennung bereitstellen.
+
+    * **Registration list** (empfohlen bei separater Anmeldeliste): Stellen Sie eine CSV-Datei mit getrennten Vor- und Nachnamensspalten bereit. Das Tool gleicht Studierende über den vollständigen Namen ab (sowohl in der Reihenfolge „Vorname Nachname" als auch „Nachname Vorname"). Dies ist die zuverlässigste Option für korrekte Namenstrennung, insbesondere bei mehrteiligen Nachnamen (z.B. „von der Heide"), die die Heuristik falsch erkennen würde. Außerdem bestimmt die CSV die Druckreihenfolge – Studierende werden in der Reihenfolge ihres Erscheinens in der CSV gedruckt.
+
+        **CSV-Format der Anmeldeliste:**
+        * **Trennzeichen:** Komma (`,`) oder Semikolon (`;`) – wird automatisch erkannt.
+        * **Erforderliche Spalten:** Je eine Spalte für Vorname und Nachname. Das Tool erkennt folgende Spaltennamen (Groß-/Kleinschreibung egal): `Vorname`, `First Name`, `Firstname`, `Given Name` für Vornamen; `Nachname`, `Surname`, `Last Name`, `Lastname`, `Familienname`, `Family Name` für Nachnamen.
+        * **Weitere Spalten** (z.B. Matrikelnummer, E-Mail) werden ignoriert – nur die Namensspalten sind relevant.
+        * **Beispiel** (Semikolon-getrennt):
+            ```
+            Nr;Nachname;Vorname;Matrikelnummer
+            1;Schmidt;Anna Maria;12345678
+            2;von der Heide;Bernd;23456789
+            3;Müller;Clara;34567890
+            ```
+
+        Nach Auswahl der Datei in den Einstellungen validiert das Tool sie sofort und zeigt die Anzahl der Einträge, das erkannte Trennzeichen und Beispielnamen an. Falls die erforderlichen Spalten fehlen, listet eine Fehlermeldung die vorhandenen Spaltennamen auf.
+
+    * **Heuristic only**: Verwendet immer das letzte Wort des Ordnernamens als Nachname. Dies ist der einfachste Modus, führt aber bei mehrteiligen Nachnamen zu falschen Ergebnissen. Verwenden Sie ihn nur, wenn weder Grading-Worksheets noch eine Anmeldeliste vorliegen.
+
+    **Welchen Modus sollte ich wählen?**
+    * Wenn Sie bereits Grading-Worksheets für die Namenskollisionserkennung herunterladen (Abschnitt 5) und diese Vor-/Nachnamensspalten enthalten, funktioniert **Automatic** gut ohne zusätzlichen Aufwand.
+    * Bei Studierenden mit mehrteiligen Nachnamen oder wenn Sie die Druckreihenfolge exakt steuern möchten, verwenden Sie **Registration list** mit einer CSV aus Ihrem Prüfungsverwaltungssystem.
+    * Bei wenigen Studierenden und einfachen Namen genügt **Heuristic only**.
+
   * Den dreistufigen Generierungsprozess ausführen:
-    1. **Convert to PDFs:** Das Tool verarbeitet jede eingereichte Datei (PDF, JPG, PNG, HEIC) in eine standardisierte A5-PDF-Seite. Bilder werden bei Bedarf gedreht. Eine Datei `sort-order.txt` wird im Ausgabeverzeichnis erstellt – sie bestimmt die Druckreihenfolge beim Zusammenführen und kann vor dem nächsten Schritt manuell bearbeitet werden. **Ambiguity Detection:** Wenn ein Studierendenabgabeordner (z.B. `Clara Clever_55551_assignsubmission_file_`) mehrere gültige Dateien enthält, pausiert das Tool und fordert Sie auf, auszuwählen, welche spezifische Datei für diese Seite in das endgültige Booklet aufgenommen werden soll.
-    2. **Merge PDFs:** Deckblätter werden generiert und die konvertierten A5-Seiten werden gemäß der Reihenfolge in `sort-order.txt` zu je einem PDF für jeden Studierenden zusammengeführt.
+    1. **Convert to PDFs:** Das Tool verarbeitet jede eingereichte Datei (PDF, JPG, PNG, HEIC) in eine standardisierte A5-PDF-Seite. Bilder werden bei Bedarf gedreht. **Ambiguity Detection:** Wenn ein Studierendenabgabeordner (z.B. `Clara Clever_55551_assignsubmission_file_`) mehrere gültige Dateien enthält, pausiert das Tool und fordert Sie auf auszuwählen, welche Datei für diese Seite verwendet werden soll.
+    2. **Merge PDFs:** Deckblätter werden generiert und die konvertierten A5-Seiten werden zu je einem PDF pro Studierendem zusammengeführt. Die Druckreihenfolge wird durch die Datei `sort-order.txt` bestimmt (siehe unten).
     3. **Booklets erstellen:** Die einzelnen A5-Seiten werden paarweise auf A4-Seiten angeordnet, so dass sie bei doppelseitigem Druck („Binden an kurzer Seite") zu einem Booklet zusammengeheftet werden können.
-  * **sort-order.txt aktualisieren (Moodle, Anmeldelisten-Modus):** Wenn Sie nach der Konvertierung die Anmeldelisten-CSV oder den Namenserkennungsmodus ändern, können Sie den Link *Refresh sort-order.txt* unterhalb der Aktionsschaltflächen verwenden, um die Sortierreihenfolge aus vorhandenen Daten neu zu generieren, ohne Seiten erneut zu konvertieren.
+
+  * **`sort-order.txt` – Steuerung der Druckreihenfolge:**
+
+    Nach dem Schritt *Convert to PDFs* wird im Ausgabeverzeichnis eine Datei `sort-order.txt` erstellt. Diese tabulatorgetrennte Datei bestimmt die Reihenfolge, in der Studierende im Schritt *Merge PDFs* gedruckt werden, und kann auch zur Korrektur falsch erkannter Namen genutzt werden. Format:
+
+    ```
+    # Kommentarzeilen beginnen mit #
+    # Ordnername	Nachname	Vorname	Quelle
+    Anna Maria Schmidt_12345	Schmidt	Anna Maria	registration-list
+    Bernd von der Heide_23456	von der Heide	Bernd	registration-list
+    Clara Müller_34567	Müller	Clara	heuristic
+    ```
+
+    Die Spalten sind: (1) Ordnername wie im `pages/`-Verzeichnis, (2) erkannter Nachname, (3) erkannter Vorname, (4) Quelle der Namenserkennung (`registration-list`, `gradebook` oder `heuristic`).
+
+    **Wie der Merge-Schritt die Datei nutzt:** Der Schritt *Merge PDFs* liest `sort-order.txt` und verwendet sie für zwei Zwecke: (a) Überschreiben der Vor-/Nachnamen auf Deckblättern und in Zusammenfassungen, und (b) Drucken der Studierenden in der Zeilenreihenfolge der Datei. Studierende, die nicht in der Datei stehen, werden alphabetisch am Ende angehängt.
+
+    **Wann manuell bearbeiten:** Sie können `sort-order.txt` vor dem Zusammenführen in einem Texteditor öffnen, um falsch erkannte Namen zu korrigieren oder Studierende umzusortieren. Achten Sie darauf, das tabulatorgetrennte Format beizubehalten.
+
+    **Aktualisieren ohne erneute Konvertierung:** Wenn Sie nach der Konvertierung die Anmeldelisten-CSV oder den Namenserkennungsmodus in den Einstellungen ändern, müssen Sie nicht alle Seiten erneut konvertieren. Im Anmeldelisten-Modus erscheint unterhalb der Aktionsschaltflächen der Link *Refresh sort-order.txt*. Ein Klick darauf regeneriert die Datei aus den vorhandenen Konvertierungsdaten mit den aktuellen Einstellungen.
 * **Ausgabeort:** Die endgültigen druckbaren Booklets (`<StudentIdentifier>.pdf`) werden in einem `booklets` Unterordner relativ zu Ihrem Ausgabeverzeichnis platziert. Zwischendateien (konvertierte A5-Seiten, zusammengeführte PDFs) werden nach den jeweiligen Schritten in Unterordnern `pages` und `pdfs` innerhalb des Ausgabeverzeichnisses gespeichert.
 * **Zusammenfassungsbericht:** Das Tool generiert auch eine HTML-Datei mit dem Namen `summary.html` im Ausgabeverzeichnis. Diese Datei bietet einen praktischen Überblick:
   * Listet alle gefundenen Studierenden auf.

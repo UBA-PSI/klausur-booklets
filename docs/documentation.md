@@ -217,15 +217,57 @@ ILIAS offers two download formats:
 *   Follow its instructions:
     *   Select the single **`booklet-submissions`** folder containing all the downloaded student submissions (from Step 3.5).
     *   Configure output options (e.g., cover page, dpi, file sizes).
-    *   **Name Detection (Moodle only):** Open Settings and check the *Name Detection* card. Three modes are available:
-        *   **Automatic** (default): Uses Grading Worksheet CSV columns if available, then email-based heuristics, then falls back to last-word-is-last-name.
-        *   **Registration list**: Provide a CSV with separate first name / last name columns (e.g., exported from your university's registration system). The tool auto-detects semicolon and comma delimiters and shows a validation result immediately after selecting the file.
-        *   **Heuristic only**: Always uses the last word of the folder name as the last name.
+    *   **Name Detection (Moodle only):** Moodle folder names contain the student's full name as a single string (e.g., `Anna Maria Schmidt_12345_assignsubmission_file_`). The tool needs to split this into first name and last name – for cover sheets, summary reports, and the print order. Open Settings and check the *Name Detection* card to choose a mode:
+
+        *   **Automatic** (default, recommended when Grading Worksheets are available): The tool reads the Moodle Grading Worksheet CSVs that you placed in the page folders (see Section 5). If the CSV contains separate first name and last name columns, those are used directly. Otherwise, the tool derives name hints from student email addresses (e.g., `anna-maria.schmidt@…` reveals a two-word first name). As a final fallback, the last word of the folder name is used as the last name. This mode requires no extra files beyond the Grading Worksheets you may already provide for name collision resolution.
+
+        *   **Registration list** (recommended when you have a separate enrollment list): Provide a CSV file with separate first name and last name columns. The tool matches students by their full name (in either "First Last" or "Last First" order). This is the most reliable option for correct name splitting, especially for students with multi-word last names (e.g., "von der Heide") that the heuristic would get wrong. It also controls the print order – students are printed in the order they appear in the CSV.
+
+            **Registration list CSV format:**
+            *   **Delimiter:** Comma (`,`) or semicolon (`;`) – detected automatically.
+            *   **Required columns:** One column for the first name and one for the last name. The tool recognizes these header names (case-insensitive): `Vorname`, `First Name`, `Firstname`, `Given Name` for first names; `Nachname`, `Surname`, `Last Name`, `Lastname`, `Familienname`, `Family Name` for last names.
+            *   **Additional columns** (e.g., student number, email) are ignored – only the name columns matter.
+            *   **Example** (semicolon-separated):
+                ```
+                Nr;Nachname;Vorname;Matrikelnummer
+                1;Schmidt;Anna Maria;12345678
+                2;von der Heide;Bernd;23456789
+                3;Müller;Clara;34567890
+                ```
+
+            After selecting the file in Settings, the tool validates it immediately and shows the number of entries, the detected delimiter, and sample names. If the required columns are missing, an error message lists the available column headers.
+
+        *   **Heuristic only**: Always uses the last word of the folder name as the last name. This is the simplest mode but will produce incorrect results for multi-word last names. Use this only if you do not have Grading Worksheets or a registration list.
+
+        **Which mode should I choose?**
+        *   If you already download Grading Worksheets for name collision resolution (Section 5) and they contain first/last name columns, **Automatic** works well with no extra effort.
+        *   If you have students with multi-word last names, or you want to control the exact print order, use **Registration list** with a CSV exported from your university's enrollment system.
+        *   If you have very few students and simple names, **Heuristic only** is sufficient.
+
     *   Run the three-step generation process:
-        1.  **Convert to PDFs:** The tool processes each submitted file (PDF, JPG, PNG, HEIC) into a standardized A5 PDF page. Images are rotated if necessary. A `sort-order.txt` file is written to the output directory – it controls the print order during merging and can be edited manually before proceeding. **Ambiguity Detection:** If a student submission folder (e.g., `Clara Clever_55551_assignsubmission_file_`) contains multiple valid files, the tool will pause and prompt you to select which specific file should be included in the final booklet for that page.
-        2.  **Merge PDFs:** Cover sheets are generated, and the converted A5 pages are merged according to the order in `sort-order.txt` into one PDF per student.
+        1.  **Convert to PDFs:** The tool processes each submitted file (PDF, JPG, PNG, HEIC) into a standardized A5 PDF page. Images are rotated if necessary. **Ambiguity Detection:** If a student submission folder (e.g., `Clara Clever_55551_assignsubmission_file_`) contains multiple valid files, the tool will pause and prompt you to select which specific file should be included in the final booklet for that page.
+        2.  **Merge PDFs:** Cover sheets are generated, and the converted A5 pages are merged into one PDF per student. The print order is determined by the `sort-order.txt` file (see below).
         3.  **Create Booklets:** The individual A5 pages are imposed pairwise onto A4 pages so that they can be stapled into a booklet when printed double-sided (binding on the short edge).
-    *   **Refresh sort-order.txt (Moodle, registration-list mode):** If you change the registration list CSV or name detection mode after converting, use the *Refresh sort-order.txt* link below the action buttons to regenerate the sort order from existing data without re-converting pages.
+
+    *   **`sort-order.txt` – controlling the print order:**
+
+        After the *Convert to PDFs* step, a file called `sort-order.txt` is written to the output directory. This tab-separated file determines the order in which students are printed during the *Merge PDFs* step and can be used to correct misdetected names. Its format is:
+
+        ```
+        # Comment lines start with #
+        # FolderName	LastName	FirstName	Source
+        Anna Maria Schmidt_12345	Schmidt	Anna Maria	registration-list
+        Bernd von der Heide_23456	von der Heide	Bernd	registration-list
+        Clara Müller_34567	Müller	Clara	heuristic
+        ```
+
+        The columns are: (1) the folder name as found in the `pages/` directory, (2) detected last name, (3) detected first name, (4) the source of the name detection (`registration-list`, `gradebook`, or `heuristic`).
+
+        **How the merge step uses it:** The *Merge PDFs* step reads `sort-order.txt` and uses it for two purposes: (a) it overrides the first/last name on cover sheets and in summaries, and (b) it prints students in the file's line order. Students not found in the file are appended alphabetically at the end.
+
+        **When to edit it manually:** You can open `sort-order.txt` in a text editor before merging to correct misdetected names or reorder students. Make sure to keep the tab-separated format.
+
+        **Refreshing without re-converting:** If you change the registration list CSV or the name detection mode in Settings *after* converting, you do not need to re-convert all pages. In registration-list mode, a *Refresh sort-order.txt* link appears below the action buttons. Clicking it regenerates the file from the existing conversion data using the current settings.
 *   **Output Location:** The final printable booklets (`<StudentIdentifier>.pdf`) are placed in a `booklets` subfolder relative to your output directory. Intermediate files (converted A5 pages, merged PDFs) are stored after the respective steps in subfolders `pages` and `pdfs` within the output directory.
 *   **Summary Report:** The tool also generates an HTML file named `summary.html` in the output directory. This file provides a convenient overview:
     *   Lists all students found.
