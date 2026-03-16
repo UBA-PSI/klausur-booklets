@@ -15,6 +15,8 @@
     <link rel="stylesheet" type="text/css" href="node_modules/flatpickr/dist/flatpickr.min.css">
     <!-- MBZ Modifier CSS -->
     <link rel="stylesheet" type="text/css" href="src/assets/mbz_creator.css">
+    <!-- ILIAS Creator CSS -->
+    <link rel="stylesheet" type="text/css" href="src/assets/ilias_creator.css">
     <!-- Additional custom styles for main view -->
     <style>
         /* Info icon styling */
@@ -184,10 +186,8 @@
             <i class="bi bi-journal-richtext text-primary me-2" style="font-size: 1.25rem;"></i>
             <h1 class="app-title mb-0">Booklet Generation Mode</h1>
         </div>
-        <button id="app-mode-switch" class="btn btn-outline-primary app-switcher">
-            <i class="bi bi-arrow-repeat me-1"></i>
-            Go to MBZ Modifier
-        </button>
+        <div id="app-mode-buttons" class="d-flex gap-2">
+        </div>
     </div>
 
     <!-- Main View (Booklet Generator) -->
@@ -388,6 +388,11 @@
     <!-- MBZ Modifier View - Content loaded dynamically -->
     <div id="mbz-creator-view" class="view-container">
         <p>Loading MBZ Modifier...</p>
+    </div>
+
+    <!-- ILIAS Exercise Creator View - Content loaded dynamically -->
+    <div id="ilias-creator-view" class="view-container">
+        <p>Loading ILIAS Exercise Creator...</p>
     </div>
 
     <!-- Status Bar - Placed outside view containers to be persistent -->
@@ -994,6 +999,7 @@
     <script src="src/assets/vertical-calendar-controller.js"></script>
     <script src="src/assets/app-switcher.js"></script>
     <script src="src/assets/batch-creator.js"></script>
+    <script src="src/assets/ilias-creator.js"></script>
 
     <!-- Initialization Script -->
     <script>
@@ -1005,44 +1011,71 @@
 
             // Initialize AppSwitcher
             window.appSwitcher = new AppSwitcher({
-                mainViewSelector: '#main-view',
-                mbzViewSelector: '#mbz-creator-view',
-                switchButtonSelector: '#app-mode-switch',
+                views: [
+                    { name: 'main', selector: '#main-view', title: 'Booklet Generation Mode' },
+                    { name: 'mbz', selector: '#mbz-creator-view', title: 'MBZ Modifier Mode', buttonLabel: 'MBZ Modifier', buttonIcon: 'bi-arrow-repeat' },
+                    { name: 'ilias', selector: '#ilias-creator-view', title: 'ILIAS Exercise Creator', buttonLabel: 'ILIAS Exercise Creator', buttonIcon: 'bi-mortarboard' },
+                ],
+                buttonContainerSelector: '#app-mode-buttons',
                 titleElementSelector: '#main-header .app-title',
-                mainViewTitle: 'Booklet Generation Mode',
-                mbzViewTitle: 'MBZ Modifier Mode'
             });
 
             // Initialize MBZ modifier lazily on first view switch
             let mbzCreatorInstance = null;
+            let iliasCreatorInstance = null;
 
             window.addEventListener('viewChanged', async (event) => {
-                if (event.detail.view !== 'mbz' || mbzCreatorInstance) return;
+                // Lazy init MBZ
+                if (event.detail.view === 'mbz' && !mbzCreatorInstance) {
+                    const mbzContainer = document.getElementById('mbz-creator-view');
+                    if (!mbzContainer) return;
 
-                const mbzContainer = document.getElementById('mbz-creator-view');
-                if (!mbzContainer) return;
+                    mbzCreatorInstance = MbzBatchCreator.initialize(mbzContainer);
+                    await mbzCreatorInstance.buildUI();
+                    mbzCreatorInstance.findElements();
+                    mbzCreatorInstance.setupCollapse();
+                    mbzCreatorInstance.initCalendar();
+                    mbzCreatorInstance.attachEventListeners();
+                    mbzCreatorInstance.updateGenerateButtonState();
 
-                mbzCreatorInstance = MbzBatchCreator.initialize(mbzContainer);
-                await mbzCreatorInstance.buildUI();
-                mbzCreatorInstance.findElements();
-                mbzCreatorInstance.setupCollapse();
-                mbzCreatorInstance.initCalendar();
-                mbzCreatorInstance.attachEventListeners();
-                mbzCreatorInstance.updateGenerateButtonState();
+                    setTimeout(() => {
+                        if (!mbzCreatorInstance.calendar) return;
+                        const controller = VerticalCalendarController.initialize(
+                            mbzCreatorInstance.calendar,
+                            mbzCreatorInstance
+                        );
+                        mbzCreatorInstance.setController(controller);
+                    }, 100);
+                }
 
-                // Short delay for calendar rendering to complete before wiring up the controller
-                setTimeout(() => {
-                    if (!mbzCreatorInstance.calendar) return;
-                    const controller = VerticalCalendarController.initialize(
-                        mbzCreatorInstance.calendar,
-                        mbzCreatorInstance
-                    );
-                    mbzCreatorInstance.setController(controller);
-                }, 100);
+                // Lazy init ILIAS
+                if (event.detail.view === 'ilias' && !iliasCreatorInstance) {
+                    const iliasContainer = document.getElementById('ilias-creator-view');
+                    if (!iliasContainer) return;
+
+                    iliasCreatorInstance = IliasExerciseCreator.initialize(iliasContainer);
+                    await iliasCreatorInstance.buildUI();
+                    iliasCreatorInstance.findElements();
+                    iliasCreatorInstance.setupCollapse();
+                    iliasCreatorInstance.initCalendar();
+                    iliasCreatorInstance.attachEventListeners();
+                    iliasCreatorInstance.updateGenerateButtonState();
+
+                    setTimeout(() => {
+                        if (!iliasCreatorInstance.calendar) return;
+                        const controller = VerticalCalendarController.initialize(
+                            iliasCreatorInstance.calendar,
+                            iliasCreatorInstance
+                        );
+                        iliasCreatorInstance.setController(controller);
+                    }, 100);
+                }
             });
 
             if (window.location.hash === '#mbz') {
                 window.appSwitcher.showMbzView();
+            } else if (window.location.hash === '#ilias') {
+                window.appSwitcher.showIliasView();
             }
 
             // Modal auto-save and Bootstrap normalization

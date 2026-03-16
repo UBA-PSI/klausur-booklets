@@ -1,0 +1,222 @@
+<!-- ILIAS Exercise Creator view content -->
+<div class="ilias-creator-view">
+  <!-- Left Column: Exercise Settings & Controls -->
+  <div class="ilias-creator-left pb-3">
+    <!-- 1. Exercise Settings -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-body p-4">
+        <h5 class="card-title fw-bold mb-3">1. Exercise Settings</h5>
+
+        <div class="mb-3">
+          <label for="ilias-exercise-title" class="form-label fw-semibold">Title</label>
+          <input type="text" class="form-control" id="ilias-exercise-title" placeholder="e.g. Booklet-Seiten" value="Booklet-Seiten">
+        </div>
+        <div class="mb-3">
+          <label for="ilias-exercise-description" class="form-label fw-semibold">Description</label>
+          <input type="text" class="form-control" id="ilias-exercise-description" placeholder="Short description">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Instruction</label>
+          <div class="ilias-editor-toolbar">
+            <button type="button" data-cmd="bold" title="Bold"><i class="bi bi-type-bold"></i></button>
+            <button type="button" data-cmd="italic" title="Italic"><i class="bi bi-type-italic"></i></button>
+            <button type="button" data-cmd="underline" title="Underline"><i class="bi bi-type-underline"></i></button>
+            <span class="ilias-editor-sep"></span>
+            <button type="button" data-cmd="insertUnorderedList" title="Bullet list"><i class="bi bi-list-ul"></i></button>
+            <button type="button" data-cmd="insertOrderedList" title="Numbered list"><i class="bi bi-list-ol"></i></button>
+            <span class="ilias-editor-sep"></span>
+            <button type="button" data-cmd="removeFormat" title="Remove formatting"><i class="bi bi-eraser"></i></button>
+            <span class="ilias-editor-sep"></span>
+            <span class="ilias-editor-dropdown">
+              <button type="button" class="ilias-editor-btn-text ilias-editor-dropdown-toggle" title="Insert template text">
+                <i class="bi bi-file-text me-1"></i>Template <i class="bi bi-caret-down-fill" style="font-size:0.6rem;"></i>
+              </button>
+              <span class="ilias-editor-dropdown-menu">
+                <button type="button" data-template="de">Deutsch</button>
+                <button type="button" data-template="en">English</button>
+              </span>
+            </span>
+            <button type="button" id="ilias-toggle-source-btn" title="Toggle HTML source" class="ilias-editor-btn-text">
+              <i class="bi bi-code-slash me-1"></i>HTML
+            </button>
+          </div>
+          <div id="ilias-instruction-editor" class="ilias-editor-content" contenteditable="true"></div>
+          <textarea id="ilias-instruction-source" class="ilias-editor-source" style="display:none;"></textarea>
+        </div>
+
+        <!-- Optional: Load from ILIAS export -->
+        <div class="mt-3 pt-2 border-top">
+          <div class="d-flex align-items-center gap-2">
+            <button id="ilias-load-template-btn" class="btn btn-outline-secondary btn-sm">
+              <i class="bi bi-upload me-1"></i>Load from ILIAS Export ZIP
+            </button>
+            <span class="text-muted small">(optional — pre-fills fields from existing export)</span>
+          </div>
+          <span id="ilias-template-label" class="text-muted small fst-italic mt-1 d-block"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Assignment Settings -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-body p-4">
+        <h5 class="card-title fw-bold mb-3">2. Assignment Settings</h5>
+
+        <div class="row mb-3 align-items-center">
+          <label class="col-sm-4 col-form-label">Calendar click sets</label>
+          <div class="col-sm-8">
+            <select class="form-select form-select-sm" id="ilias-date-mode">
+              <option value="start" selected>Start dates (lecture days)</option>
+              <option value="deadline">Deadline dates</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row mb-3 align-items-center">
+          <label for="ilias-deadline-offset" class="col-sm-4 col-form-label">Deadline offset</label>
+          <div class="col-sm-5 d-flex align-items-center">
+            <input type="number" class="form-control" id="ilias-deadline-offset" value="7" min="1" style="width: 80px;">
+            <span class="ms-2" id="ilias-offset-label">days after start</span>
+          </div>
+        </div>
+
+        <div class="row mb-3 align-items-center">
+          <label for="ilias-deadline-time" class="col-sm-4 col-form-label">Deadline time</label>
+          <div class="col-sm-5">
+            <input type="time" class="form-control" id="ilias-deadline-time" value="00:00" step="300">
+          </div>
+        </div>
+
+        <div class="row mb-3 align-items-center">
+          <label for="ilias-unit-prefix" class="col-sm-4 col-form-label">Unit name prefix</label>
+          <div class="col-sm-5">
+            <input type="text" class="form-control" id="ilias-unit-prefix" value="Seite">
+          </div>
+        </div>
+
+        <div class="form-text" id="ilias-mode-help">
+          <strong>Start dates:</strong> Click lecture days in the calendar. Deadline = start + offset.<br>
+          <strong>Deadline dates:</strong> Click deadline days. Start = deadline &minus; offset.
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Assignments -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-body p-4">
+        <h5 class="card-title fw-bold mb-3">3. Assignments</h5>
+        <p class="text-muted small mb-3">
+          Click dates in the calendar to add assignments. Click an assigned date again to remove it.
+        </p>
+
+        <div id="ilias-empty-state" class="text-center text-muted py-3">
+          <i class="bi bi-calendar-plus" style="font-size: 2rem;"></i>
+          <p class="mt-2 mb-3">Click dates in the calendar to add assignments, or:</p>
+          <button id="ilias-weekly-btn" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-calendar-week me-1"></i>Generate weekly
+          </button>
+          <div id="ilias-weekly-panel" style="display:none;" class="text-start border rounded p-3 bg-light mt-3">
+            <p class="small mb-2" id="ilias-weekly-hint">Click the <strong>first</strong> lecture day in the calendar.</p>
+            <div class="d-flex align-items-center gap-2 small">
+              <span>First:</span>
+              <strong id="ilias-weekly-first" class="text-primary">—</strong>
+              <span class="ms-2">Last:</span>
+              <strong id="ilias-weekly-last" class="text-primary">—</strong>
+              <button id="ilias-weekly-confirm" class="btn btn-primary btn-sm ms-auto" disabled>Create</button>
+              <button id="ilias-weekly-cancel" class="btn btn-outline-secondary btn-sm">Cancel</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="ilias-assignment-list-section" style="display: none;">
+          <div class="table-responsive">
+            <table class="table table-sm mb-0 assignment-table">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 30px;">#</th>
+                  <th>Name</th>
+                  <th style="width: 100px;">Start</th>
+                  <th style="width: 130px;" title="Click a deadline to change it via the calendar. Double-click to reset.">Deadline</th>
+                  <th style="width: 36px;"></th>
+                </tr>
+              </thead>
+              <tbody id="ilias-assignment-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Timestamp Preview (collapsed) -->
+    <div id="ilias-preview-section" class="card shadow-sm mb-3" style="display: none;">
+      <div class="card-header bg-light" data-bs-toggle="collapse" href="#iliasPreviewBody" role="button" aria-expanded="false">
+        <div class="d-flex justify-content-between align-items-center">
+          <h5 class="card-title mb-0 fw-bold">Timestamp Preview</h5>
+          <i class="bi bi-chevron-down"></i>
+        </div>
+      </div>
+      <div class="collapse" id="iliasPreviewBody">
+        <div class="card-body p-3">
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered mb-0 small">
+              <thead class="table-light">
+                <tr>
+                  <th>#</th>
+                  <th>Name</th>
+                  <th>Opens (local)</th>
+                  <th>Deadline (local)</th>
+                </tr>
+              </thead>
+              <tbody id="ilias-preview-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Options (collapsed) -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-header bg-light" data-bs-toggle="collapse" href="#iliasOptionsBody" role="button" aria-expanded="false">
+        <div class="d-flex justify-content-between align-items-center">
+          <h5 class="card-title mb-0 fw-bold">Options</h5>
+          <i class="bi bi-chevron-down"></i>
+        </div>
+      </div>
+      <div class="collapse" id="iliasOptionsBody">
+        <div class="card-body p-4">
+          <div class="row mb-3 align-items-center">
+            <label class="col-sm-4 col-form-label">Mandatory</label>
+            <div class="col-sm-8">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="ilias-mandatory">
+                <label class="form-check-label" for="ilias-mandatory">Assignments are mandatory</label>
+              </div>
+            </div>
+          </div>
+          <div class="row align-items-center">
+            <label for="ilias-max-files" class="col-sm-4 col-form-label">Max files</label>
+            <div class="col-sm-5 d-flex align-items-center">
+              <input type="number" class="form-control" id="ilias-max-files" value="1" min="1" style="width: 80px;">
+              <span class="ms-2">per assignment</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Generate -->
+    <div class="card shadow-sm pb-0 mb-3">
+      <div class="card-body pt-4 pb-0">
+        <button id="ilias-generate-btn" class="btn btn-primary" disabled>Generate ILIAS Exercise ZIP</button>
+        <div id="ilias-status-message" class="status-message mx-auto mt-3"></div>
+      </div>
+    </div>
+
+    <div style="height: 60px;"></div>
+  </div>
+
+  <!-- Right Column: Vertical Calendar -->
+  <div class="ilias-creator-right">
+    <div id="ilias-calendar-container" class="vertical-calendar-container"></div>
+  </div>
+</div>

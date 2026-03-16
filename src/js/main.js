@@ -58,6 +58,7 @@ const {
 } = require('./pdf-merger');
 
 const { parseAssignmentsFromMbz, modifyMoodleBackup } = require('../mbz-creator/lib/mbzCreator');
+const { generateIliasExerciseZip, parseIliasExerciseZip } = require('../ilias-creator/lib/iliasExerciseGenerator');
 
 // Keep track of the main window
 let mainWindow = null;
@@ -2560,6 +2561,40 @@ ipcMain.handle('mbz:modifyAssignments', async (_event, options) => {
         return { success: true, outputPath: options.outputMbzPath, message: 'MBZ file modified successfully.' };
     } catch (error) {
         return { success: false, message: error.message || 'An unknown error occurred.' };
+    }
+});
+
+// --- ILIAS Exercise Creator IPC Handlers ---
+
+ipcMain.handle('load-ilias-creator-html', async () => {
+    const htmlPath = path.join(__dirname, '..', 'ilias_creator.html');
+    return fs.promises.readFile(htmlPath, 'utf-8');
+});
+
+ipcMain.handle('ilias:generateExercise', async (_event, { config, outputPath }) => {
+    try {
+        if (!config || !outputPath || typeof outputPath !== 'string') {
+            return { success: false, message: 'Invalid parameters.' };
+        }
+        if (!Array.isArray(config.assignments) || config.assignments.length === 0) {
+            return { success: false, message: 'No assignments provided.' };
+        }
+        const result = generateIliasExerciseZip(config, outputPath);
+        return { success: true, ...result };
+    } catch (error) {
+        return { success: false, message: error.message || 'Failed to generate ILIAS exercise.' };
+    }
+});
+
+ipcMain.handle('ilias:parseTemplate', async (_event, zipPath) => {
+    try {
+        if (!zipPath || typeof zipPath !== 'string') {
+            return { success: false, message: 'Invalid file path.' };
+        }
+        const data = parseIliasExerciseZip(zipPath);
+        return { success: true, data };
+    } catch (error) {
+        return { success: false, message: error.message || 'Failed to parse ILIAS template.' };
     }
 });
 
