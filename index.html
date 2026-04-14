@@ -1020,55 +1020,38 @@
                 titleElementSelector: '#main-header .app-title',
             });
 
-            // Initialize MBZ modifier lazily on first view switch
+            // Initialize creator views lazily on first view switch
             let mbzCreatorInstance = null;
             let iliasCreatorInstance = null;
 
+            async function initCreatorView(instance) {
+                await instance.buildUI();
+                instance.findElements();
+                instance.setupCollapse();
+                instance.initCalendar();
+                instance.attachEventListeners();
+                instance.updateGenerateButtonState();
+
+                setTimeout(() => {
+                    if (!instance.calendar) return;
+                    const controller = VerticalCalendarController.initialize(instance.calendar, instance);
+                    if (controller) instance.setController(controller);
+                }, 100);
+            }
+
             window.addEventListener('viewChanged', async (event) => {
-                // Lazy init MBZ
                 if (event.detail.view === 'mbz' && !mbzCreatorInstance) {
                     const mbzContainer = document.getElementById('mbz-creator-view');
                     if (!mbzContainer) return;
-
                     mbzCreatorInstance = MbzBatchCreator.initialize(mbzContainer);
-                    await mbzCreatorInstance.buildUI();
-                    mbzCreatorInstance.findElements();
-                    mbzCreatorInstance.setupCollapse();
-                    mbzCreatorInstance.initCalendar();
-                    mbzCreatorInstance.attachEventListeners();
-                    mbzCreatorInstance.updateGenerateButtonState();
-
-                    setTimeout(() => {
-                        if (!mbzCreatorInstance.calendar) return;
-                        const controller = VerticalCalendarController.initialize(
-                            mbzCreatorInstance.calendar,
-                            mbzCreatorInstance
-                        );
-                        mbzCreatorInstance.setController(controller);
-                    }, 100);
+                    await initCreatorView(mbzCreatorInstance);
                 }
 
-                // Lazy init ILIAS
                 if (event.detail.view === 'ilias' && !iliasCreatorInstance) {
                     const iliasContainer = document.getElementById('ilias-creator-view');
                     if (!iliasContainer) return;
-
                     iliasCreatorInstance = IliasExerciseCreator.initialize(iliasContainer);
-                    await iliasCreatorInstance.buildUI();
-                    iliasCreatorInstance.findElements();
-                    iliasCreatorInstance.setupCollapse();
-                    iliasCreatorInstance.initCalendar();
-                    iliasCreatorInstance.attachEventListeners();
-                    iliasCreatorInstance.updateGenerateButtonState();
-
-                    setTimeout(() => {
-                        if (!iliasCreatorInstance.calendar) return;
-                        const controller = VerticalCalendarController.initialize(
-                            iliasCreatorInstance.calendar,
-                            iliasCreatorInstance
-                        );
-                        iliasCreatorInstance.setController(controller);
-                    }, 100);
+                    await initCreatorView(iliasCreatorInstance);
                 }
             });
 

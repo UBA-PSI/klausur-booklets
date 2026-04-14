@@ -46,7 +46,11 @@ function generateIds(numAssignments) {
     return { excId, assIds };
 }
 
-/** Check whether a date (1-based month) falls in CEST. System-timezone-independent. */
+/**
+ * Check whether a date (1-based month) falls in CEST. System-timezone-independent.
+ * Mirrors `_isCEST` in src/assets/ilias-creator.js — changes here must be reflected
+ * there to keep frontend/backend conversions consistent.
+ */
 function isCEST(year, month, day, hour) {
     function lastSundayOfMonth(y, m) {
         const last = new Date(Date.UTC(y, m + 1, 0)).getUTCDay();
@@ -59,7 +63,14 @@ function isCEST(year, month, day, hour) {
         && val < 10 * 1000000 + lastSunOct * 10000 + 300;
 }
 
-/** Convert CET/CEST "YYYY-MM-DD [HH:MM]" to UTC string. Timezone-independent. */
+/**
+ * Convert CET/CEST "YYYY-MM-DD [HH:MM]" to UTC string. Timezone-independent.
+ *
+ * Europe/Berlin (CET/CEST) is hardcoded intentionally: ILIAS exports for
+ * German-university instances always represent exercise dates in Central
+ * European local time. Sibling frontend helper: `utcToLocalDate` in
+ * src/assets/ilias-creator.js.
+ */
 function toUtcString(localDateStr) {
     const str = localDateStr.length === 10 ? localDateStr + ' 00:00' : localDateStr;
     const [datePart, timePart] = str.split(' ');

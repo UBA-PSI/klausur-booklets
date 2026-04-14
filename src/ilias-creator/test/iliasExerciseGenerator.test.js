@@ -2,6 +2,7 @@ const assert = require('assert');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const AdmZip = require('adm-zip');
 const { generateIliasExerciseZip, parseIliasExerciseZip, generateIds, toUtcString } = require('../lib/iliasExerciseGenerator');
 
 function main() {
@@ -10,6 +11,7 @@ function main() {
     testGenerateIds();
     testRoundtrip();
     testRoundtripWithHtml();
+    testXmlWellFormed();
     testParseInvalidZip();
     testMaxFilesValidation();
     console.log('\n✅ All ILIAS Exercise Generator tests passed.');
@@ -152,6 +154,70 @@ function testRoundtripWithHtml() {
         assert.strictEqual(parsed.instruction_html, html, 'HTML instruction round-trip');
 
         console.log('✅ Roundtrip: special characters and HTML entities preserved');
+    } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+}
+
+// --- XML well-formedness ---
+
+/**
+ * Minimal well-formedness check for XML generated via string concatenation:
+ * (1) every opening tag has a matching closing tag (ignoring self-closing),
+ * (2) no unescaped ampersands outside recognised entity references.
+ * Not a full parser — just catches the regression class we care about
+ * (unescaped `&` in user content, dangling tags from template edits).
+ */
+function assertXmlWellFormed(xml, label) {
+    const unescapedAmp = /&(?!amp;|lt;|gt;|quot;|apos;|#\d+;|#x[0-9a-fA-F]+;)/;
+    const match = unescapedAmp.exec(xml);
+    assert.ok(!match, `${label}: unescaped '&' at offset ${match ? match.index : -1}: ${match ? xml.slice(Math.max(0, match.index - 20), match.index + 20) : ''}`);
+
+    const counts = new Map();
+    const tagPattern = /<(\/?)([A-Za-z_][\w:.-]*)(\s[^>]*?)?(\/?)>/g;
+    let m;
+    while ((m = tagPattern.exec(xml)) !== null) {
+        const closing = m[1] === '/';
+        const name = m[2];
+        const selfClosing = m[4] === '/';
+        if (name.startsWith('?') || name.startsWith('!')) continue;
+        if (selfClosing) continue;
+        const current = counts.get(name) || 0;
+        counts.set(name, current + (closing ? -1 : 1));
+    }
+    for (const [name, delta] of counts) {
+        assert.strictEqual(delta, 0, `${label}: tag <${name}> is unbalanced (net open = ${delta})`);
+    }
+}
+
+function testXmlWellFormed() {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ilias-test-'));
+    const zipPath = path.join(tmpDir, 'test-wellformed.zip');
+
+    try {
+        const config = {
+            exercise_title: 'Tricky & "Quoted" <Title>',
+            exercise_description: 'Desc with & ampersand and <brackets>',
+            instruction_html: '<p>Ampersand: &amp; literal text</p>\n<ul>\n<li>Item with "quotes" & more</li>\n</ul>',
+            mandatory: true,
+            max_files: 3,
+            assignments: [
+                { title: 'Einheit & 1', startDate: '2026-04-01 00:00', deadlineDate: '2026-04-08 23:55' },
+                { title: 'Einheit "2"', startDate: '2026-04-08 00:00', deadlineDate: '2026-04-15 23:55' },
+            ],
+        };
+
+        generateIliasExerciseZip(config, zipPath);
+
+        const zip = new AdmZip(zipPath);
+        const xmlEntries = zip.getEntries().filter(e => e.entryName.endsWith('.xml'));
+        assert.ok(xmlEntries.length >= 4, 'Should produce at least 4 XML files');
+
+        for (const entry of xmlEntries) {
+            const xml = zip.readAsText(entry);
+            assertXmlWellFormed(xml, entry.entryName);
+        }
+        console.log(`✅ XML well-formedness: ${xmlEntries.length} XML files pass tag-balance and entity checks`);
     } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
     }

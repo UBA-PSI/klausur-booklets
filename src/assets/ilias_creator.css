@@ -325,38 +325,41 @@
 }
 
 /* Calendar highlights: blue = start, orange = deadline, light orange = range.
-   Transient markers use outline (not border) to avoid layout shifts on fade. */
-.calendar-day.ilias-start-marker {
-    background-color: #cfe2ff !important;
-    color: #0d6efd !important;
-    outline: 2px solid #0d6efd !important;
-    outline-offset: -2px !important;
-    box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.1) !important;
+   Transient markers use outline (not border) to avoid layout shifts on fade.
+   Scoped under #ilias-creator-view so ID-specificity beats the base
+   .calendar-day styles and the VerticalCalendarController's injected
+   .assigned-date rules without needing !important. */
+#ilias-creator-view .calendar-day.ilias-start-marker {
+    background-color: #cfe2ff;
+    color: #0d6efd;
+    outline: 2px solid #0d6efd;
+    outline-offset: -2px;
+    box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.1);
 }
 
 /* Deadline markers (orange) — shared base */
-.calendar-day.ilias-deadline-marker,
-.calendar-day.ilias-deadline-permanent {
-    background-color: #fff3cd !important;
-    color: #856404 !important;
-    font-weight: bold !important;
-    box-shadow: 0 0 0 2px rgba(253, 126, 20, 0.3) !important;
+#ilias-creator-view .calendar-day.ilias-deadline-marker,
+#ilias-creator-view .calendar-day.ilias-deadline-permanent {
+    background-color: #fff3cd;
+    color: #856404;
+    font-weight: bold;
+    box-shadow: 0 0 0 2px rgba(253, 126, 20, 0.3);
 }
 
 /* Transient: outline to avoid layout shifts on fade */
-.calendar-day.ilias-deadline-marker {
-    outline: 2px solid #fd7e14 !important;
-    outline-offset: -2px !important;
+#ilias-creator-view .calendar-day.ilias-deadline-marker {
+    outline: 2px solid #fd7e14;
+    outline-offset: -2px;
 }
 
 /* Permanent: border (stable, not animated) */
-.calendar-day.ilias-deadline-permanent {
-    border: 2px solid #fd7e14 !important;
+#ilias-creator-view .calendar-day.ilias-deadline-permanent {
+    border: 2px solid #fd7e14;
     position: relative;
 }
 
 /* Assignment number badge */
-.calendar-day.ilias-deadline-permanent::after {
+#ilias-creator-view .calendar-day.ilias-deadline-permanent::after {
     content: attr(data-assignment-index);
     position: absolute;
     top: 1px;
@@ -373,20 +376,20 @@
 }
 
 /* Active deadline (most recently clicked) */
-.calendar-day.ilias-deadline-permanent.active-assignment {
-    background-color: #ffe0a0 !important;
-    border-color: #e06800 !important;
+#ilias-creator-view .calendar-day.ilias-deadline-permanent.active-assignment {
+    background-color: #ffe0a0;
+    border-color: #e06800;
 }
 
 /* Range fill between start and deadline */
-.calendar-day.ilias-range {
-    background-color: #fff0e0 !important;
-    color: #664d03 !important;
-    border-color: #fde0bb !important;
+#ilias-creator-view .calendar-day.ilias-range {
+    background-color: #fff0e0;
+    color: #664d03;
+    border-color: #fde0bb;
 }
 
 /* Fade-out transition */
-.calendar-day.ilias-fading {
+#ilias-creator-view .calendar-day.ilias-fading {
     transition: background-color 1.5s ease-out, outline-color 1.5s ease-out, box-shadow 1.5s ease-out, color 1.5s ease-out, font-weight 1.5s ease-out;
 }
 

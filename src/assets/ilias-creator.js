@@ -249,7 +249,14 @@ class IliasExerciseCreator {
         this.assignments.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
     }
 
-    /** Convert UTC "YYYY-MM-DD HH:MM:SS" to CET/CEST date "YYYY-MM-DD". */
+    /**
+     * Convert UTC "YYYY-MM-DD HH:MM:SS" to CET/CEST date "YYYY-MM-DD".
+     *
+     * Europe/Berlin (CET/CEST) is hardcoded intentionally: this tool targets
+     * German-university ILIAS instances, which store exercise dates in
+     * Central European local time. Keep in sync with the backend counterpart
+     * `toUtcString` / `isCEST` in src/ilias-creator/lib/iliasExerciseGenerator.js.
+     */
     utcToLocalDate(utcStr) {
         const cleaned = utcStr.replace(' ', 'T') + 'Z';
         const d = new Date(cleaned);
@@ -264,7 +271,12 @@ class IliasExerciseCreator {
         return `${localDate.getUTCFullYear()}-${iliasPad(localDate.getUTCMonth() + 1)}-${iliasPad(localDate.getUTCDate())}`;
     }
 
-    /** Check whether a CET date falls in CEST (1-based months). */
+    /**
+     * Check whether a CET date falls in CEST (1-based months).
+     * Mirrors `isCEST` in src/ilias-creator/lib/iliasExerciseGenerator.js —
+     * changes here must be reflected there to keep frontend/backend conversions
+     * consistent.
+     */
     _isCEST(year, month, day, hour) {
         const lastSunday = (y, m) => {
             const lastDay = new Date(Date.UTC(y, m, 0));
@@ -279,13 +291,20 @@ class IliasExerciseCreator {
         return val >= cestStart && val < cestEnd;
     }
 
-    /** Round to nearest 5 minutes (ILIAS limitation). */
+    /**
+     * Round to nearest 5 minutes (ILIAS limitation).
+     * Clamps to 23:55 on end-of-day rollover to avoid silently moving the
+     * deadline to the previous day (e.g. 23:58 would otherwise wrap to 00:00).
+     */
     snapToFiveMinutes(timeStr) {
         const match = ILIAS_TIME_PATTERN.exec(timeStr);
         if (!match) return '00:00';
         const h = parseInt(match[1], 10);
         const m = Math.round(parseInt(match[2], 10) / 5) * 5;
-        if (m === 60) return `${iliasPad(h + 1 > 23 ? 0 : h + 1)}:00`;
+        if (m === 60) {
+            if (h >= 23) return '23:55';
+            return `${iliasPad(h + 1)}:00`;
+        }
         return `${iliasPad(h)}:${iliasPad(m)}`;
     }
 
@@ -407,13 +426,14 @@ class IliasExerciseCreator {
 
     /** Strip dangerous elements/attributes from imported HTML. */
     sanitizeHtml(html) {
+        const urlAttrs = ['href', 'src', 'action', 'formaction', 'xlink:href'];
         const doc = new DOMParser().parseFromString(html, 'text/html');
         doc.querySelectorAll('script, style, iframe, object, embed, link, meta').forEach(el => el.remove());
         doc.querySelectorAll('*').forEach(el => {
             for (const attr of [...el.attributes]) {
-                if (attr.name.startsWith('on') || attr.name === 'srcdoc') {
+                if (attr.name.startsWith('on') || attr.name === 'srcdoc' || attr.name === 'style') {
                     el.removeAttribute(attr.name);
-                } else if (['href', 'src', 'action'].includes(attr.name)) {
+                } else if (urlAttrs.includes(attr.name)) {
                     const val = attr.value.trim().toLowerCase();
                     if (val.startsWith('javascript:') || val.startsWith('data:')) {
                         el.removeAttribute(attr.name);
