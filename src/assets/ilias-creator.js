@@ -828,7 +828,7 @@ class IliasExerciseCreator {
     computeTimestamps() {
         if (!this.assignments.length) return null;
 
-        const time = this.getTime();
+        const time = this.snapToFiveMinutes(this.getTime());
 
         return this.assignments.map(a => {
             const { startDateStr, deadlineDateStr } = this.computeDatesForAssignment(a);
