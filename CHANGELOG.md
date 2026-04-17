@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.0] - 2026-04-17
+
+- [NEW] **ILIAS Exercise Creator**: New tool for generating ILIAS exercise import ZIPs, complementing the existing MBZ Modifier for Moodle. Configure assignment units, deadlines, and metadata in one place and export a ready-to-import ZIP for your ILIAS course.
+- [NEW] **Calendar-based deadline editor**: Single vertical calendar with click-to-set start dates and per-assignment deadlines, shared with the MBZ Modifier for a consistent UX across both creators.
+- [NEW] **Weekly bulk generation**: Generate a full series of recurring assignments (e.g., weekly page submissions) in one step, with automatic date progression.
+- [NEW] **Template import**: Import an existing ILIAS exercise export as a template — preserves your course's grading scheme and settings while replacing names and dates.
+- [NEW] **Post-save import instructions**: After saving the ZIP, the tool shows the exact ILIAS menu path for importing the exercise, so instructors don't have to hunt through the ILIAS UI.
+- [IMPROVED] **Shared calendar controller**: Extracted `VerticalCalendarController` is now used by both MBZ and ILIAS creators, with a documented instance contract and runtime validation. ILIAS-specific calendar styles are scoped to `#ilias-creator-view` (no more `!important` overrides).
+- [IMPROVED] **XSS hardening**: `sanitizeHtml` now strips inline `style` attributes and blocks `javascript:` / `data:` URIs on `formaction` and `xlink:href`.
+- [IMPROVED] **Test coverage**: Added XML well-formedness tests covering ampersands, quotes, and brackets in all generated ILIAS XMLs.
+- [FIXED] **MBZ Modifier error messages now visible**: When loading an MBZ file without activities (or any parse error), the error message was written to a DOM element inside a hidden container, so users saw nothing happen. The status message area has been moved out of the hidden Generate section and is now visible during all phases (parse, save, errors).
+- [FIXED] **Deadline snap on generate**: Times entered in the deadline input but not committed via blur (e.g., typed and then "Generate" clicked directly) are now snapped to the 5-minute grid before timestamp computation, so the generated ZIP matches what the preview showed.
+- [FIXED] **End-of-day deadline rollover**: `snapToFiveMinutes` now clamps to 23:55 instead of wrapping to 00:00 of the next day, preventing deadlines from silently shifting a day earlier.
+- [IMPROVED] **CET/CEST documentation**: The intentional hardcoded timezone (Bamberg local) is now documented with cross-references between frontend and backend timezone helpers.
+
 ## [1.7.0] - 2026-03-02
 
 - [NEW] **Name detection modes**: New settings card (Moodle only) with three modes for determining first/last name from folder names: *Automatic* (gradebook columns → email heuristic → fallback), *Registration list* (CSV with separate name columns), and *Heuristic only* (last word = last name).

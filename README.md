@@ -4,7 +4,7 @@
 [![downloads](https://img.shields.io/github/downloads/UBA-PSI/klausur-booklets/total)](https://github.com/UBA-PSI/klausur-booklets/releases)
 
 **Create personalized exam booklets from students' handwritten note pages in minutes.**
-Download the latest version for [**Windows**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.7.0/Booklet.Tool.1.7.0.exe) · [**macOS**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.7.0/Booklet.Tool-1.7.0.dmg) · [**Linux**](https://github.com/UBA-PSI/klausur-booklets/releases/tag/v1.7.0) and get started right away. [**Download test data**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.7.0/booklet-tool-testdata.zip) to try out the tool's features.
+Download the latest version for [**Windows**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.8.0/Booklet.Tool.1.8.0.exe) · [**macOS**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.8.0/Booklet.Tool-1.8.0.dmg) · [**Linux**](https://github.com/UBA-PSI/klausur-booklets/releases/tag/v1.8.0) and get started right away. [**Download test data**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.8.0/booklet-tool-testdata.zip) to try out the tool's features.
 
 The Booklet Tool is an Electron application (Windows, macOS, Linux) developed at the [Chair of Privacy and Security in Information Systems](https://psi.uni-bamberg.de/), University of Bamberg, within [Projekt DiKuLe](https://www.uni-bamberg.de/dikule/). The Booklet Tool helps instructors create personalized exam aids ("Klausur-Booklets") from student submissions.
 
@@ -25,10 +25,11 @@ This tool facilitates the [Klausur-Booklet](https://psi.uni-bamberg.de/en/lehre/
 ## Quick Start for Instructors
 
 1. **Download** the latest release for your platform from the [Releases page](https://github.com/UBA-PSI/klausur-booklets/releases/latest) and unzip it.
-2. **Set up assignments** in your LMS (Moodle or ILIAS) for students to submit their pages.
-3. **Moodle only:** Export the assignment section as a backup (`.mbz`), load it into the *Booklet Tool*'s **MBZ Modifier** (top right corner), configure names and deadlines, and restore the modified `.mbz` back into Moodle.
-4. **After the last deadline** or at any time during the semester, download all submissions, unzip them into a single folder, select that folder in the Booklet Tool, and create booklets in three steps: **Convert to PDFs**, **Merge PDFs**, and **Create Booklets**.
-5. **Print** the generated A5 PDFs double-sided and hand them out in the exam.
+2. **Set up assignments** in your LMS (Moodle or ILIAS) for students to submit their pages. The Booklet Tool provides a helper for each:
+   - *Moodle:* Export the assignment section as a backup (`.mbz`), load it into the *Booklet Tool*'s **MBZ Modifier** (top right corner), configure names and deadlines, and restore the modified `.mbz` back into Moodle.
+   - *ILIAS:* Open the **ILIAS Exercise Creator** (top right corner), configure assignment units and deadlines (or load an existing exercise export as a template), and import the generated ZIP into your ILIAS course.
+3. **After the last deadline** or at any time during the semester, download all submissions, unzip them into a single folder, select that folder in the Booklet Tool, and create booklets in three steps: **Convert to PDFs**, **Merge PDFs**, and **Create Booklets**.
+4. **Print** the generated A5 PDFs double-sided and hand them out in the exam.
 
 _That's it  – no command line required._
 
@@ -55,9 +56,10 @@ If you process student submissions that include scanned documents, annotated PDF
 
 ## Features
 
-**First Stage:** Set up Moodle for collection of booklet pages.
+**First Stage:** Set up your LMS for collection of booklet pages. Helpers for both major LMSes are accessible via the switcher in the top right corner of the main window:
 
-- The Booklet Tool includes an **MBZ Modifier** (accessible via the button in the top right corner of the main window) that lets you load a Moodle Backup (`.mbz`) file and configure all assignment deadlines and names at once.
+- **Moodle — MBZ Modifier**: Load a Moodle Backup (`.mbz`) file and configure all assignment deadlines and names at once. The modified backup can be restored into Moodle in place of the original.
+- **ILIAS — ILIAS Exercise Creator**: Generate an ILIAS exercise import ZIP with configurable assignment units, weekly bulk generation, and optional template-based import from an existing ILIAS exercise export.
 
 **Second Stage:** Create booklets.
 
@@ -141,9 +143,11 @@ While these measures help safeguard student data, instructors should still:
 </details>
 
 <details>
-  <summary>Moodle-Specific Feature: MBZ Modifier</summary>
+  <summary>LMS-Specific Assignment Setup Tools</summary>
 
-  - The MBZ Modifier, which adjusts assignment deadlines and names in Moodle Backup (`.mbz`) files, is specific to Moodle and does not support other Learning Management Systems like ILIAS.
+  - The **MBZ Modifier** is Moodle-only — it modifies Moodle Backup (`.mbz`) files in place. It cannot be used for ILIAS.
+  - The **ILIAS Exercise Creator** is ILIAS-only — it generates ILIAS exercise import ZIPs. It cannot be used for Moodle.
+  - Both tools are accessible from the switcher in the top-right corner of the main window; pick the one matching your LMS.
 </details>
 
 <details>
@@ -396,7 +400,7 @@ This section documents the complete process for creating and publishing a new re
 
 Update README.md download links to point to the new version:
 ```markdown
-Download the latest version for [**Windows**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.7.0/Booklet.Tool.1.7.0.exe) · [**macOS**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.7.0/Booklet.Tool-1.7.0.dmg) · [**Linux**](https://github.com/UBA-PSI/klausur-booklets/releases/tag/v1.7.0)
+Download the latest version for [**Windows**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.8.0/Booklet.Tool.1.8.0.exe) · [**macOS**](https://github.com/UBA-PSI/klausur-booklets/releases/download/v1.8.0/Booklet.Tool-1.8.0.dmg) · [**Linux**](https://github.com/UBA-PSI/klausur-booklets/releases/tag/v1.8.0)
 ```
 
 #### Troubleshooting
