@@ -1,0 +1,414 @@
+/* ILIAS Creator View - scoped under #ilias-creator-view */
+
+/* Card styling */
+#ilias-creator-view .card {
+    border-radius: 8px;
+    border: 1px solid rgba(0,0,0,0.1);
+    margin-bottom: 15px;
+}
+
+#ilias-creator-view .card-title {
+    color: #333;
+    font-size: 1.1rem;
+}
+
+/* Form layout */
+#ilias-creator-view .col-form-label {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #555;
+}
+
+/* Toggle button styling */
+#ilias-creator-view .info-toggle {
+    box-shadow: none !important;
+    outline: none !important;
+    line-height: 1;
+    background: transparent !important;
+    border: none !important;
+}
+
+#ilias-creator-view .info-toggle:focus,
+#ilias-creator-view .info-toggle:active {
+    box-shadow: none !important;
+}
+
+#ilias-creator-view .info-toggle .bi-info-circle {
+    color: #0d6efd;
+}
+
+/* Placeholder text styling */
+#ilias-creator-view ::placeholder {
+    color: #adb5bd;
+    opacity: 1;
+}
+
+/* Card header styling */
+#ilias-creator-view .card-header {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+#ilias-creator-view .card-header:hover {
+    background-color: #e9ecef;
+}
+
+/* Assignment table */
+#ilias-creator-view .assignment-table {
+    font-size: 0.9rem;
+}
+
+#ilias-creator-view .assignment-table th {
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+#ilias-creator-view .assignment-table .form-control-sm {
+    font-size: 0.85rem;
+    padding: 0.2rem 0.4rem;
+    height: auto;
+}
+
+/* Assignment row styling */
+#ilias-creator-view .assignment-row {
+    transition: background-color 0.15s;
+}
+
+#ilias-creator-view .assignment-row:hover {
+    background-color: #f0f7ff;
+}
+
+#ilias-creator-view .assignment-row.active {
+    background-color: #e7f1ff !important;
+    border-left: 3px solid #0d6efd;
+}
+
+#ilias-creator-view .assignment-row.active td {
+    background-color: transparent;
+}
+
+/* Delete button in table rows */
+#ilias-creator-view .assignment-row .btn-outline-danger {
+    opacity: 0.4;
+    transition: opacity 0.15s;
+    line-height: 1;
+}
+
+#ilias-creator-view .assignment-row:hover .btn-outline-danger {
+    opacity: 1;
+}
+
+/* Generate button styling */
+#ilias-creator-view #ilias-generate-btn {
+    background-color: #0066cc;
+    border-color: #0066cc;
+    font-weight: 500;
+    border-radius: 6px;
+}
+
+#ilias-creator-view #ilias-generate-btn:hover {
+    background-color: #0056b3;
+    border-color: #0056b3;
+}
+
+/* Status message styling */
+#ilias-creator-view .status-message {
+    padding: 8px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+#ilias-creator-view .status-message.error {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+#ilias-creator-view .status-message.success {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+#ilias-creator-view .status-message.info {
+    background-color: #d1ecf1;
+    color: #0c5460;
+}
+
+/* ILIAS Creator View Layout */
+.ilias-creator-view {
+    display: flex;
+    height: calc(100vh - 60px);
+}
+
+/* Column widths */
+.ilias-creator-left {
+    width: 60% !important;
+    padding: 20px;
+    overflow-y: auto;
+    border-right: 1px solid #dee2e6;
+}
+
+.ilias-creator-right {
+    width: 40% !important;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+/* Mini HTML editor */
+.ilias-editor-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 4px 6px;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+}
+
+.ilias-editor-toolbar button {
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    padding: 3px 6px;
+    cursor: pointer;
+    color: #495057;
+    font-size: 0.9rem;
+    line-height: 1;
+}
+
+.ilias-editor-toolbar button:hover {
+    background: #e9ecef;
+    border-color: #ced4da;
+}
+
+.ilias-editor-btn-text {
+    font-size: 0.78rem !important;
+    padding: 3px 8px !important;
+}
+
+/* Editor toolbar dropdown */
+.ilias-editor-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.ilias-editor-dropdown-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 10;
+    background: #fff;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+    min-width: 100px;
+    margin-top: 2px;
+}
+
+.ilias-editor-dropdown.open .ilias-editor-dropdown-menu {
+    display: flex;
+    flex-direction: column;
+}
+
+.ilias-editor-dropdown-menu button {
+    background: none;
+    border: none;
+    padding: 5px 12px;
+    text-align: left;
+    font-size: 0.82rem;
+    cursor: pointer;
+    color: #333;
+}
+
+.ilias-editor-dropdown-menu button:hover {
+    background: #e9ecef;
+}
+
+.ilias-editor-sep {
+    width: 1px;
+    height: 18px;
+    background: #ced4da;
+    margin: 0 4px;
+}
+
+.ilias-editor-content {
+    border: 1px solid #dee2e6;
+    border-radius: 0 0 6px 6px;
+    padding: 8px 12px;
+    min-height: 120px;
+    max-height: 300px;
+    overflow-y: auto;
+    background: #fff;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.ilias-editor-content:focus {
+    outline: none;
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+}
+
+.ilias-editor-content ul,
+.ilias-editor-content ol {
+    padding-left: 1.5em;
+    margin: 0.5em 0;
+}
+
+.ilias-editor-content p {
+    margin: 0.6em 0;
+}
+
+.ilias-editor-content p:first-child {
+    margin-top: 0;
+}
+
+.ilias-editor-content p:last-child {
+    margin-bottom: 0;
+}
+
+.ilias-editor-source {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #dee2e6;
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    padding: 8px 12px;
+    font-family: monospace;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    min-height: 120px;
+    max-height: 300px;
+    resize: vertical;
+}
+
+/* Clickable deadline cell in assignment table */
+.ilias-deadline-clickable {
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.82rem;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+    display: inline-block;
+}
+
+.ilias-deadline-clickable:hover {
+    background-color: #e9ecef;
+    border-color: #ced4da;
+}
+
+.ilias-deadline-clickable.deadline-editing {
+    background-color: #cfe2ff;
+    border-color: #0d6efd;
+    animation: ilias-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes ilias-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(13, 110, 253, 0.3); }
+    50% { box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.15); }
+}
+
+.ilias-deadline-clickable.deadline-overridden {
+    background-color: #fff8f0;
+    border-color: #fd7e14;
+    color: #c35a00;
+    font-weight: 600;
+}
+
+.ilias-deadline-clickable.deadline-overridden:hover {
+    background-color: #ffe8cc;
+}
+
+/* Calendar highlights: blue = start, orange = deadline, light orange = range.
+   Transient markers use outline (not border) to avoid layout shifts on fade.
+   Scoped under #ilias-creator-view so ID-specificity beats the base
+   .calendar-day styles and the VerticalCalendarController's injected
+   .assigned-date rules without needing !important. */
+#ilias-creator-view .calendar-day.ilias-start-marker {
+    background-color: #cfe2ff;
+    color: #0d6efd;
+    outline: 2px solid #0d6efd;
+    outline-offset: -2px;
+    box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.1);
+}
+
+/* Deadline markers (orange) — shared base */
+#ilias-creator-view .calendar-day.ilias-deadline-marker,
+#ilias-creator-view .calendar-day.ilias-deadline-permanent {
+    background-color: #fff3cd;
+    color: #856404;
+    font-weight: bold;
+    box-shadow: 0 0 0 2px rgba(253, 126, 20, 0.3);
+}
+
+/* Transient: outline to avoid layout shifts on fade */
+#ilias-creator-view .calendar-day.ilias-deadline-marker {
+    outline: 2px solid #fd7e14;
+    outline-offset: -2px;
+}
+
+/* Permanent: border (stable, not animated) */
+#ilias-creator-view .calendar-day.ilias-deadline-permanent {
+    border: 2px solid #fd7e14;
+    position: relative;
+}
+
+/* Assignment number badge */
+#ilias-creator-view .calendar-day.ilias-deadline-permanent::after {
+    content: attr(data-assignment-index);
+    position: absolute;
+    top: 1px;
+    right: 2px;
+    font-size: 9px;
+    color: #c35a00;
+    font-weight: bold;
+    padding: 0 2px;
+    line-height: 1;
+    text-align: center;
+    background-color: rgba(255, 255, 255, 0.6);
+    border-radius: 2px;
+    white-space: nowrap;
+}
+
+/* Active deadline (most recently clicked) */
+#ilias-creator-view .calendar-day.ilias-deadline-permanent.active-assignment {
+    background-color: #ffe0a0;
+    border-color: #e06800;
+}
+
+/* Range fill between start and deadline */
+#ilias-creator-view .calendar-day.ilias-range {
+    background-color: #fff0e0;
+    color: #664d03;
+    border-color: #fde0bb;
+}
+
+/* Fade-out transition */
+#ilias-creator-view .calendar-day.ilias-fading {
+    transition: background-color 1.5s ease-out, outline-color 1.5s ease-out, box-shadow 1.5s ease-out, color 1.5s ease-out, font-weight 1.5s ease-out;
+}
+
+/* Deadline edit banner above calendar */
+#ilias-deadline-edit-banner {
+    background: #cfe2ff;
+    border: 1px solid #9ec5fe;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    font-size: 0.85rem;
+    color: #052c65;
+}
+
+/* Empty state */
+#ilias-creator-view #ilias-empty-state {
+    color: #adb5bd;
+}
+
+#ilias-creator-view #ilias-empty-state i {
+    color: #ced4da;
+}

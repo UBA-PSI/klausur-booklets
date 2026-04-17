@@ -26,6 +26,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     loadMbzCreatorHtml: () => ipcRenderer.invoke('load-mbz-creator-html'),
     fsExists: (filePath) => ipcRenderer.invoke('fs-exists', filePath),
 
+    // ILIAS Exercise Creator APIs
+    loadIliasCreatorHtml: () => ipcRenderer.invoke('load-ilias-creator-html'),
+    generateIliasExercise: (options) => ipcRenderer.invoke('ilias:generateExercise', options),
+    parseIliasTemplate: (zipPath) => ipcRenderer.invoke('ilias:parseTemplate', zipPath),
+
     // App-level APIs
     getAppVersion: () => ipcRenderer.invoke('get-app-version'),
     getAppHomepage: () => ipcRenderer.invoke('get-app-homepage'),

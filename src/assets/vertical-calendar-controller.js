@@ -1,16 +1,23 @@
 /**
  * Vertical Calendar Controller
- * Manages calendar interaction for the MBZ Modifier.
+ * Manages calendar interaction for creator views (MBZ Modifier, ILIAS Exercise Creator).
  * Click = set active assignment's date. Highlights show assigned dates with index numbers.
+ *
+ * Expected instance contract (duck-typed — implemented by MbzBatchCreator and
+ * IliasExerciseCreator):
+ *   - assignments: Array<{ dateStr?: string, ... }>      (required)
+ *   - activeAssignmentIndex: number                       (required)
+ *   - onCalendarDateClicked?(dateStr: string): void       (optional — invoked on click)
+ *   - setController?(controller): void                    (optional — called after init)
  */
 class VerticalCalendarController {
     /**
      * @param {VerticalCalendar} calendar - The vertical calendar instance
-     * @param {MbzBatchCreator} mbzInstance - The MBZ Modifier instance
+     * @param {Object} instance - Creator instance conforming to the contract above
      */
-    constructor(calendar, mbzInstance) {
+    constructor(calendar, instance) {
         this.calendar = calendar;
-        this.mbzCreator = mbzInstance;
+        this.mbzCreator = instance;
         this.activeIndex = 0;
         this.clickHandler = null;
 
@@ -166,15 +173,23 @@ class VerticalCalendarController {
         }
     }
 
-    static initialize(calendar, mbzInstance) {
+    /**
+     * @param {VerticalCalendar} calendar
+     * @param {Object} instance - Creator instance implementing the contract documented on the class
+     * @returns {VerticalCalendarController|null}
+     */
+    static initialize(calendar, instance) {
         if (!calendar?.container) {
             console.error('Calendar instance or container not provided.');
             return null;
         }
-        if (!mbzInstance) {
-            console.warn('MbzBatchCreator instance not provided.');
+        if (!instance) {
+            console.warn('Creator instance not provided.');
+        } else if (!Array.isArray(instance.assignments) || typeof instance.activeAssignmentIndex !== 'number') {
+            console.error('Creator instance missing required contract: needs .assignments (Array) and .activeAssignmentIndex (number).');
+            return null;
         }
-        return new VerticalCalendarController(calendar, mbzInstance);
+        return new VerticalCalendarController(calendar, instance);
     }
 }
 
