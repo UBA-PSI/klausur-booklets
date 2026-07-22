@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     validateGhostscript: () => ipcRenderer.invoke('ghostscript:validate'),
     validateRegistrationList: (csvPath) => ipcRenderer.invoke('validate-registration-list', csvPath),
     refreshSortOrder: (outputDirectory) => ipcRenderer.invoke('refresh-sort-order', outputDirectory),
+    checkGradebookCsv: (inputDirectory) => ipcRenderer.invoke('check-gradebook-csv', inputDirectory),
     getPlatform: () => ipcRenderer.invoke('get-platform'),
     openExternal: (url) => ipcRenderer.invoke('open-external-url', url),
 

@@ -335,7 +335,8 @@
                     </div>
                     <div id="sortOrderContainer" class="mt-2 text-end" style="display: none;">
                         <small id="sortOrderHintText" class="text-muted">
-                            Sort order is inferred heuristically. Change in <a href="#" onclick="openModal(); return false;">Settings</a> to use a registration list.
+                            <span id="sortOrderHintLabel">Name detection: Automatic &ndash; sort order is inferred heuristically.</span>
+                            <a href="#" onclick="openModal(); return false;">Settings</a>
                             <a href="#" class="text-muted" data-bs-toggle="modal" data-bs-target="#sortOrderHelpModal" title="What is this?"><i class="bi bi-question-circle"></i></a>
                         </small>
                         <button id="refreshSortOrderBtn" class="btn btn-link btn-sm text-secondary text-decoration-none" style="display: none;" title="Regenerate sort-order.txt from existing data using current settings">
@@ -354,17 +355,16 @@
                     <div class="card-header bg-info text-dark py-2">
                         <div class="d-flex align-items-center">
                             <h5 class="mb-0 fs-6"><i class="bi bi-terminal me-2"></i>Process Log</h5>
-                            <button class="btn btn-sm btn-outline-secondary ms-2 border-0" 
-                                    id="copyProcessLogBtn" title="Copy Log" 
-                                    style="padding: 0.1rem 0.4rem; line-height: 1; background: none;">
-                                <i class="bi bi-clipboard"></i>
+                            <button class="btn btn-sm btn-outline-secondary ms-auto"
+                                    id="copyProcessLogBtn" title="Copy the entire log content to the clipboard">
+                                <i class="bi bi-clipboard me-1"></i><span id="copyProcessLogBtnLabel">Copy log to clipboard</span>
                             </button>
                         </div>
                     </div>
                     <div class="card-body p-0">
-                        <textarea id="processLogOutput" readonly 
-                            class="form-control border-0 bg-light font-monospace" 
-                            style="height: 150px; resize: vertical; font-size: 0.85rem;"></textarea>
+                        <textarea id="processLogOutput" readonly
+                            class="form-control border-0 bg-light font-monospace"
+                            style="height: 30vh; min-height: 150px; resize: vertical; font-size: 0.85rem;"></textarea>
                     </div>
                 </div>
             </div>
@@ -376,9 +376,9 @@
                         <h5 class="mb-0 fs-6"><i class="bi bi-exclamation-triangle me-2"></i>Processing Errors & Warnings</h5>
                     </div>
                     <div class="card-body p-0">
-                        <textarea id="errorLogOutput" readonly 
-                            class="form-control border-0 bg-light font-monospace" 
-                            style="resize: vertical; font-size: 0.85rem;"></textarea>
+                        <textarea id="errorLogOutput" readonly
+                            class="form-control border-0 bg-light font-monospace"
+                            style="height: 20vh; min-height: 100px; resize: vertical; font-size: 0.85rem;"></textarea>
                     </div>
                 </div>
             </div>
@@ -547,7 +547,7 @@
                             </h6>
                         </div>
                         <div class="card-body py-2">
-                            <p class="small">Moodle folders contain the full name as a single string. This setting controls how first and last names are split (affects booklet sort order). ILIAS folders already separate first/last name, so this setting does not apply. In &ldquo;Automatic&rdquo; mode the Grading Worksheet CSV is used &ndash; placing the CSV in a single page folder (e.g.&nbsp;Page&nbsp;1) is sufficient.</p>
+                            <p class="small">Moodle folders contain the full name as a single string. This setting controls how first and last names are split (affects booklet sort order). ILIAS folders already separate first/last name, so this setting does not apply. In &ldquo;Automatic&rdquo; mode the Grading Worksheet CSV is used &ndash; placing the CSV in a single page folder (e.g.&nbsp;Page&nbsp;1) is sufficient for name detection and sort order. Note: the pre-check before conversion may still point out that CSVs are missing in the other page folders &ndash; that notice concerns only the resolution of same-name collisions (two students with the identical name), not the sort order, and offers to continue anyway.</p>
                             <div class="mb-2">
                                 <div class="form-check">
                                     <input class="form-check-input" type="radio" id="nameDetect-auto" name="nameDetectionMode" value="auto" checked>
@@ -799,6 +799,7 @@
         </div>
 
         <!-- Resolution Options -->
+        <div id="collisionResolutionOptions">
         <p><strong>Please resolve the issues listed above using one of the following methods before continuing:</strong></p>
         <ol style="font-size: 0.95em;">
             <li>
@@ -819,10 +820,38 @@
                 </ul>
             </li>
         </ol>
+        </div>
             </div>
             <div class="modal-footer">
+            <button id="moodleCollisionContinueBtn" class="btn btn-primary" style="display: none;">Continue Anyway</button>
             <button id="moodleCollisionRetryWithCSVBtn" class="btn btn-primary">Check Again After Changes</button>
                 <button id="moodleCollisionOkBtn" class="btn btn-secondary">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="rendererWarningModal" class="modal fade" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">⚠️ Ghostscript Is Not Being Used</h5>
+                <button type="button" class="btn-close" id="rendererWarningCloseX" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="rendererWarningStatus">
+                    <!-- Case-specific warning populated by JS -->
+                </div>
+                <p>The built-in fallback renderer (PDFium) works for many files, but <strong>certain PDFs will fail or render incorrectly</strong> &ndash; typically documents with transparency, unusual fonts, or output from some scanner/note-taking apps. These problems often only show up in the middle of a large batch.</p>
+                <p><strong>How to set up Ghostscript:</strong></p>
+                <ol id="rendererWarningInstructions">
+                    <!-- Platform-specific install steps populated by JS -->
+                </ol>
+            </div>
+            <div class="modal-footer">
+                <button id="rendererWarningOpenSettingsBtn" class="btn btn-primary">Open Settings</button>
+                <button id="rendererWarningContinueBtn" class="btn btn-outline-danger">Continue Without Ghostscript</button>
+                <button id="rendererWarningCancelBtn" class="btn btn-secondary">Cancel</button>
             </div>
         </div>
     </div>
@@ -909,7 +938,7 @@
 
     <!-- More Info Modal -->
     <div id="moreInfoModal" class="modal fade" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header bg-light border-bottom p-3">
                     <h5 class="modal-title">
@@ -969,7 +998,7 @@
 
     <!-- Sort Order Help Modal -->
     <div id="sortOrderHelpModal" class="modal fade" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header bg-light border-bottom p-3">
                     <h5 class="modal-title">
@@ -980,7 +1009,7 @@
                 <div class="modal-body p-3">
                     <p>The file <code>sort-order.txt</code> controls the print order when merging student booklets. It is generated automatically during the <strong>Convert to PDFs</strong> step.</p>
                     <p>This is mainly relevant for <strong>Moodle</strong> submissions, where folder names contain the full name as a single string and first/last name must be inferred. (ILIAS folders already separate first and last name, so sort order works out of the box.)</p>
-                    <p>By default, sort order is inferred heuristically (last word = last name). When the <em>Name Detection</em> mode in Settings is set to <strong>Registration list</strong>, students are matched against a CSV and sorted by their position in that list instead.</p>
+                    <p>In <strong>Automatic</strong> mode, the first/last name split is derived from the email address in the Grading Worksheet CSV whenever the address follows the pattern <code>firstname.lastname@&hellip;</code> (multi-part names joined with hyphens). Only when no CSV is present or the address does not follow that pattern (e.g. <code>a_lastname@&hellip;</code> or an external address) does the tool fall back to a heuristic (last word = last name). Heuristic entries are marked in the <code>Quelle</code> column of <code>sort-order.txt</code> and highlighted in <code>summary.html</code>, so you can quickly check them. When the <em>Name Detection</em> mode in Settings is set to <strong>Registration list</strong>, students are matched against a CSV and sorted by their position in that list instead.</p>
                     <p>The <strong>Refresh sort-order.txt</strong> link &ndash; visible only in registration-list mode &ndash; reads the existing <code>processed_files.json</code> data from each student folder and regenerates <code>sort-order.txt</code> using the current settings. No pages are re-converted. This is useful when you changed the registration list CSV or name detection mode after converting.</p>
                     <p class="mb-0 text-muted small"><i class="bi bi-gear me-1"></i>The name detection mode and registration list CSV can be configured in <strong>Settings</strong>.</p>
                 </div>

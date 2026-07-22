@@ -1,4 +1,5 @@
 let config = {};
+let isProcessingActive = false; // true while a conversion/merge/booklet run is active
 
 /** Escape a string for safe insertion into HTML. */
 function escapeHtml(str) {
@@ -75,6 +76,7 @@ function updateStatus(type, message) {
  * @param {boolean} [showAbort=true] - Whether to show the abort button (false for step 1)
  */
 function setProcessingState(active, showAbort = true) {
+    isProcessingActive = active; // read by the idle gradebook-CSV poller
     const buttonIds = ['clearOutputBtn', 'startTransformationBtn', 'startMergingBtn', 'createBookletsBtn'];
     buttonIds.forEach(id => {
         const btn = document.getElementById(id);
@@ -296,7 +298,8 @@ async function validateRegistrationListInSettings() {
 
 /**
  * Shows the sort-order refresh button when registration-list mode is active,
- * otherwise shows a hint text about heuristic sort order.
+ * otherwise shows the status hint for Automatic name detection (kept up to
+ * date by the gradebook-CSV poller below).
  */
 function updateSortOrderVisibility() {
     const refreshBtn = document.getElementById('refreshSortOrderBtn');
@@ -317,7 +320,54 @@ function updateSortOrderVisibility() {
     if (refreshBtn) refreshBtn.style.display = isRegList ? 'inline-block' : 'none';
     if (helpBtn) helpBtn.style.display = isRegList ? 'inline-block' : 'none';
     if (hintText) hintText.style.display = isRegList ? 'none' : 'inline';
+
+    if (!isRegList) pollGradebookCsvStatus(); // refresh the label immediately
 }
+
+// --- Gradebook CSV status polling (Automatic name detection hint label) ---
+
+let lastSortOrderHintLabel = '';
+
+function setSortOrderHintLabel(text) {
+    if (text === lastSortOrderHintLabel) return;
+    lastSortOrderHintLabel = text;
+    const label = document.getElementById('sortOrderHintLabel');
+    if (label) label.textContent = text;
+}
+
+/**
+ * Checks (while idle) whether the selected input folder contains a usable
+ * Moodle Grading Worksheet CSV and updates the sort-order hint label so the
+ * wording matches the "Name detection" options in the Settings dialog.
+ */
+async function pollGradebookCsvStatus() {
+    if (isProcessingActive) return;
+    if (!isMoodlePatternActive()) return;
+    if ((config.nameDetectionMode || 'auto') !== 'auto') return;
+    const hintText = document.getElementById('sortOrderHintText');
+    if (!hintText || hintText.style.display === 'none') return;
+
+    const inputDir = document.getElementById('mainDirectoryPath')?.value;
+    if (!inputDir) {
+        setSortOrderHintLabel('Name detection: Automatic – select an input folder and place the Moodle Grading Worksheet CSV in a page folder (e.g. Page 1) to sort by the names from the CSV.');
+        return;
+    }
+
+    try {
+        const result = await window.electronAPI.checkGradebookCsv(inputDir);
+        if (result.found) {
+            setSortOrderHintLabel(`Name detection: Automatic – Grading Worksheet CSV found (${result.pagesWithCsv} of ${result.totalPages} page folders). Sort order will be derived from the email addresses in the CSV (heuristic fallback).`);
+        } else {
+            setSortOrderHintLabel('Name detection: Automatic – no usable Grading Worksheet CSV found in the page folders. Sort order will be inferred heuristically (last word = last name).');
+        }
+    } catch (err) {
+        console.warn('Gradebook CSV status check failed:', err);
+    }
+}
+
+setInterval(pollGradebookCsvStatus, 2000);
+
+// --- End Gradebook CSV status polling ---
 
 function saveConfig() {
     console.log('[DEBUG] saveConfig() in renderer.js called.');
@@ -474,6 +524,7 @@ const collisionListDiv = document.getElementById('collisionList');
 const moodleCollisionCloseBtn = moodleCollisionModal.querySelector('.moodle-collision-close');
 const moodleCollisionOkBtn = document.getElementById('moodleCollisionOkBtn');
 const moodleCollisionRetryWithCSVBtn = document.getElementById('moodleCollisionRetryWithCSVBtn');
+const moodleCollisionContinueBtn = document.getElementById('moodleCollisionContinueBtn');
 
 // Store the directory and pattern for retry with CSV
 let lastInputDirectory = '';
@@ -494,14 +545,28 @@ function openMoodleCollisionModal(collidingNames, usedCSVs = false, csvMappingsC
 
     let hasMappingErrors = mappingErrors && mappingErrors.length > 0;
     let hasCollisions = collidingNames && collidingNames.length > 0;
+    // Partial CSV coverage without any actual collision/mapping problem is only a
+    // precaution (a CSV can only resolve same-name collisions on the page it is in) —
+    // it does not affect name detection or the booklet sort order.
+    const partialCoverageOnly = partialCsvCoverage && !hasCollisions && !hasMappingErrors;
 
-    // --- Populate CSV Status Info --- 
+    // --- Populate CSV Status Info ---
     let csvStatusHTML = '';
-    if (partialCsvCoverage) {
+    if (partialCoverageOnly) {
+        csvStatusHTML = `
+            <h4 class="warning-heading">Grading Worksheet CSVs Missing in Some Page Folders</h4>
+            <p><strong>Missing CSV files in:</strong> ${missingCsvPages.map(escapeHtml).join(', ')}</p>
+            <p>This only matters for resolving <em>same-name collisions</em> (two different students with the identical name). The ID number in each folder name differs per page, so a CSV can only resolve collisions for the page folder it is placed in.</p>
+            <p><strong>No same-name collisions were detected within any single page folder.</strong> What this check <em>cannot</em> rule out without CSVs in all page folders: two <em>different</em> students who share the same name but submitted to <em>different</em> pages &ndash; their submissions would be silently merged into one booklet. If that cannot apply to your course, you can safely continue.</p>
+            <p>The booklet sort order is not affected either way &ndash; for name detection and sorting, a CSV in a single page folder (e.g. Page 1) is sufficient.</p>
+            <p><small>If two students might share the identical name, place the matching Grading Worksheet CSV in every page folder and click &ldquo;Check Again After Changes&rdquo;.</small></p>
+        `;
+        csvStatusDiv.className = 'csv-status-info';
+    } else if (partialCsvCoverage) {
         // Warning about partial CSV coverage - more prominent styles
         csvStatusHTML = `
             <h4 class="warning-heading">CSV Files Missing in Some Directories</h4>
-            <p>You have CSV files in some page directories but not in others. This prevents proper student matching across pages.</p>
+            <p>You have CSV files in some page directories but not in others. This prevents the automatic resolution of same-name collisions across pages (it does not affect the booklet sort order).</p>
             <p><strong>Missing CSV files in:</strong> ${missingCsvPages.map(escapeHtml).join(', ')}</p>
             <p><strong>Students potentially affected (appear in multiple pages):</strong> ${studentsAffected.map(escapeHtml).join(', ') || 'None'}</p>
             <p><strong>Action required:</strong> Please add the corresponding CSV files to <em>all</em> page directories where these students appear before continuing.</p>
@@ -539,6 +604,15 @@ function openMoodleCollisionModal(collidingNames, usedCSVs = false, csvMappingsC
         collisionNameSection.style.display = 'none'; // Hide if no collisions
     }
     
+    // Without actual issues, the resolution instructions do not apply — offer to continue instead
+    const resolutionOptionsDiv = document.getElementById('collisionResolutionOptions');
+    if (resolutionOptionsDiv) {
+        resolutionOptionsDiv.style.display = partialCoverageOnly ? 'none' : 'block';
+    }
+    if (moodleCollisionContinueBtn) {
+        moodleCollisionContinueBtn.style.display = partialCoverageOnly ? 'inline-block' : 'none';
+    }
+
     // Show/hide the retry button based on whether CSVs were involved in the check
     if (moodleCollisionRetryWithCSVBtn) {
         moodleCollisionRetryWithCSVBtn.style.display = 'inline-block'; // Simpler: Always show retry button initially
@@ -625,8 +699,36 @@ async function retryWithCSVFiles() {
     }
 }
 
+// Continue without full CSV coverage (only offered when no actual collisions/mapping errors exist)
+async function continueDespitePartialCsvCoverage() {
+    closeMoodleCollisionModal();
+    setProcessingState(true);
+    updateStatus('processing', 'Starting file conversion...');
+    try {
+        const mainDir = document.getElementById('mainDirectoryPath').value;
+        const outputDir = document.getElementById('outputDirectoryPath').value;
+        const dpi = parseInt(document.getElementById('dpi').value, 10) || 300;
+        const result = await window.electronAPI.startTransformation(mainDir, outputDir, dpi);
+        if (result && result.status === 'ambiguity_detected') {
+            updateStatus('info', result.message);
+        } else {
+            const successMessage = typeof result === 'string' ? result : 'Files converted successfully!';
+            updateStatus('success', successMessage);
+        }
+    } catch (error) {
+        console.error('Error during transformation:', error);
+        updateStatus('error', `Error during conversion: ${error.message}`);
+    } finally {
+        setProcessingState(false);
+    }
+}
+
 moodleCollisionCloseBtn.onclick = closeMoodleCollisionModal;
 moodleCollisionOkBtn.onclick = closeMoodleCollisionModal;
+
+if (moodleCollisionContinueBtn) {
+    moodleCollisionContinueBtn.onclick = continueDespitePartialCsvCoverage;
+}
 
 // Add event listener for the retry button if it exists
 if (moodleCollisionRetryWithCSVBtn) {
@@ -636,6 +738,113 @@ if (moodleCollisionRetryWithCSVBtn) {
 }
 
 // --- End Moodle Collision Modal Logic ---
+
+// --- Renderer (Ghostscript) Pre-Flight Warning ---
+
+// Session-level flag: user explicitly chose to continue without Ghostscript once
+let rendererWarningAccepted = false;
+
+/**
+ * Checks whether Ghostscript will actually be used for the upcoming conversion
+ * and shows a blocking warning modal if not (PDFium selected, or Ghostscript
+ * selected but not found on this system). Returns true when it is OK to start.
+ */
+async function confirmRendererBeforeTransform() {
+    let warningCase;
+    let gsPath = '';
+    try {
+        if (config.pdfRenderer === 'ghostscript') {
+            const result = await window.electronAPI.validateGhostscript();
+            if (result.available) return true; // Ghostscript found — nothing to warn about
+            warningCase = 'gs-missing';
+            gsPath = result.path || '';
+        } else {
+            warningCase = 'pdfium-selected';
+        }
+    } catch (err) {
+        console.error('Renderer pre-flight check failed:', err);
+        return true; // never block the conversion because the check itself failed
+    }
+
+    if (rendererWarningAccepted) return true;
+    return openRendererWarningModal(warningCase, gsPath);
+}
+
+/**
+ * Opens the renderer warning modal. Resolves true = continue, false = cancel.
+ * innerHTML is safe here: all markup is static; the only dynamic value (gsPath)
+ * is passed through escapeHtml().
+ */
+function openRendererWarningModal(warningCase, gsPath) {
+    return new Promise(resolve => {
+        const modalEl = document.getElementById('rendererWarningModal');
+        const statusDiv = document.getElementById('rendererWarningStatus');
+        const instructionsOl = document.getElementById('rendererWarningInstructions');
+        if (!modalEl || !statusDiv || !instructionsOl) {
+            resolve(true); // modal missing — do not block
+            return;
+        }
+
+        if (warningCase === 'gs-missing') {
+            statusDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <strong>Ghostscript is selected in Settings but was not found on this system</strong>
+                    (checked: <code>${escapeHtml(gsPath)}</code>).<br>
+                    The conversion would silently fall back to the built-in renderer.
+                </div>`;
+        } else {
+            statusDiv.innerHTML = `
+                <div class="alert alert-warning">
+                    <strong>The built-in renderer (PDFium) is selected in Settings.</strong><br>
+                    Ghostscript is strongly recommended for reliable results.
+                </div>`;
+        }
+
+        const isWindows = navigator.platform.toLowerCase().startsWith('win');
+        const isMac = navigator.platform.toLowerCase().startsWith('mac');
+        let installStep;
+        if (isWindows) {
+            installStep = 'Download the <strong>AGPL Ghostscript</strong> installer (64&nbsp;bit, <code>gs…w64.exe</code>) from <a href="#" id="gsDownloadLink">ghostscript.com/releases/gsdnld.html</a> and run it (default options are fine).';
+        } else if (isMac) {
+            installStep = 'Install Ghostscript via Homebrew: <code>brew install ghostscript</code> (or download it from <a href="#" id="gsDownloadLink">ghostscript.com/releases/gsdnld.html</a>).';
+        } else {
+            installStep = 'Install Ghostscript with your package manager, e.g. <code>sudo apt install ghostscript</code> (Ubuntu/Debian) or <code>sudo dnf install ghostscript</code> (Fedora).';
+        }
+        instructionsOl.innerHTML = `
+            <li>${installStep}</li>
+            <li>Restart the Booklet Tool, open <strong>Settings &rarr; PDF Processing</strong> and select <strong>Ghostscript</strong> as renderer.</li>
+            <li>Wait for the green check (&ldquo;Ghostscript found&rdquo;). If it does not appear, choose <em>Custom path</em> and point it to the installed executable (Windows: <code>C:\\Program Files\\gs\\gs&hellip;\\bin\\gswin64c.exe</code>).</li>`;
+
+        const downloadLink = document.getElementById('gsDownloadLink');
+        if (downloadLink) {
+            downloadLink.onclick = (e) => {
+                e.preventDefault();
+                window.electronAPI.openExternal('https://ghostscript.com/releases/gsdnld.html');
+            };
+        }
+
+        const bsModal = new bootstrap.Modal(modalEl, { backdrop: 'static' });
+        let settled = false;
+        const settle = (value, remember = false) => {
+            if (settled) return;
+            settled = true;
+            if (remember) rendererWarningAccepted = true;
+            bsModal.hide();
+            resolve(value);
+        };
+        document.getElementById('rendererWarningContinueBtn').onclick = () => settle(true, true);
+        document.getElementById('rendererWarningCancelBtn').onclick = () => settle(false);
+        document.getElementById('rendererWarningCloseX').onclick = () => settle(false);
+        document.getElementById('rendererWarningOpenSettingsBtn').onclick = () => {
+            settle(false);
+            openModal(); // open the Settings modal so the user can fix the renderer
+        };
+        modalEl.addEventListener('hidden.bs.modal', () => settle(false), { once: true });
+        bsModal.show();
+    });
+}
+
+// --- End Renderer Pre-Flight Warning ---
 
 // Function to display the ambiguity item at the current index
 function displayCurrentAmbiguity() {
@@ -954,8 +1163,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const folderPattern = document.getElementById('foldername-pattern').value; // Get folder pattern
             const isMoodleMode = folderPattern?.startsWith('FULLNAMEWITHSPACES');
 
-            // --- Pre-check for Collisions ---
+            // Disable action buttons BEFORE any awaited step — prevents re-entrant clicks
+            // while the renderer pre-flight check or its modal is pending.
             setProcessingState(true);
+
+            // --- Pre-flight: warn prominently when Ghostscript will not be used ---
+            const rendererOk = await confirmRendererBeforeTransform();
+            if (!rendererOk) {
+                setProcessingState(false);
+                updateStatus('info', 'Conversion not started — configure Ghostscript in Settings, then press Start again.');
+                return;
+            }
+
+            // --- Pre-check for Collisions ---
             updateStatus('processing', 'Checking for potential name collisions...');
             try {
                 // Determine if CSVs should be checked (only relevant in Moodle mode)
@@ -1202,19 +1422,27 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Copy Log Button Listener ---
     const copyProcessLogBtn = document.getElementById('copyProcessLogBtn');
     if (copyProcessLogBtn) {
+        const defaultContent = copyProcessLogBtn.innerHTML; // static markup from index.html
+        let restoreTimer = null;
+        const showCopyFeedback = (html, btnClass) => {
+            copyProcessLogBtn.innerHTML = html;
+            copyProcessLogBtn.className = `btn btn-sm ${btnClass} ms-auto`;
+            clearTimeout(restoreTimer);
+            restoreTimer = setTimeout(() => {
+                copyProcessLogBtn.innerHTML = defaultContent;
+                copyProcessLogBtn.className = 'btn btn-sm btn-outline-secondary ms-auto';
+            }, 1500);
+        };
         copyProcessLogBtn.addEventListener('click', () => {
             const logOutput = document.getElementById('processLogOutput');
             if (logOutput && navigator.clipboard) {
                 navigator.clipboard.writeText(logOutput.value)
                     .then(() => {
-                        // Optional: Brief visual feedback
-                        const originalIcon = copyProcessLogBtn.innerHTML;
-                        copyProcessLogBtn.innerHTML = '<i class="bi bi-clipboard-check-fill text-success"></i>';
-                        setTimeout(() => { copyProcessLogBtn.innerHTML = originalIcon; }, 1500);
+                        showCopyFeedback('<i class="bi bi-clipboard-check me-1"></i>Copied!', 'btn-success');
                     })
                     .catch(err => {
                         console.error('Failed to copy process log:', err);
-                        // Optional: Show error feedback
+                        showCopyFeedback('<i class="bi bi-x-circle me-1"></i>Copy failed', 'btn-danger');
                     });
             } else {
                 console.error('Could not find log output or clipboard API.');

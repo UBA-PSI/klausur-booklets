@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.9.0] - 2026-07-22
+
+- [NEW] **Email-based name splitting**: In Automatic name detection mode, the first/last name split is now derived from the email address in the Moodle Grading Worksheet CSV (pattern `firstname.lastname@…`, multi-part names joined with hyphens) and verified against the folder name. This correctly handles multi-word last names (e.g. "Bin Ayaz") and multi-word first names, falling back to the heuristic (last word = last name) only when the address does not follow the pattern. Hints are matched by name as well as by ID, so a CSV in a single page folder covers students on all pages.
+- [NEW] **Sort order in the HTML report**: `summary.html` now lists students in print order with a "Print Position" and "Name Source" column. Entries whose name split could not be confirmed against a CSV email address are highlighted, so they can be double-checked quickly.
+- [NEW] **Live Grading Worksheet CSV status**: The hint label below the action buttons now reflects the actual state of the input folder (CSV found in N of M page folders / no usable CSV / no folder selected), using the same wording as the Settings dialog. The input folder is re-checked every 2 seconds while idle.
+- [NEW] **Ghostscript pre-flight warning**: Before a conversion starts without Ghostscript (PDFium selected, or Ghostscript selected but not found), a prominent dialog explains the consequences and shows platform-specific installation steps, with "Open Settings" and "Continue Without Ghostscript" options.
+- [NEW] **Submission file name cleanup**: File names from student submissions that break on Windows (trailing spaces or dots, spaces inside the extension, characters invalid in Windows file names) are automatically renamed before conversion. Previously, names like `scan.pdf ` were silently skipped as unsupported.
+- [IMPROVED] **Partial CSV coverage warning**: When Grading Worksheet CSVs are missing in some page folders but no name collisions were detected, the pre-check dialog is now informational instead of blocking, explains that only same-name collision resolution is affected (not the sort order), and offers "Continue Anyway".
+- [IMPROVED] **Copy log button**: The Process Log copy button now has a text label and clear "Copied!" feedback.
+- [IMPROVED] **UI sizing**: Larger log windows (relative to the window height) and wider More Info / sort-order help dialogs.
+- [FIXED] **ILIAS name source labeling**: Folder patterns with explicit FIRSTNAME/LASTNAME parts are no longer labeled "heuristic" in `sort-order.txt` and the report — their names come directly from the folder name (source `folder`).
+- [FIXED] **Re-entrant start clicks**: Action buttons are disabled before the renderer pre-flight check, preventing a double start while the check or its dialog is pending.
+
 ## [1.8.0] - 2026-04-17
 
 - [NEW] **ILIAS Exercise Creator**: New tool for generating ILIAS exercise import ZIPs, complementing the existing MBZ Modifier for Moodle. Configure assignment units, deadlines, and metadata in one place and export a ready-to-import ZIP for your ILIAS course.

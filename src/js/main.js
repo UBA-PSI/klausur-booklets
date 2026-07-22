@@ -75,7 +75,8 @@ let currentTransformationDpi = 300;
 let currentOutputDirectory = null;
 let someNumberToEmailMap = {}; // Global map for CSV lookup
 let csvNameFromCSV = {}; // Global map: someNumber → { firstName, lastName } from gradebook columns
-let csvNameHints = {}; // Global map: someNumber → { firstNameWordCount } from email analysis
+let csvNameHints = {}; // Global map: someNumber → { localPart } from gradebook email addresses
+let csvNameHintsByName = {}; // Global map: normalized full name → { localPart } (page-independent)
 let iliasPreprocessingTempDir = null; // Track ILIAS temp directory for cleanup
 let effectiveInputDirectoryForMerging = null; // Track the effective input directory for missing pages detection
 
@@ -117,6 +118,7 @@ function resetGlobalState() {
     errorFileLog = [];
     csvNameFromCSV = {};
     csvNameHints = {};
+    csvNameHintsByName = {};
 }
 
 /**
@@ -540,9 +542,11 @@ function parseFolderName(folderName, pattern) {
         switch (key) {
             case 'FIRSTNAME':
                 result.firstName = value;
+                result.nameSource = 'folder'; // explicit first/last name in folder name — no split needed
                 break;
             case 'LASTNAME':
                 result.lastName = value;
+                result.nameSource = 'folder';
                 break;
             case 'FULLNAMEWITHSPACES': // Note: This case shouldn't be reached if Moodle logic ran
                 result.fullName = value; 
@@ -610,10 +614,54 @@ function getCsvParseOptions(csvContent) {
 
 const FIRST_NAME_ALIASES = ['vorname', 'first name', 'firstname', 'given name'];
 const LAST_NAME_ALIASES = ['nachname', 'surname', 'last name', 'lastname', 'familienname', 'family name'];
+const FULL_NAME_ALIASES = ['full name', 'fullname', 'vollständiger name', 'vollstaendiger name'];
 
 /** Normalize a name string for fuzzy matching (lowercase, collapse whitespace, NFC). */
 function normalizeName(s) {
     return s.normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Normalize a name or email local-part fragment for comparison:
+ * lowercase, transliterate German umlauts (ö → oe), strip remaining
+ * diacritics (é → e) and everything that is not a letter (hyphens, spaces, dots).
+ */
+function normalizeForEmailMatch(s) {
+    return s
+        .normalize('NFC')
+        .toLowerCase()
+        .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z]/g, '');
+}
+
+/**
+ * Split a full name into first/last name using the email local part, which is
+ * expected to follow the pattern vorname1-vorname2.nachname1-nachname2@domain.
+ *
+ * The split point is found by matching the part after the dot against the
+ * trailing words of the full name (so it also works when the email contains
+ * more or fewer first names than the full name, e.g. paul-michael.dippolt
+ * for "Paul Dippolt"). Returns { firstName, lastName } on a verified match,
+ * or null when the email does not follow the pattern (no dot, underscores,
+ * abbreviated names) or its last-name part does not match the full name.
+ */
+function splitNameByEmail(fullName, localPart) {
+    if (!fullName || !localPart || localPart.includes('_')) return null;
+    const dotIndex = localPart.indexOf('.');
+    if (dotIndex <= 0 || dotIndex >= localPart.length - 1) return null;
+    const lastPartNormalized = normalizeForEmailMatch(localPart.slice(dotIndex + 1));
+    if (!lastPartNormalized) return null;
+    const words = fullName.trim().split(/\s+/);
+    for (let k = 1; k < words.length; k++) {
+        if (normalizeForEmailMatch(words.slice(k).join('')) === lastPartNormalized) {
+            return {
+                firstName: words.slice(0, k).join(' '),
+                lastName: words.slice(k).join(' ')
+            };
+        }
+    }
+    return null;
 }
 
 /**
@@ -645,7 +693,8 @@ function buildHeaderKeyMap(originalHeaders, ...normalizedNames) {
 async function parseCSVsInDirectory(mainDirectory) {
     const emailMappings = {};
     const nameFromCSV = {}; // someNumber → { firstName, lastName }
-    const nameHints = {}; // someNumber → { firstNameWordCount }
+    const nameHints = {}; // someNumber → { localPart } from email addresses
+    const nameHintsByName = {}; // normalized full name → { localPart } (works across pages)
     const pagesWithCSV = new Set(); // Track which pages have CSV files
     const pagesWithoutCSV = new Set(); // Track which pages don't have CSV files
 
@@ -659,7 +708,7 @@ async function parseCSVsInDirectory(mainDirectory) {
     
     if (pageDirs.length === 0) {
         console.warn('No page directories found for CSV parsing.');
-        return { emailMappings, pagesWithCSV, pagesWithoutCSV, allPages: new Set() };
+        return { emailMappings, nameFromCSV, nameHints, nameHintsByName, pagesWithCSV, pagesWithoutCSV, allPages: new Set() };
     }
 
     for (const pageDir of pageDirs) {
@@ -709,8 +758,9 @@ async function parseCSVsInDirectory(mainDirectory) {
                         h === 'e-mail-adresse'
                     );
                     const { firstNameHeader, lastNameHeader } = detectNameHeaders(headers);
+                    const fullNameHeader = headers.find(h => FULL_NAME_ALIASES.includes(h));
 
-                    console.log(`Found headers - ID: ${idHeader || 'NOT FOUND'}, Email: ${emailHeader || 'NOT FOUND'}, FirstName: ${firstNameHeader || 'NOT FOUND'}, LastName: ${lastNameHeader || 'NOT FOUND'}`);
+                    console.log(`Found headers - ID: ${idHeader || 'NOT FOUND'}, Email: ${emailHeader || 'NOT FOUND'}, FirstName: ${firstNameHeader || 'NOT FOUND'}, LastName: ${lastNameHeader || 'NOT FOUND'}, FullName: ${fullNameHeader || 'NOT FOUND'}`);
 
                     if (!idHeader || !emailHeader) {
                         console.warn(`CSV ${csvFile} in ${pageDir} is missing required headers (ID-like and Email-like). Skipping.`);
@@ -722,7 +772,7 @@ async function parseCSVsInDirectory(mainDirectory) {
 
                     // Build header-to-key map once (avoids per-row .find() scans)
                     const originalHeaders = Object.keys(records[0] || {});
-                    const keyMap = buildHeaderKeyMap(originalHeaders, idHeader, emailHeader, firstNameHeader, lastNameHeader);
+                    const keyMap = buildHeaderKeyMap(originalHeaders, idHeader, emailHeader, firstNameHeader, lastNameHeader, fullNameHeader);
 
                     let mappingsFound = 0;
                     records.forEach(record => {
@@ -747,14 +797,22 @@ async function parseCSVsInDirectory(mainDirectory) {
                                     }
                                 }
 
-                                // Derive name hints from email (e.g. vorname1-vorname2.nachname@domain)
-                                if (!nameHints[someNumber] && email) {
+                                // Store the email local part as a name-split hint
+                                // (pattern: vorname1-vorname2.nachname1-nachname2@domain).
+                                // Keyed by someNumber (page-specific) AND by full name, so a
+                                // CSV in a single page folder covers students on all pages.
+                                if (email) {
                                     const localPart = email.split('@')[0];
-                                    if (localPart && localPart.includes('.') && !localPart.includes('_')) {
-                                        const beforeDot = localPart.split('.')[0];
-                                        const firstNameWordCount = beforeDot.split('-').length;
-                                        if (firstNameWordCount > 1) {
-                                            nameHints[someNumber] = { firstNameWordCount };
+                                    if (localPart && localPart.includes('.')) {
+                                        if (!nameHints[someNumber]) {
+                                            nameHints[someNumber] = { localPart };
+                                        }
+                                        const fullNameValue = fullNameHeader ? record[keyMap[fullNameHeader]] : null;
+                                        if (fullNameValue) {
+                                            const nameKey = normalizeName(fullNameValue);
+                                            if (!nameHintsByName[nameKey]) {
+                                                nameHintsByName[nameKey] = { localPart };
+                                            }
                                         }
                                     }
                                 }
@@ -795,6 +853,7 @@ async function parseCSVsInDirectory(mainDirectory) {
         emailMappings,
         nameFromCSV,
         nameHints,
+        nameHintsByName,
         pagesWithCSV,
         pagesWithoutCSV,
         allPages: new Set([...pagesWithCSV, ...pagesWithoutCSV])
@@ -850,14 +909,18 @@ function parseRegistrationList(csvPath) {
  * Apply name corrections to transformation tasks based on the selected detection mode.
  * Modifies tasks in place, setting corrected firstName/lastName and nameSource on studentInfo.
  */
-function applyNameCorrections(tasks, nameFromCSV, nameHints, registrationListMap, mode) {
+function applyNameCorrections(tasks, nameFromCSV, nameHints, nameHintsByName, registrationListMap, mode) {
     let correctedCount = 0;
     for (const task of tasks) {
         const info = task.studentInfo;
         if (!info) continue;
 
-        // Skip tasks already corrected in a previous pass
-        if (info.nameSource && info.nameSource !== 'heuristic') continue;
+        // Skip tasks already corrected in a previous pass. Folder-derived names
+        // (explicit FIRSTNAME/LASTNAME in the folder pattern) are exact and need
+        // no split, but must still be matched in registration-list mode to obtain
+        // the print-order csvIndex.
+        if (info.nameSource && info.nameSource !== 'heuristic' &&
+            !(info.nameSource === 'folder' && mode === 'registration-list')) continue;
 
         let corrected = false;
 
@@ -884,22 +947,30 @@ function applyNameCorrections(tasks, nameFromCSV, nameHints, registrationListMap
                 }
             }
 
-            // Priority 2 (auto only): Email-based hints (firstNameWordCount)
-            if (!corrected && mode === 'auto' && info.someNumber && nameHints[info.someNumber] && info.fullName) {
-                const hint = nameHints[info.someNumber];
-                const words = info.fullName.trim().split(/\s+/);
-                if (hint.firstNameWordCount > 0 && hint.firstNameWordCount < words.length) {
-                    info.firstName = words.slice(0, hint.firstNameWordCount).join(' ');
-                    info.lastName = words.slice(hint.firstNameWordCount).join(' ');
-                    info.nameSource = 'email';
-                    corrected = true;
+            // Priority 2 (auto only): Email-based split. The email local part
+            // (vorname.nachname@domain) determines which trailing words of the
+            // full name form the last name. Falls through to heuristic when the
+            // email does not follow the pattern or does not match the name.
+            if (!corrected && mode === 'auto' && info.fullName) {
+                const hint = (info.someNumber && nameHints[info.someNumber]) ||
+                    (nameHintsByName && nameHintsByName[normalizeName(info.fullName)]);
+                if (hint && hint.localPart) {
+                    const split = splitNameByEmail(info.fullName, hint.localPart);
+                    if (split) {
+                        info.firstName = split.firstName;
+                        info.lastName = split.lastName;
+                        info.nameSource = 'email';
+                        corrected = true;
+                    }
                 }
             }
         }
 
-        // No correction applied → mark as heuristic
+        // No correction applied → mark as heuristic (but keep exact folder-derived names)
         if (!corrected) {
-            info.nameSource = 'heuristic';
+            if (info.nameSource !== 'folder') {
+                info.nameSource = 'heuristic';
+            }
         } else {
             correctedCount++;
         }
@@ -921,7 +992,7 @@ function applyNameCorrectionsFromConfig(tasks, config) {
         registrationListMap = map;
         sendLogToRenderer(`Loaded registration list with ${recordCount} entries`);
     }
-    applyNameCorrections(tasks, csvNameFromCSV, csvNameHints, registrationListMap, nameMode);
+    applyNameCorrections(tasks, csvNameFromCSV, csvNameHints, csvNameHintsByName, registrationListMap, nameMode);
 }
 
 /**
@@ -996,6 +1067,61 @@ function writeSortOrderFile(outputDirectory, tasks, nameMode) {
     sendLogToRenderer(`Wrote sort-order.txt with ${entries.length} entries to ${sortOrderPath}`);
 }
 
+/**
+ * Clean up a student-submitted file name so it is safe on Windows:
+ * strips trailing spaces/dots (both at the very end and before the extension,
+ * e.g. "scan .pdf" or "scan.pdf "), removes spaces inside the extension
+ * ("scan. pdf") and replaces characters that are invalid in Windows file names.
+ * Returns the cleaned name, which may equal the input.
+ */
+function sanitizeSubmissionFileName(fileName) {
+    const trimmed = fileName.replace(/[\s.]+$/, ''); // "scan.pdf " / "scan.PDF."
+    const rawExt = path.extname(trimmed);
+    const ext = rawExt.replace(/\s+/g, ''); // "scan. pdf" → ".pdf"
+    const base = trimmed.slice(0, trimmed.length - rawExt.length)
+        // eslint-disable-next-line no-control-regex -- control chars are matched intentionally
+        .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_') // invalid on Windows
+        .replace(/[\s.]+$/, ''); // "scan .pdf" / "scan..pdf"
+    return `${base || 'file'}${ext}`;
+}
+
+/**
+ * Rename files with problematic names inside a student folder (see
+ * sanitizeSubmissionFileName) and return the updated file list.
+ * Renames are logged; on rename failure the original name is kept.
+ */
+function cleanupSubmissionFileNames(studentFolderPath, files, logContext) {
+    const result = [];
+    for (const file of files) {
+        const cleaned = sanitizeSubmissionFileName(file);
+        if (cleaned === file) {
+            result.push(file);
+            continue;
+        }
+        const oldPath = path.join(studentFolderPath, file);
+        try {
+            if (!fs.statSync(oldPath).isFile()) {
+                result.push(file);
+                continue;
+            }
+            // Avoid overwriting an existing file with the cleaned name
+            let target = cleaned;
+            let counter = 1;
+            while (fs.existsSync(path.join(studentFolderPath, target))) {
+                const targetExt = path.extname(cleaned);
+                target = `${cleaned.slice(0, cleaned.length - targetExt.length)}_${counter++}${targetExt}`;
+            }
+            fs.renameSync(oldPath, path.join(studentFolderPath, target));
+            sendLogToRenderer(`Cleaned up problematic file name in ${logContext}: "${file}" → "${target}"`);
+            result.push(target);
+        } catch (renameErr) {
+            sendLogToRenderer(`WARN: Could not rename "${file}" in ${logContext}: ${renameErr.message}. Keeping original name.`);
+            result.push(file);
+        }
+    }
+    return result;
+}
+
 // Function to prepare transformations and handle ambiguities
 async function prepareTransformations(mainDirectory, outputDirectory, folderPattern) {
     sendLogToRenderer("Preparing transformations...");
@@ -1010,6 +1136,7 @@ async function prepareTransformations(mainDirectory, outputDirectory, folderPatt
     someNumberToEmailMap = csvResult.emailMappings; // Extract the email mappings
     csvNameFromCSV = csvResult.nameFromCSV; // Extract gradebook name columns
     csvNameHints = csvResult.nameHints; // Extract email-based name hints
+    csvNameHintsByName = csvResult.nameHintsByName || {}; // Name-keyed hints (page-independent)
     sendLogToRenderer(`Loaded ${Object.keys(someNumberToEmailMap).length} email mappings from CSVs (Pages with CSV: ${csvResult.pagesWithCSV.size}, without: ${csvResult.pagesWithoutCSV.size})`);
     if (Object.keys(csvNameFromCSV).length > 0) {
         sendLogToRenderer(`Found ${Object.keys(csvNameFromCSV).length} students with separate first/last name columns in gradebook`);
@@ -1048,7 +1175,13 @@ async function prepareTransformations(mainDirectory, outputDirectory, folderPatt
         
         for (const studentFolder of studentFolders) {
             const studentFolderPath = path.join(pageDirPath, studentFolder);
-            const potentialFiles = fs.readdirSync(studentFolderPath);
+            // Clean up problematic submission file names (trailing spaces/dots etc.)
+            // before any extension checks — they break file access on Windows.
+            const potentialFiles = cleanupSubmissionFileNames(
+                studentFolderPath,
+                fs.readdirSync(studentFolderPath),
+                `${pageDir}/${studentFolder}`
+            );
             let validatedFiles = []; // Store files that pass all checks
             const allowedExtensions = ['.pdf', '.png', '.jpg', '.jpeg', '.heic'];
             const parsedStudentInfo = parseFolderName(studentFolder, folderPattern); // Parse student info once
@@ -1754,8 +1887,29 @@ async function generateSummaryHtml(outputDirectory) {
         }
     }
 
-    // Sort students by last name
+    // Read print order and name source from sort-order.txt (written before this report)
+    const sortOrderInfo = {}; // folderName → { position, source }
+    const sortOrderPath = path.join(outputDirectory, 'sort-order.txt');
+    if (fs.existsSync(sortOrderPath)) {
+        try {
+            let position = 0;
+            for (const line of fs.readFileSync(sortOrderPath, 'utf-8').split(/\r?\n/)) {
+                if (!line.trim() || line.startsWith('#')) continue;
+                const [folderName, , , source] = line.split('\t');
+                if (folderName && !(folderName in sortOrderInfo)) {
+                    sortOrderInfo[folderName] = { position: ++position, source: source || '' };
+                }
+            }
+        } catch (readErr) {
+            sendLogToRenderer(`WARN: Could not read sort-order.txt for summary: ${readErr.message}`);
+        }
+    }
+
+    // Sort students by print order (sort-order.txt line order), falling back to last name
     studentData.sort((a, b) => {
+        const posA = sortOrderInfo[a.identifier]?.position ?? Infinity;
+        const posB = sortOrderInfo[b.identifier]?.position ?? Infinity;
+        if (posA !== posB) return posA - posB;
         const lastName1 = a.info.lastName || a.identifier;
         const lastName2 = b.info.lastName || b.identifier;
         return lastName1.localeCompare(lastName2, 'de', { numeric: true });
@@ -1787,15 +1941,21 @@ async function generateSummaryHtml(outputDirectory) {
         tr:nth-child(even) { background-color: #f9f9f9; }
         h1, h2 { color: #333; }
         .stats { margin-bottom: 30px; }
+        tr.heuristic td { background-color: #fff3cd; }
+        .legend { font-size: 0.9em; color: #555; margin-bottom: 20px; }
+        .legend .swatch { display: inline-block; width: 1em; height: 1em; background-color: #fff3cd; border: 1px solid #ddd; vertical-align: middle; }
     </style>
 </head>
 <body>
     <h1>Student Submission Summary</h1>
-    
+
+    <p>Rows are listed in print order (from <code>sort-order.txt</code>).</p>
     <table>
         <tr>
+            <th>Print Position</th>
             <th>Last Name</th>
             <th>First Name</th>
+            <th>Name Source</th>
             <th>Student ID</th>
             <th>Submitted Pages</th>
             <th>Skipped Files</th>
@@ -1803,15 +1963,22 @@ async function generateSummaryHtml(outputDirectory) {
         </tr>`;
 
     // Add rows for each student
+    let heuristicRowCount = 0;
     studentData.forEach(student => {
         const lastName = student.info.lastName || "Unknown";
         const firstName = student.info.firstName || "";
         const studentId = student.info.studentNumber || "";
-        
+        const orderEntry = sortOrderInfo[student.identifier];
+        const nameSource = orderEntry?.source || student.info.nameSource || '';
+        const isHeuristic = nameSource === 'heuristic' || nameSource === '';
+        if (isHeuristic) heuristicRowCount++;
+
         htmlContent += `
-        <tr>
+        <tr${isHeuristic ? ' class="heuristic"' : ''}>
+            <td>${orderEntry?.position ?? ''}</td>
             <td>${lastName}</td>
             <td>${firstName}</td>
+            <td>${nameSource}${isHeuristic ? ' ⚠️' : ''}</td>
             <td>${studentId}</td>
             <td>${student.processed}</td>
             <td>${student.skipped > 0 ? student.skipped : ''}</td>
@@ -1821,7 +1988,15 @@ async function generateSummaryHtml(outputDirectory) {
 
     htmlContent += `
     </table>
-    
+    `;
+
+    if (heuristicRowCount > 0) {
+        htmlContent += `
+    <p class="legend"><span class="swatch"></span> ${heuristicRowCount} highlighted row(s): the first/last name split was inferred heuristically (last word = last name) and could not be confirmed against an email address from a Grading Worksheet CSV. Check these entries if the sort order matters.</p>
+    `;
+    }
+
+    htmlContent += `
     <h2>Summary Statistics</h2>
     
     <div class="stats">
@@ -2406,6 +2581,55 @@ ipcMain.handle('ghostscript:selectExecutable', async (event) => {
     }
     
     return { success: false };
+});
+
+/**
+ * Lightweight check whether the input directory contains usable Moodle Grading
+ * Worksheet CSVs (a *.csv inside a page folder whose header has ID-like and
+ * email-like columns — same criteria as parseCSVsInDirectory). Only the header
+ * line is read, so the renderer can poll this while the user assembles the
+ * input folder without noticeable I/O cost.
+ */
+ipcMain.handle('check-gradebook-csv', async (_event, inputDirectory) => {
+    try {
+        if (!inputDirectory || !fs.existsSync(inputDirectory)) {
+            return { found: false, pagesWithCsv: 0, totalPages: 0 };
+        }
+        const pageDirs = fs.readdirSync(inputDirectory).filter(item => {
+            try {
+                return fs.statSync(path.join(inputDirectory, item)).isDirectory();
+            } catch {
+                return false;
+            }
+        });
+        let pagesWithCsv = 0;
+        for (const pageDir of pageDirs) {
+            const dirPath = path.join(inputDirectory, pageDir);
+            let files;
+            try {
+                files = fs.readdirSync(dirPath);
+            } catch {
+                continue;
+            }
+            const csvFile = files.find(f => f.toLowerCase().trim().endsWith('.csv'));
+            if (!csvFile) continue;
+            try {
+                const fd = fs.openSync(path.join(dirPath, csvFile), 'r');
+                const buf = Buffer.alloc(4096);
+                const bytes = fs.readSync(fd, buf, 0, 4096, 0);
+                fs.closeSync(fd);
+                const firstLine = (buf.toString('utf-8', 0, bytes).split(/\r?\n/)[0] || '').toLowerCase();
+                const hasId = firstLine.includes('id');
+                const hasEmail = firstLine.includes('email') || firstLine.includes('e-mail') || firstLine.includes('mail-adresse');
+                if (hasId && hasEmail) pagesWithCsv++;
+            } catch {
+                // Unreadable CSV — treat as not usable
+            }
+        }
+        return { found: pagesWithCsv > 0, pagesWithCsv, totalPages: pageDirs.length };
+    } catch (err) {
+        return { found: false, pagesWithCsv: 0, totalPages: 0, error: err.message };
+    }
 });
 
 // Ghostscript validation for Settings UI
