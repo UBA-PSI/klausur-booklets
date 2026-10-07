@@ -90,7 +90,7 @@ ESLint flat config: 4-space indent, single quotes, unix linebreaks, semicolons r
 ## Build & Release Notes
 
 - macOS builds require Apple notarization credentials in `.env` (APPLE_ID, APPLE_TEAM_ID, APPLE_APP_SPECIFIC_PASSWORD)
-- `build.files` in `package.json` is an allowlist (`index.html`, `LICENSE.txt`, `src/` without tests). Without it electron-builder packs the whole project directory, including `.env` and any untracked files.
+- `build.files` in `package.json` is an allowlist (`index.html`, `LICENSE.txt`, `src/` without tests). Without it electron-builder packs the whole project directory, including `.env` and any untracked files. The `afterPack` hook `build/check-package-contents.js` aborts the build if the package contains anything else or lacks the sharp binary for a target architecture; extend its lists when the app legitimately needs a new file.
 - sharp and pdfium WASM are listed in `asarUnpack` — they need filesystem access outside the ASAR archive
 - Windows/Linux builds are done via GitHub Actions (`npm run build:ci`), macOS is built locally
 - `tools/python-cli/` contains a deprecated Python MBZ modifier CLI (no Node.js dependency); use the GUI instead
