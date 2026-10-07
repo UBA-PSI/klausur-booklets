@@ -195,7 +195,6 @@ While these measures help safeguard student data, instructors should still:
 |-----------|-----------------|------------|
 | Windows, macOS, or Linux | 64‑bit | Running the pre‑built desktop app |
 | Node.js | 18 LTS | For developers who want to build the application from source |
-| Python | 3.7 | Deprecated CLI for MBZ modification (use the GUI instead) |
 
 
 ### Notes for Linux (particularly Ubuntu 24.04)
@@ -442,12 +441,6 @@ git push origin v1.0.2
 ### Configuration
 
 PDF processing settings (like DPI) can be adjusted via the Settings button within the application.
-
-### Standalone Python MBZ Modifier (Deprecated)
-
-> **Note:** This CLI tool is deprecated. Use the MBZ Modifier in the Booklet Tool GUI instead, which provides a more complete feature set (timestamp preview, open modes, rename-all).
-
-The `tools/python-cli/` directory contains a standalone Python script (`modify_moodle_backup.py`) for modifying Moodle Backup (`.mbz`) files from the command line. It uses only standard Python libraries (Python 3.7+, no external dependencies).
 
 ## Changelog
 
