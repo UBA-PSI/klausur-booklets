@@ -17,7 +17,7 @@ npm run build:ci     # Trigger GitHub Actions workflow for Windows/Linux builds
 npm run pdf-process  # Run PDF command-line processor standalone
 ```
 
-Cross-platform sharp installs: `npm run sharp:win`, `npm run sharp:linux-x64`, `npm run sharp:linux-arm64`.
+Cross-platform sharp installs: `npm run sharp:win`, `npm run sharp:linux-x64`, `npm run sharp:linux-arm64`. `npm run build` runs `sharp:mac-universal` first, which adds the Intel sharp binaries so the universal macOS app starts on both architectures.
 
 ## Architecture
 
@@ -90,6 +90,7 @@ ESLint flat config: 4-space indent, single quotes, unix linebreaks, semicolons r
 ## Build & Release Notes
 
 - macOS builds require Apple notarization credentials in `.env` (APPLE_ID, APPLE_TEAM_ID, APPLE_APP_SPECIFIC_PASSWORD)
+- `build.files` in `package.json` is an allowlist (`index.html`, `LICENSE.txt`, `src/` without tests). Without it electron-builder packs the whole project directory, including `.env` and any untracked files.
 - sharp and pdfium WASM are listed in `asarUnpack` — they need filesystem access outside the ASAR archive
 - Windows/Linux builds are done via GitHub Actions (`npm run build:ci`), macOS is built locally
 - `python-cli/` contains a deprecated Python MBZ modifier CLI (no Node.js dependency); use the GUI instead

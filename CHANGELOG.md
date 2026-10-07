@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 ## [1.9.1] - 2026-10-07
 
 - [FIXED] **Built-in PDF renderer (PDFium)**: The built-in renderer failed on every PDF submission with "Unable to render PDF after 7 attempts"; only image submissions were converted. The page size was read incorrectly, which crashed the renderer. PDF submissions now convert without Ghostscript again. Ghostscript remains the recommended renderer.
+- [FIXED] **macOS on Intel**: The app crashed at startup on Intel Macs because the image library was only bundled for Apple silicon. The universal build now contains both variants.
+- [FIXED] **macOS package contents**: The macOS package contained the entire development folder instead of only the files the app needs. It now ships only the app itself, which also cuts the download size roughly in half.
 - [IMPROVED] **Security updates**: Electron 44 (Electron 39 is end-of-life), sharp 0.35.5 (libvips/libheif fixes for image and HEIC parsing), tar, adm-zip, csv-parse, and PDFium 2.1.13. The shipped dependencies have no known vulnerabilities at release time.
 - [IMPROVED] **Instructor guide**: The recommended Moodle setup now comes first, in the README quick start and in both instructor guides: create a booklet section with placeholder assignments, export only that section as `.mbz`, adjust it in the MBZ Modifier, delete the placeholders, and restore with "merge". Manual setup and reusing an old backup are described as alternatives.
 - [IMPROVED] **Cleanup**: Removed the broken command-line script `bin/modify-mbz-js` and unused dependencies. Use the MBZ Modifier in the app instead.
