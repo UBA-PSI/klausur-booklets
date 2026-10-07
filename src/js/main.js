@@ -317,8 +317,8 @@ app.on('activate', () => {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) {
-       const mainWindow = createWindow();
-       createMenu(mainWindow); // Also ensure menu is set if window is recreated
+        const mainWindow = createWindow();
+        createMenu(mainWindow); // Also ensure menu is set if window is recreated
     }
 });
 
@@ -366,8 +366,8 @@ function getConfigPath() {
                     // Check if it's empty before removing
                     const files = fs.readdirSync(potentialPortableConfigDir);
                     if (files.length === 0) {
-                         fs.rmdirSync(potentialPortableConfigDir);
-                         console.log(`Cleaned up empty portable config directory: ${potentialPortableConfigDir}`);
+                        fs.rmdirSync(potentialPortableConfigDir);
+                        console.log(`Cleaned up empty portable config directory: ${potentialPortableConfigDir}`);
                     }
                 } catch (cleanupErr) {
                     console.warn(`Could not clean up portable config directory ${potentialPortableConfigDir}: ${cleanupErr.message}`);
@@ -498,8 +498,8 @@ function parseFolderName(folderName, pattern) {
             console.log('Parsed using Moodle pattern logic:', result);
             return result;
         } else {
-             console.warn(`Moodle pattern detected, but could not split base name '${baseName}' correctly.`);
-             // Proceed to general parsing as fallback
+            console.warn(`Moodle pattern detected, but could not split base name '${baseName}' correctly.`);
+            // Proceed to general parsing as fallback
         }
     }
 
@@ -513,7 +513,7 @@ function parseFolderName(folderName, pattern) {
         result.fullName = `${result.firstName} ${result.lastName}`.trim();
         // Set primaryIdentifier based on best available info
         if (result.fullName) {
-             result.primaryIdentifier = result.fullName;
+            result.primaryIdentifier = result.fullName;
         } // else it defaults to original folderName
         console.log('Parsed using basic fallback:', result);
         return result;
@@ -540,30 +540,31 @@ function parseFolderName(folderName, pattern) {
         const value = folderParts[i];
 
         switch (key) {
-            case 'FIRSTNAME':
-                result.firstName = value;
-                result.nameSource = 'folder'; // explicit first/last name in folder name — no split needed
-                break;
-            case 'LASTNAME':
-                result.lastName = value;
-                result.nameSource = 'folder';
-                break;
-            case 'FULLNAMEWITHSPACES': // Note: This case shouldn't be reached if Moodle logic ran
-                result.fullName = value; 
-                // Attempt to derive first/last name from full name if possible
-                const nameComponents = value.trim().split(/\s+/);
-                result.lastName = nameComponents.pop() || value;
-                result.firstName = nameComponents.join(' ') || '';
-                break;
-            case 'USERNAME':
-                result.username = value;
-                break;
-            case 'STUDENTNUMBER':
-                result.studentNumber = value;
-                break;
-            case 'SOMENUMBER': // Handle explicit SOMENUMBER placeholder
-                result.someNumber = value;
-                break;
+        case 'FIRSTNAME':
+            result.firstName = value;
+            result.nameSource = 'folder'; // explicit first/last name in folder name — no split needed
+            break;
+        case 'LASTNAME':
+            result.lastName = value;
+            result.nameSource = 'folder';
+            break;
+        case 'FULLNAMEWITHSPACES': { // Note: This case shouldn't be reached if Moodle logic ran
+            result.fullName = value; 
+            // Attempt to derive first/last name from full name if possible
+            const nameComponents = value.trim().split(/\s+/);
+            result.lastName = nameComponents.pop() || value;
+            result.firstName = nameComponents.join(' ') || '';
+            break;
+        }
+        case 'USERNAME':
+            result.username = value;
+            break;
+        case 'STUDENTNUMBER':
+            result.studentNumber = value;
+            break;
+        case 'SOMENUMBER': // Handle explicit SOMENUMBER placeholder
+            result.someNumber = value;
+            break;
             // Ignore other parts like 'SOMENUMBER'
         }
     }
@@ -575,14 +576,14 @@ function parseFolderName(folderName, pattern) {
         result.primaryIdentifier = result.username;
     } else {
         if (!result.fullName && (result.firstName || result.lastName)) {
-             result.fullName = `${result.firstName} ${result.lastName}`.trim();
+            result.fullName = `${result.firstName} ${result.lastName}`.trim();
         }
         result.primaryIdentifier = result.fullName || folderName;
     }
     
     // Ensure fullName is set (logic remains the same)
     if (!result.fullName && (result.firstName || result.lastName)) {
-         result.fullName = `${result.firstName} ${result.lastName}`.trim();
+        result.fullName = `${result.firstName} ${result.lastName}`.trim();
     }
 
     console.log('Parsed using general pattern:', result);
@@ -698,7 +699,7 @@ async function parseCSVsInDirectory(mainDirectory) {
     const pagesWithCSV = new Set(); // Track which pages have CSV files
     const pagesWithoutCSV = new Set(); // Track which pages don't have CSV files
 
-    console.log("Starting CSV parsing process...");
+    console.log('Starting CSV parsing process...');
 
     // Get page directories
     const pageDirs = fs.readdirSync(mainDirectory).filter(item => {
@@ -846,7 +847,7 @@ async function parseCSVsInDirectory(mainDirectory) {
     console.log(`Final email mapping count: ${Object.keys(emailMappings).length}`);
     console.log(`Pages with CSV: ${Array.from(pagesWithCSV).join(', ')}`);
     console.log(`Pages without CSV: ${Array.from(pagesWithoutCSV).join(', ')}`);
-    console.log("Finished scanning all page directories for CSVs.");
+    console.log('Finished scanning all page directories for CSVs.');
     
     // Return all mappings and information about CSV coverage
     return {
@@ -1124,7 +1125,7 @@ function cleanupSubmissionFileNames(studentFolderPath, files, logContext) {
 
 // Function to prepare transformations and handle ambiguities
 async function prepareTransformations(mainDirectory, outputDirectory, folderPattern) {
-    sendLogToRenderer("Preparing transformations...");
+    sendLogToRenderer('Preparing transformations...');
 
     const config = loadConfig();
     const minSizeBytes = (config.minFileSizeKB || 5) * 1024;
@@ -1330,7 +1331,7 @@ async function prepareTransformations(mainDirectory, outputDirectory, folderPatt
  * @param {string} outputDirectory - The base output directory.
  */
 function resolveMoodleCollisions(tasks, emailMap, outputDirectory) {
-    sendLogToRenderer("Attempting Moodle collision resolution using emails...");
+    sendLogToRenderer('Attempting Moodle collision resolution using emails...');
     const identifierGroups = tasks.reduce((acc, task) => {
         const id = task.studentInfo.primaryIdentifier;
         if (!acc[id]) acc[id] = [];
@@ -1360,14 +1361,14 @@ function resolveMoodleCollisions(tasks, emailMap, outputDirectory) {
 
             // If all tasks in the group had a mapped email AND there are multiple unique emails
             if (canResolveAll && allEmails.size > 1) {
-                 sendLogToRenderer(`Resolving collision for ${identifier} using emails.`);
-                 identifierGroups[identifier].forEach(task => {
-                     task.studentInfo.primaryIdentifier = task.studentInfo.email;
-                     // Also update the outputPath to reflect the new identifier
-                     task.outputPath = path.join(outputDirectory, 'pages', task.studentInfo.primaryIdentifier, `${task.pageName}.pdf`);
-                     sendLogToRenderer(`  Updated task for ${task.originalFileName} -> ID: ${task.studentInfo.primaryIdentifier}, Path: ${task.outputPath}`);
-                 });
-                 resolvedCollisions++;
+                sendLogToRenderer(`Resolving collision for ${identifier} using emails.`);
+                identifierGroups[identifier].forEach(task => {
+                    task.studentInfo.primaryIdentifier = task.studentInfo.email;
+                    // Also update the outputPath to reflect the new identifier
+                    task.outputPath = path.join(outputDirectory, 'pages', task.studentInfo.primaryIdentifier, `${task.pageName}.pdf`);
+                    sendLogToRenderer(`  Updated task for ${task.originalFileName} -> ID: ${task.studentInfo.primaryIdentifier}, Path: ${task.outputPath}`);
+                });
+                resolvedCollisions++;
             } else if (canResolveAll && allEmails.size <= 1) {
                 // All map to the same email or only one email found (no actual collision)
                 sendLogToRenderer(`Collision group for ${identifier} resolved to single email or no conflict. No change needed.`);
@@ -1376,9 +1377,9 @@ function resolveMoodleCollisions(tasks, emailMap, outputDirectory) {
             }
         }
     }
-     if (resolvedCollisions > 0) {
-         sendLogToRenderer(`Automatically resolved ${resolvedCollisions} name collisions using emails.`);
-     }
+    if (resolvedCollisions > 0) {
+        sendLogToRenderer(`Automatically resolved ${resolvedCollisions} name collisions using emails.`);
+    }
     // Note: This function modifies 'tasks' directly.
 }
 
@@ -1389,7 +1390,7 @@ function resolveMoodleCollisions(tasks, emailMap, outputDirectory) {
  * @param {boolean} isMoodleMode - Flag indicating if Moodle pattern is used.
  */
 function performFinalCollisionCheck(tasks, isMoodleMode) {
-    sendLogToRenderer("Performing final collision check V7...");
+    sendLogToRenderer('Performing final collision check V7...');
     const finalIdentifierGroups = tasks.reduce((acc, task) => {
         const finalId = task.studentInfo.primaryIdentifier;
         if (!acc[finalId]) {
@@ -1430,7 +1431,7 @@ function performFinalCollisionCheck(tasks, isMoodleMode) {
         acc[finalId].originKeys.add(originKey);
         
         if (acc[finalId].taskExamples.length < 3) {
-             acc[finalId].taskExamples.push(`${path.basename(task.inputPath)} (from ${pageFolder})`);
+            acc[finalId].taskExamples.push(`${path.basename(task.inputPath)} (from ${pageFolder})`);
         }
         return acc;
     }, {});
@@ -1455,10 +1456,10 @@ function performFinalCollisionCheck(tasks, isMoodleMode) {
             finalCollisionsData.push(`${identifier} (multiple submissions in: ${duplicateDetails.join(', ')})`);
         }
         else if (group.originKeys.size > 1) {
-             sendLogToRenderer(`Final Collision Error V7: Identifier '${identifier}' associated with multiple distinct origins: ${Array.from(group.originKeys).join(', ')}. Example files involved: ${group.taskExamples.join(', ')}`);
-             finalCollisionsData.push(`${identifier} (from origins: ${Array.from(group.originKeys).join(', ')})`);
+            sendLogToRenderer(`Final Collision Error V7: Identifier '${identifier}' associated with multiple distinct origins: ${Array.from(group.originKeys).join(', ')}. Example files involved: ${group.taskExamples.join(', ')}`);
+            finalCollisionsData.push(`${identifier} (from origins: ${Array.from(group.originKeys).join(', ')})`);
         } else if (group.pageFolders.size > 1) {
-             sendLogToRenderer(`Student '${identifier}' has submissions in multiple page folders: ${Array.from(group.pageFolders).join(', ')}`);
+            sendLogToRenderer(`Student '${identifier}' has submissions in multiple page folders: ${Array.from(group.pageFolders).join(', ')}`);
         }
     }
 
@@ -1467,7 +1468,7 @@ function performFinalCollisionCheck(tasks, isMoodleMode) {
         sendLogToRenderer(`Final check V7 failed: Unresolvable collisions detected: ${collisionDetails}`);
         throw new Error(`FinalCollisionError: Unresolvable collisions found: ${collisionDetails}. Please rename input folders manually or provide/correct CSVs.`);
     }
-    sendLogToRenderer("Final collision check V7 passed.");
+    sendLogToRenderer('Final collision check V7 passed.');
 }
 
 /**
@@ -1482,7 +1483,7 @@ function performFinalCollisionCheck(tasks, isMoodleMode) {
  * @throws {Error} If processing completes with errors.
  */
 async function processTasksDirectly(tasks, outputDirectory, dpi, options = {}) {
-    sendLogToRenderer("IPC: No ambiguities or collisions. Processing tasks directly.");
+    sendLogToRenderer('IPC: No ambiguities or collisions. Processing tasks directly.');
     let successCount = 0;
     let errorCount = 0;
     const totalTasks = tasks.length;
@@ -1543,7 +1544,7 @@ async function processTasksDirectly(tasks, outputDirectory, dpi, options = {}) {
                 const relativeOutputPath = task.outputPath ? path.relative(currentOutputDirectory, task.outputPath) : '[unknown output file]';
                 const writeErrorMsg = `Failed to write error placeholder for ${relativeOutputPath}: ${writeError.message}`;
                 sendLogToRenderer(writeErrorMsg); // Send to process log
-                 if (canSendToRenderer()) mainWindow.webContents.send('error-log', `ERROR: ${writeErrorMsg}`);
+                if (canSendToRenderer()) mainWindow.webContents.send('error-log', `ERROR: ${writeErrorMsg}`);
             }
         }
     }
@@ -1561,7 +1562,7 @@ async function processTasksDirectly(tasks, outputDirectory, dpi, options = {}) {
 // --- End Helper Functions ---
 
 ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirectory, dpi) => {
-    sendLogToRenderer("IPC: Received start-transformation");
+    sendLogToRenderer('IPC: Received start-transformation');
     
     // Show renderer info upfront
     try {
@@ -1592,14 +1593,14 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
 
     try {
         if (!isMoodleMode && iliasPreprocessor.detectIliasZipMode(mainDirectory)) {
-            sendLogToRenderer("✓ ILIAS ZIP mode detected. Preprocessing submissions...");
+            sendLogToRenderer('✓ ILIAS ZIP mode detected. Preprocessing submissions...');
             const tempDir = path.join(os.tmpdir(), `booklet-ilias-${Date.now()}`);
             iliasPreprocessingTempDir = tempDir; // Store for cleanup
 
             await iliasPreprocessor.preprocessIliasZips(mainDirectory, tempDir, sendLogToRenderer, folderPattern);
             effectiveInputDirectory = tempDir;
             effectiveInputDirectoryForMerging = tempDir; // Store for merging phase (missing pages detection)
-            sendLogToRenderer("✓ ILIAS preprocessing complete. Using temporary directory for processing.");
+            sendLogToRenderer('✓ ILIAS preprocessing complete. Using temporary directory for processing.');
         } else {
             // For non-ILIAS mode (Moodle), use the original directory
             effectiveInputDirectoryForMerging = mainDirectory;
@@ -1633,7 +1634,7 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
         if (ambiguities.length > 0) {
             // Store data for later resolution
             pendingTransformationData = { unambiguousTasks: tasks, ambiguities, outputDirectory };
-            sendLogToRenderer("IPC: Ambiguities found. Requesting resolution from renderer.");
+            sendLogToRenderer('IPC: Ambiguities found. Requesting resolution from renderer.');
             if (canSendToRenderer()) {
                 mainWindow.webContents.send('request-ambiguity-resolution', ambiguities);
             }
@@ -1658,7 +1659,7 @@ ipcMain.handle('start-transformation', async (event, mainDirectory, outputDirect
         }
 
     } catch (error) {
-        sendLogToRenderer("IPC: Error during transformation start:");
+        sendLogToRenderer('IPC: Error during transformation start:');
         cleanupIliasTemp();
         resetGlobalState();
         throw error;
@@ -1672,16 +1673,16 @@ ipcMain.handle('resolve-ambiguity', async (event, selectedIdentifiers) => {
         return 'Processing aborted by user.';
     }
     global.abortProcessingFlag = false;
-    sendLogToRenderer("IPC: Received resolve-ambiguity with selected files:");
-    console.log("Selected choices:", selectedIdentifiers); // Log the raw choices received
+    sendLogToRenderer('IPC: Received resolve-ambiguity with selected files:');
+    console.log('Selected choices:', selectedIdentifiers); // Log the raw choices received
     
     if (!pendingTransformationData) {
-        throw new Error("No pending transformation data found for ambiguity resolution.");
+        throw new Error('No pending transformation data found for ambiguity resolution.');
     }
     
     // Make sure we have access to necessary info like output dir and pattern
     if (!pendingTransformationData.outputDirectory || !currentTransformationDpi) { 
-        throw new Error("Missing output directory or DPI setting in pending data.");
+        throw new Error('Missing output directory or DPI setting in pending data.');
     }
     
     const config = loadConfig();
@@ -1721,7 +1722,7 @@ ipcMain.handle('resolve-ambiguity', async (event, selectedIdentifiers) => {
             resolvedCount++;
             sendLogToRenderer(`    -> Created task: ${resolvedTask.inputPath} -> ${resolvedTask.outputPath}`);
         } catch (taskCreationError) {
-             sendLogToRenderer(`ERROR creating task for resolved ambiguity in ${folderPath}: ${taskCreationError.message}. Skipping this resolution.`);
+            sendLogToRenderer(`ERROR creating task for resolved ambiguity in ${folderPath}: ${taskCreationError.message}. Skipping this resolution.`);
         }
     }
 
@@ -1748,7 +1749,7 @@ ipcMain.handle('resolve-ambiguity', async (event, selectedIdentifiers) => {
         resetGlobalState();
         return resultMessage;
     } catch (error) {
-        sendLogToRenderer("IPC: Error processing after ambiguity resolution:");
+        sendLogToRenderer('IPC: Error processing after ambiguity resolution:');
         cleanupIliasTemp();
         resetGlobalState();
         throw error;
@@ -1757,7 +1758,7 @@ ipcMain.handle('resolve-ambiguity', async (event, selectedIdentifiers) => {
 
 // --- Helper Function to Generate Summary --- 
 async function generateAndSendSummary(outputDirectory) {
-    sendLogToRenderer("\n--- Generating Transformation Summary ---");
+    sendLogToRenderer('\n--- Generating Transformation Summary ---');
     const pagesDir = path.join(outputDirectory, 'pages');
     let totalProcessed = 0;
     let totalSkipped = 0;
@@ -1768,7 +1769,7 @@ async function generateAndSendSummary(outputDirectory) {
 
     try {
         if (!fs.existsSync(pagesDir)) {
-            sendLogToRenderer("WARN: Output 'pages' directory not found. Cannot generate summary.");
+            sendLogToRenderer('WARN: Output \'pages\' directory not found. Cannot generate summary.');
             return;
         }
 
@@ -1837,10 +1838,10 @@ async function generateAndSendSummary(outputDirectory) {
  * @param {string} outputDirectory - The main output directory
  */
 async function generateSummaryHtml(outputDirectory) {
-    sendLogToRenderer("Generating summary.html report...");
+    sendLogToRenderer('Generating summary.html report...');
     const pagesDir = path.join(outputDirectory, 'pages');
     if (!fs.existsSync(pagesDir)) {
-        sendLogToRenderer("WARN: Pages directory not found. Cannot generate summary HTML.");
+        sendLogToRenderer('WARN: Pages directory not found. Cannot generate summary HTML.');
         return;
     }
 
@@ -1861,7 +1862,7 @@ async function generateSummaryHtml(outputDirectory) {
                     primaryIdentifier: studentIdentifier,
                     fullName: studentIdentifier, 
                     lastName: studentIdentifier,
-                    firstName: ""
+                    firstName: ''
                 };
                 
                 if (data.processedFiles && data.processedFiles.length > 0 && 
@@ -1965,9 +1966,9 @@ async function generateSummaryHtml(outputDirectory) {
     // Add rows for each student
     let heuristicRowCount = 0;
     studentData.forEach(student => {
-        const lastName = student.info.lastName || "Unknown";
-        const firstName = student.info.firstName || "";
-        const studentId = student.info.studentNumber || "";
+        const lastName = student.info.lastName || 'Unknown';
+        const firstName = student.info.firstName || '';
+        const studentId = student.info.studentNumber || '';
         const orderEntry = sortOrderInfo[student.identifier];
         const nameSource = orderEntry?.source || student.info.nameSource || '';
         const isHeuristic = nameSource === 'heuristic' || nameSource === '';
@@ -2062,15 +2063,15 @@ Submitted:
 Missing:
 {{MISSING_PAGES_LIST}}`;
 
-        sendLogToRenderer("Main: Starting mergeStudentPDFs function...");
+        sendLogToRenderer('Main: Starting mergeStudentPDFs function...');
         await mergeStudentPDFs(directoryForMissingPagesDetection, outputDirectory, coverTemplateContent, {
             padToMultipleOf4: !!config.padToMultipleOf4
         }, sendLogToRenderer, sendProgress);
-        sendLogToRenderer("Main: mergeStudentPDFs completed successfully."); // Log on success
+        sendLogToRenderer('Main: mergeStudentPDFs completed successfully.'); // Log on success
 
         cleanupIliasTemp();
 
-        return "Success"; // Indicate success to renderer
+        return 'Success'; // Indicate success to renderer
     } catch (error) {
         if (global.abortProcessingFlag) {
             sendLogToRenderer(`Main: ${error.message}`);
@@ -2105,7 +2106,7 @@ ipcMain.handle('create-booklets', async (event, outputDirectory) => {
         sendLogToRenderer(`Found ${studentPDFs.length} student PDFs in ${pdfsDir}`);
 
         if (studentPDFs.length === 0) {
-            sendLogToRenderer("No PDFs found in the 'pdfs' directory to create booklets from.");
+            sendLogToRenderer('No PDFs found in the \'pdfs\' directory to create booklets from.');
             return 'No PDFs found to create booklets from.';
         }
 
@@ -2170,7 +2171,7 @@ ipcMain.handle('abort-processing', async () => {
 
 // Modify saveProcessedFileInfo to properly handle email-based identifiers
 async function saveProcessedFileInfo(outputDirectory) {
-    sendLogToRenderer("Saving processed file information...");
+    sendLogToRenderer('Saving processed file information...');
     // The outputDirectory passed here is the *root* output dir
     const studentIdentifiers = new Set(Object.keys(processedFileInfo)); // Get unique identifiers processed
 
@@ -2191,19 +2192,19 @@ async function saveProcessedFileInfo(outputDirectory) {
         const infoFilePath = path.join(studentOutputDir, 'processed_files.json');
 
         // Ensure the output directory exists
-         if (!fs.existsSync(studentOutputDir)) {
-             sendLogToRenderer(`WARN: Student output directory missing during save: ${studentOutputDir}. Creating.`);
-             fs.mkdirSync(studentOutputDir, { recursive: true });
-         }
+        if (!fs.existsSync(studentOutputDir)) {
+            sendLogToRenderer(`WARN: Student output directory missing during save: ${studentOutputDir}. Creating.`);
+            fs.mkdirSync(studentOutputDir, { recursive: true });
+        }
         
         // Get successfully processed files for this student
         const successfulFiles = processedFileInfo[studentIdentifier] || [];
 
         // Get skipped and error files for this student from the global logs
         const skippedForStudent = skippedFileLog.filter(log => log.studentIdentifier === studentIdentifier)
-                                                .map(log => ({ pageDir: log.pageDir, fileName: log.fileName, reason: log.reason }));
+            .map(log => ({ pageDir: log.pageDir, fileName: log.fileName, reason: log.reason }));
         const errorsForStudent = errorFileLog.filter(log => log.studentIdentifier === studentIdentifier)
-                                             .map(log => ({ pageDir: log.pageDir, fileName: log.fileName, error: log.error }));
+            .map(log => ({ pageDir: log.pageDir, fileName: log.fileName, error: log.error }));
 
         // Prepare the final JSON structure
         const finalJsonData = {
@@ -2215,8 +2216,8 @@ async function saveProcessedFileInfo(outputDirectory) {
         };
         
         try {
-             fs.writeFileSync(infoFilePath, JSON.stringify(finalJsonData, null, 2));
-             sendLogToRenderer(`  Saved info for ${studentIdentifier} to ${infoFilePath}`);
+            fs.writeFileSync(infoFilePath, JSON.stringify(finalJsonData, null, 2));
+            sendLogToRenderer(`  Saved info for ${studentIdentifier} to ${infoFilePath}`);
         } catch (err) {
             sendLogToRenderer(`  Error saving processed info for ${studentIdentifier}:`);
             sendLogToRenderer(err.message); // Log specific error
@@ -2300,7 +2301,7 @@ ipcMain.handle('precheck-collisions', async (event, mainDirectory, folderPattern
     let allPages = new Set();
     
     if (useCSVs) {
-        sendLogToRenderer("Precheck: Parsing CSV files for email mappings");
+        sendLogToRenderer('Precheck: Parsing CSV files for email mappings');
         const csvResult = await parseCSVsInDirectory(mainDirectory);
         emailMap = csvResult.emailMappings;
         pagesWithCSV = csvResult.pagesWithCSV;
@@ -2320,7 +2321,7 @@ ipcMain.handle('precheck-collisions', async (event, mainDirectory, folderPattern
         });
 
         if (pageDirs.length === 0) {
-            sendLogToRenderer("Pre-check: No page directories found.");
+            sendLogToRenderer('Pre-check: No page directories found.');
             return { collisionDetected: false }; 
         }
 
@@ -2414,7 +2415,7 @@ ipcMain.handle('precheck-collisions', async (event, mainDirectory, folderPattern
         let studentsAffectedByPartialCSV = []; // Students that appear in multiple pages
         
         if (useCSVs && pagesWithCSV.size > 0 && pagesWithoutCSV.size > 0) {
-            sendLogToRenderer("Checking for partial CSV coverage issues...");
+            sendLogToRenderer('Checking for partial CSV coverage issues...');
             
             // If there are both pages with and without CSV files, that's a partial coverage issue
             partialCsvCoverage = true;
@@ -2462,7 +2463,7 @@ ipcMain.handle('precheck-collisions', async (event, mainDirectory, folderPattern
                 studentsAffected: studentsAffectedByPartialCSV
             }; 
         } else {
-            sendLogToRenderer("IPC: Pre-check found no name collisions or mapping errors within any page directory.");
+            sendLogToRenderer('IPC: Pre-check found no name collisions or mapping errors within any page directory.');
             return { 
                 collisionDetected: false,
                 mappingErrorDetected: false, // No mapping errors
@@ -2477,7 +2478,7 @@ ipcMain.handle('precheck-collisions', async (event, mainDirectory, folderPattern
         }
 
     } catch (error) {
-        sendLogToRenderer("IPC: Error during precheck-collisions:");
+        sendLogToRenderer('IPC: Error during precheck-collisions:');
         throw error;
     }
 });
@@ -2486,7 +2487,7 @@ ipcMain.handle('precheck-collisions', async (event, mainDirectory, folderPattern
 ipcMain.handle('clear-output-folder', async (event, outputDirectory) => {
     sendLogToRenderer(`IPC: Received clear-output-folder for: ${outputDirectory}`);
     if (!outputDirectory || !fs.existsSync(outputDirectory)) {
-        const msg = "Output directory path is invalid or does not exist.";
+        const msg = 'Output directory path is invalid or does not exist.';
         sendLogToRenderer(`Clear Output Error: ${msg}`);
         return { success: false, message: msg };
     }
@@ -2572,8 +2573,8 @@ ipcMain.handle('ghostscript:selectExecutable', async (event) => {
         properties: ['openFile'],
         filters: filters,
         defaultPath: process.platform === 'darwin' ? '/usr/local/bin' : 
-                    process.platform === 'win32' ? 'C:\\Program Files\\gs' : 
-                    '/usr/bin'
+            process.platform === 'win32' ? 'C:\\Program Files\\gs' : 
+                '/usr/bin'
     });
     
     if (!result.canceled && result.filePaths.length > 0) {

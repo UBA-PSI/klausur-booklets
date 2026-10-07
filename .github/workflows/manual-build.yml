@@ -39,14 +39,14 @@ jobs:
 
     steps:
       - name: Checkout main branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: main # Explicitly checkout main
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: '20.x'
+          node-version: '24.x'
           cache: 'npm'
 
       - name: Clear npm cache
@@ -109,10 +109,10 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           UNPACKED_DIR="dist/linux-arm64-unpacked/resources/app.asar.unpacked"
-          echo "----
+          echo "----"
           echo "Checking specific path: ${UNPACKED_DIR}/node_modules/@img/sharp-libvips-linux-arm64*/lib/"
           ls -lR "${UNPACKED_DIR}/node_modules/@img/sharp-libvips-linux-arm64*/lib/"
-          echo "----
+          echo "----"
           echo "Finding all files containing 'vips' in ${UNPACKED_DIR}/"
           find "${UNPACKED_DIR}/" -iname '*vips*'
           echo "----"
@@ -120,7 +120,7 @@ jobs:
 
       - name: Upload Windows Artifact
         if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: booklet-tool-windows-portable-${{ matrix.arch }}
           path: dist/*.exe
@@ -128,7 +128,7 @@ jobs:
 
       - name: Upload Linux Native Artifacts
         if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: booklet-tool-linux-native-${{ matrix.arch }}
           path: |

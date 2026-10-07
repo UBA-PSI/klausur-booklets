@@ -24,8 +24,8 @@ async function checkAborted() {
 class AmbiguityError extends Error {
     constructor(ambiguities) {
         // ambiguities is expected to be an array of objects: [{ folderPath: string, files: string[] }]
-        super("File ambiguity detected");
-        this.name = "AmbiguityError";
+        super('File ambiguity detected');
+        this.name = 'AmbiguityError';
         this.ambiguities = ambiguities; 
     }
 }
@@ -92,6 +92,7 @@ function sanitizeFilename(filename) {
     // Remove or replace characters that are problematic in filenames
     sanitized = sanitized
         .replace(/[<>:"/\\|?*]/g, '')
+        // eslint-disable-next-line no-control-regex
         .replace(/[\x00-\x1f]/g, '')
         .replace(/\s+/g, ' ')
         .trim()
@@ -213,85 +214,87 @@ Student: {{LAST_NAME}}, {{FIRST_NAME}}
         if (currentY < margin) break; // Stop if we run out of space
 
         switch (token.type) {
-            case 'heading':
-                const isBoldHeading = token.text.startsWith('**') && token.text.endsWith('**');
-                const headingText = isBoldHeading ? token.text.slice(2, -2) : token.text;
-                page.drawText(headingText, {
-                    x: margin,
-                    y: currentY,
-                    font: helveticaBold,
-                    size: headingFontSize - (token.depth * 2), 
-                    lineHeight: (headingFontSize - (token.depth * 2)) + lineSpacing,
-                });
-                currentY -= (headingFontSize - (token.depth * 2)) + paragraphSpacing;
-                break;
-            case 'paragraph':
-                // More robust paragraph handling (handles **bold** and *italic*)
-                const segments = parseTextSegments(token.text, helvetica, helveticaBold, baseFontSize, width - 2 * margin);
-                for (const lineSegments of segments) {
-                    if (currentY < margin) break;
-                    let currentX = margin;
+        case 'heading': {
+            const isBoldHeading = token.text.startsWith('**') && token.text.endsWith('**');
+            const headingText = isBoldHeading ? token.text.slice(2, -2) : token.text;
+            page.drawText(headingText, {
+                x: margin,
+                y: currentY,
+                font: helveticaBold,
+                size: headingFontSize - (token.depth * 2), 
+                lineHeight: (headingFontSize - (token.depth * 2)) + lineSpacing,
+            });
+            currentY -= (headingFontSize - (token.depth * 2)) + paragraphSpacing;
+            break;
+        }
+        case 'paragraph': {
+            // More robust paragraph handling (handles **bold** and *italic*)
+            const segments = parseTextSegments(token.text, helvetica, helveticaBold, baseFontSize, width - 2 * margin);
+            for (const lineSegments of segments) {
+                if (currentY < margin) break;
+                let currentX = margin;
+                for (const seg of lineSegments) {
+                    page.drawText(seg.text, {
+                        x: currentX,
+                        y: currentY,
+                        font: seg.font,
+                        size: baseFontSize
+                    });
+                    currentX += seg.width;
+                }
+                currentY -= (baseFontSize + lineSpacing);
+            }
+            // Add paragraph spacing only if we actually drew something
+            if (segments.length > 0) {
+                currentY -= (paragraphSpacing - lineSpacing); 
+            }
+            break;
+        }
+        case 'list': 
+            for (const item of token.items) {
+                if (currentY < margin) break;
+                // Draw bullet and then handle text segments like paragraphs
+                page.drawText('-', { x: margin, y: currentY, font: helvetica, size: baseFontSize });
+                const itemSegments = parseTextSegments(item.text, helvetica, helveticaBold, baseFontSize, width - 2 * margin - listIndent);
+                let itemCurrentY = currentY;
+                for (const lineSegments of itemSegments) {
+                    if (itemCurrentY < margin) break;
+                    let currentX = margin + listIndent;
                     for (const seg of lineSegments) {
                         page.drawText(seg.text, {
                             x: currentX,
-                            y: currentY,
+                            y: itemCurrentY,
                             font: seg.font,
                             size: baseFontSize
                         });
                         currentX += seg.width;
                     }
-                    currentY -= (baseFontSize + lineSpacing);
+                    itemCurrentY -= (baseFontSize + lineSpacing);
                 }
-                // Add paragraph spacing only if we actually drew something
-                if (segments.length > 0) {
-                    currentY -= (paragraphSpacing - lineSpacing); 
-                }
-                break;
-            case 'list': 
-                 for (const item of token.items) {
-                     if (currentY < margin) break;
-                     // Draw bullet and then handle text segments like paragraphs
-                     page.drawText('-', { x: margin, y: currentY, font: helvetica, size: baseFontSize });
-                     const itemSegments = parseTextSegments(item.text, helvetica, helveticaBold, baseFontSize, width - 2 * margin - listIndent);
-                     let itemCurrentY = currentY;
-                     for (const lineSegments of itemSegments) {
-                         if (itemCurrentY < margin) break;
-                         let currentX = margin + listIndent;
-                         for (const seg of lineSegments) {
-                            page.drawText(seg.text, {
-                                x: currentX,
-                                y: itemCurrentY,
-                                font: seg.font,
-                                size: baseFontSize
-                            });
-                            currentX += seg.width;
-                         }
-                         itemCurrentY -= (baseFontSize + lineSpacing);
-                     }
-                     currentY = itemCurrentY; // Update main Y position
-                 }
-                 if (token.items.length > 0) { // Add spacing only if list wasn't empty
-                    currentY -= (paragraphSpacing - lineSpacing); 
-                 }
-                 break;
-            case 'space': // Represents blank lines or space between block elements
-                currentY -= paragraphSpacing * (token.raw.match(/\n/g)?.length || 1);
-                break;
-            case 'hr': // Draw a horizontal rule
-                 if (currentY >= margin) {
-                     currentY -= lineSpacing;
-                     page.drawLine({ 
-                         start: { x: margin, y: currentY }, 
-                         end: { x: width - margin, y: currentY }, 
-                         thickness: 1, 
-                         color: rgb(0.7, 0.7, 0.7) 
-                        });
-                     currentY -= paragraphSpacing;
-                 }
-                break;
+                currentY = itemCurrentY; // Update main Y position
+            }
+            if (token.items.length > 0) { // Add spacing only if list wasn't empty
+                currentY -= (paragraphSpacing - lineSpacing); 
+            }
+            break;
+        case 'space': // Represents blank lines or space between block elements
+            currentY -= paragraphSpacing * (token.raw.match(/\n/g)?.length || 1);
+            break;
+        case 'hr': // Draw a horizontal rule
+            if (currentY >= margin) {
+                currentY -= lineSpacing;
+                page.drawLine({ 
+                    start: { x: margin, y: currentY }, 
+                    end: { x: width - margin, y: currentY }, 
+                    thickness: 1, 
+                    color: rgb(0.7, 0.7, 0.7) 
+                });
+                currentY -= paragraphSpacing;
+            }
+            break;
             // Add cases for other token types if needed (e.g., blockquote, code)
-            default:
-                break;
+        default:
+            break;
         }
     }
 
@@ -331,12 +334,12 @@ function parseTextSegments(text, fontRegular, fontBold, fontSize, maxWidth) {
                 currentLineWidth = wordWidth;
             } else {
                 // Add word to current line
-                 if (currentLineSegments.length > 0) { // Add space before word if not first word
+                if (currentLineSegments.length > 0) { // Add space before word if not first word
                     currentLineSegments.push({ text: ' ', font: fontRegular, width: spaceWidth });
                     currentLineWidth += spaceWidth;
-                 }
-                 currentLineSegments.push({ text: word, font: segmentFont, width: wordWidth });
-                 currentLineWidth += wordWidth;
+                }
+                currentLineSegments.push({ text: word, font: segmentFont, width: wordWidth });
+                currentLineWidth += wordWidth;
             }
         }
     }
@@ -545,13 +548,13 @@ async function mergeStudentPDFs(mainDirectory, outputDirectory, templateContent,
 
         // Find the generated PDFs for merging within the student's directory in 'pages'
         const studentPDFs = fs.readdirSync(studentDirPath)
-                             .filter(file => file.endsWith('.pdf') && file !== 'processed_files.json') // Exclude json file
-                             .sort((a, b) => {
-                                 // Natural sort to handle numeric ordering (1.pdf, 2.pdf, 10.pdf, 11.pdf)
-                                 const nameA = path.basename(a, '.pdf');
-                                 const nameB = path.basename(b, '.pdf');
-                                 return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
-                             }); 
+            .filter(file => file.endsWith('.pdf') && file !== 'processed_files.json') // Exclude json file
+            .sort((a, b) => {
+                // Natural sort to handle numeric ordering (1.pdf, 2.pdf, 10.pdf, 11.pdf)
+                const nameA = path.basename(a, '.pdf');
+                const nameB = path.basename(b, '.pdf');
+                return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
+            }); 
 
         if (studentPDFs.length === 0 && processedFilesData.length === 0) {
             sendLog(`  No transformed PDFs or processed info found for ${studentIdentifier}, skipping merge.`);

@@ -1,3 +1,4 @@
+/* global bootstrap */
 let config = {};
 let isProcessingActive = false; // true while a conversion/merge/booklet run is active
 
@@ -25,17 +26,17 @@ Dieses Booklet ist bei der Prüfung im Sommersemester 2025 und bei der darauffol
 {{MISSING_PAGES_LIST}}`;
 
 function openModal() {
-    const modal = document.getElementById("settingsModal");
+    const modal = document.getElementById('settingsModal');
     if (modal) {
         const bsModal = new bootstrap.Modal(modal);
         bsModal.show();
     } else {
-        console.error("Settings modal element not found");
+        console.error('Settings modal element not found');
     }
 }
 
 if (!window.electronAPI) {
-  console.error("FATAL: Preload script did not expose electronAPI!");
+    console.error('FATAL: Preload script did not expose electronAPI!');
 }
 
 function selectDirectory(type) {
@@ -64,8 +65,8 @@ function updateStatus(type, message) {
         // clear the specific progress fields.
         // The onTransformationProgress listener will fill them when data arrives.
         if (!message.includes('%')) { // Basic check if it's a progress message
-             progressCount.textContent = '';
-             progressPercent.textContent = '';
+            progressCount.textContent = '';
+            progressPercent.textContent = '';
         }
     }
 }
@@ -655,7 +656,7 @@ async function retryWithCSVFiles() {
     try {
         // Force using CSVs on retry
         const collisionResult = await window.electronAPI.precheckCollisions(lastInputDirectory, lastFolderPattern, true); 
-        console.log("CSV-based pre-check result:", collisionResult);
+        console.log('CSV-based pre-check result:', collisionResult);
         
         // Check both collisionDetected and the new mappingErrorDetected flags
         if (collisionResult && (collisionResult.collisionDetected || collisionResult.mappingErrorDetected)) { 
@@ -689,12 +690,12 @@ async function retryWithCSVFiles() {
                     updateStatus('success', successMessage);
                 }
             } catch (error) {
-                console.error("Error during transformation:", error);
+                console.error('Error during transformation:', error);
                 updateStatus('error', 'Error transforming pages: ' + error.message);
             }
         }
     } catch (precheckError) {
-        console.error("Error during check:", precheckError);
+        console.error('Error during check:', precheckError);
         updateStatus('error', `Error checking for collisions: ${precheckError.message}`);
     }
 }
@@ -734,7 +735,7 @@ if (moodleCollisionContinueBtn) {
 if (moodleCollisionRetryWithCSVBtn) {
     moodleCollisionRetryWithCSVBtn.onclick = retryWithCSVFiles;
 } else {
-    console.warn("CSV retry button not found in HTML. Please add it to the modal.");
+    console.warn('CSV retry button not found in HTML. Please add it to the modal.');
 }
 
 // --- End Moodle Collision Modal Logic ---
@@ -852,7 +853,7 @@ function displayCurrentAmbiguity() {
     ambiguityErrorDiv.textContent = ''; // Clear error
 
     if (currentAmbiguityIndex < 0 || currentAmbiguityIndex >= currentAmbiguities.length) {
-        console.error("Invalid ambiguity index:", currentAmbiguityIndex);
+        console.error('Invalid ambiguity index:', currentAmbiguityIndex);
         // Handle error - maybe close modal?
         ambiguityModal.style.display = 'none';
         return;
@@ -878,7 +879,7 @@ function displayCurrentAmbiguity() {
         if (resolvedChoices[item.folderPath] === file) {
             radio.checked = true;
         } else if (!resolvedChoices[item.folderPath] && fileIndex === 0) {
-             radio.checked = true; // Default check first if no choice stored yet
+            radio.checked = true; // Default check first if no choice stored yet
         }
 
         label.appendChild(radio);
@@ -914,9 +915,9 @@ function storeCurrentSelection() {
 
 // Listener for ambiguity request from main process
 window.electronAPI.onAmbiguityRequest((ambiguities) => {
-    console.log("Renderer: Received request-ambiguity-resolution", ambiguities);
+    console.log('Renderer: Received request-ambiguity-resolution', ambiguities);
     if (!Array.isArray(ambiguities) || ambiguities.length === 0) {
-        console.error("Renderer: Invalid ambiguity data received.");
+        console.error('Renderer: Invalid ambiguity data received.');
         updateStatus('error', 'Internal error: Invalid ambiguity data.');
         return;
     }
@@ -968,7 +969,7 @@ ambiguityCloseBtn.onclick = function() {
     setProcessingState(false);
     currentAmbiguities = [];
     resolvedChoices = {};
-}
+};
 
 // Confirm button for ambiguity modal (now only shown at the end)
 confirmAmbiguityBtn.onclick = async function() {
@@ -976,14 +977,14 @@ confirmAmbiguityBtn.onclick = async function() {
 
     // Basic validation: Ensure a choice exists for every ambiguity
     if (Object.keys(resolvedChoices).length !== currentAmbiguities.length) {
-         ambiguityErrorDiv.textContent = 'Please ensure a selection is made for all items.';
-         console.error("Validation failed: Mismatch between choices and ambiguities.", resolvedChoices, currentAmbiguities);
-         return;
+        ambiguityErrorDiv.textContent = 'Please ensure a selection is made for all items.';
+        console.error('Validation failed: Mismatch between choices and ambiguities.', resolvedChoices, currentAmbiguities);
+        return;
     }
     // Can add more specific checks if needed
 
     ambiguityErrorDiv.textContent = ''; // Clear error
-    console.log("Renderer: Sending final resolved choices:", resolvedChoices);
+    console.log('Renderer: Sending final resolved choices:', resolvedChoices);
     updateStatus('processing', 'Processing with selected files...');
     
     // Focus a safe element before closing
@@ -1005,7 +1006,7 @@ confirmAmbiguityBtn.onclick = async function() {
     } finally {
         setProcessingState(false);
     }
-}
+};
 
 // --- Listener for Progress Updates ---
 window.electronAPI.onTransformationProgress((progressData) => {
@@ -1092,7 +1093,7 @@ function validateDirectoryInputs() {
 
 // Add event listeners to input fields to clear validation errors on change
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("DOM fully loaded and parsed");
+    console.log('DOM fully loaded and parsed');
 
     // --- Directory Selection Buttons ---
     const selectMainDirBtn = document.getElementById('select-main-dir-button');
@@ -1182,7 +1183,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const checkCSVs = isMoodleMode;
                 console.log(`Pre-checking collisions for ${mainDir} with pattern "${folderPattern}", checking CSVs: ${checkCSVs}`);
                 const collisionResult = await window.electronAPI.precheckCollisions(mainDir, folderPattern, checkCSVs);
-                console.log("Pre-check result:", collisionResult);
+                console.log('Pre-check result:', collisionResult);
 
                 // Check for collisions OR mapping errors if CSVs were used
                 if (collisionResult && (collisionResult.collisionDetected || (checkCSVs && collisionResult.mappingErrorDetected) || (checkCSVs && collisionResult.partialCsvCoverage && collisionResult.studentsAffected?.length > 0))) {
@@ -1210,15 +1211,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (result && result.status === 'ambiguity_detected') {
                     updateStatus('info', result.message);
                 } else {
-                     const successMessage = typeof result === 'string' ? result : 'Files converted successfully!';
+                    const successMessage = typeof result === 'string' ? result : 'Files converted successfully!';
                     updateStatus('success', successMessage);
                 }
             } catch (error) {
                 // Catch errors from pre-check OR transformation
-                console.error("Error during pre-check or transformation:", error);
+                console.error('Error during pre-check or transformation:', error);
                 // Handle FinalCollisionError specifically if it still occurs (should be caught by pre-check now)
                 if (error.message?.includes('FinalCollisionError')) {
-                     updateStatus('error', `Collision Error: ${error.message.replace('FinalCollisionError: ', '')}`);
+                    updateStatus('error', `Collision Error: ${error.message.replace('FinalCollisionError: ', '')}`);
                 } else {
                     updateStatus('error', `Error during conversion: ${error.message}`);
                 }
@@ -1259,7 +1260,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (startMergingBtn) {
         startMergingBtn.addEventListener('click', async () => {
             if (!validateDirectoryInputs()) {
-                 updateStatus('error', 'Please set both input and output directories.');
+                updateStatus('error', 'Please set both input and output directories.');
                 return;
             }
             const mainDir = document.getElementById('mainDirectoryPath').value;
@@ -1283,7 +1284,7 @@ document.addEventListener('DOMContentLoaded', () => {
         createBookletsBtn.addEventListener('click', async () => {
             const outputDir = document.getElementById('outputDirectoryPath').value;
             if (!outputDir) {
-                 updateStatus('error', 'Output directory not set.');
+                updateStatus('error', 'Output directory not set.');
                 return;
             }
             setProcessingState(true);

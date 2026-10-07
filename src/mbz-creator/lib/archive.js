@@ -8,15 +8,15 @@ const path = require('path');
  * @param {string} extractTo - Directory to extract to
  */
 async function extractMbz(mbzPath, extractTo) {
-  try {
-    await tar.extract({
-      file: mbzPath,
-      cwd: extractTo,
-      strict: true,
-    });
-  } catch (err) {
-    throw new Error(`Failed to extract ${mbzPath}: ${err.message}`);
-  }
+    try {
+        await tar.extract({
+            file: mbzPath,
+            cwd: extractTo,
+            strict: true,
+        });
+    } catch (err) {
+        throw new Error(`Failed to extract ${mbzPath}: ${err.message}`);
+    }
 }
 
 /**
@@ -25,20 +25,20 @@ async function extractMbz(mbzPath, extractTo) {
  * @param {string} outputPath - Output .mbz file path
  */
 async function createMbz(sourceDir, outputPath) {
-  try {
-    await tar.create({
-      gzip: true,
-      file: outputPath,
-      cwd: sourceDir,
-      portable: true,
-      noMtime: true,
-    }, ['.']);
-  } catch (err) {
-    throw new Error(`Failed to create archive ${outputPath}: ${err.message}`);
-  }
+    try {
+        await tar.create({
+            gzip: true,
+            file: outputPath,
+            cwd: sourceDir,
+            portable: true,
+            noMtime: true,
+        }, ['.']);
+    } catch (err) {
+        throw new Error(`Failed to create archive ${outputPath}: ${err.message}`);
+    }
 }
 
 module.exports = {
-  extractMbz,
-  createMbz,
+    extractMbz,
+    createMbz,
 }; 

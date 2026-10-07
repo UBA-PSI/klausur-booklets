@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         # No need for full history if we're using CHANGELOG.md
 
       - name: Read CHANGELOG
@@ -26,7 +26,7 @@ jobs:
 
       - name: Create Draft Release
         id: create_release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           # Set draft: true if you want to manually review/upload before publishing
           # Set prerelease: true if you want to mark it as pre-release
