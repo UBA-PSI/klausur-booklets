@@ -447,7 +447,7 @@ PDF processing settings (like DPI) can be adjusted via the Settings button withi
 
 > **Note:** This CLI tool is deprecated. Use the MBZ Modifier in the Booklet Tool GUI instead, which provides a more complete feature set (timestamp preview, open modes, rename-all).
 
-The `python-cli/` directory contains a standalone Python script (`modify_moodle_backup.py`) for modifying Moodle Backup (`.mbz`) files from the command line. It uses only standard Python libraries (Python 3.7+, no external dependencies).
+The `tools/python-cli/` directory contains a standalone Python script (`modify_moodle_backup.py`) for modifying Moodle Backup (`.mbz`) files from the command line. It uses only standard Python libraries (Python 3.7+, no external dependencies).
 
 ## Changelog
 

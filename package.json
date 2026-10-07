@@ -12,7 +12,7 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
-    "build": "npm run sharp:mac-universal && dotenv electron-builder && cd testdata-name-collision && rm -f ../dist/booklet-tool-testdata.zip && zip -r ../dist/booklet-tool-testdata.zip no-collision consistent-collision -x \"*/.DS_Store\" && cd ..",
+    "build": "npm run sharp:mac-universal && dotenv electron-builder && cd testdata/name-collision && rm -f ../../dist/booklet-tool-testdata.zip && zip -r ../../dist/booklet-tool-testdata.zip no-collision consistent-collision -x \"*/.DS_Store\" && cd ../..",
     "build:ci": "gh workflow run manual-build.yml --ref main",
     "postinstall": "electron-builder install-app-deps",
     "lint": "eslint .",

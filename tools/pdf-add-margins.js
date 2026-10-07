@@ -16,11 +16,11 @@
  * Requirements: Ghostscript (gs) must be installed and in PATH.
  *
  * Usage:
- *   node pdf-add-margins.js <input.pdf> [output.pdf]
+ *   node tools/pdf-add-margins.js <input.pdf> [output.pdf]
  *
  * Examples:
- *   node pdf-add-margins.js student.pdf                    # -> student_margins.pdf
- *   node pdf-add-margins.js student.pdf out.pdf            # -> out.pdf
+ *   node tools/pdf-add-margins.js student.pdf                    # -> student_margins.pdf
+ *   node tools/pdf-add-margins.js student.pdf out.pdf            # -> out.pdf
  */
 'use strict';
 
@@ -172,7 +172,7 @@ const input = process.argv[2];
 const output = process.argv[3];
 
 if (!input) {
-    console.log('Usage: node pdf-add-margins.js <input.pdf> [output.pdf]');
+    console.log('Usage: node tools/pdf-add-margins.js <input.pdf> [output.pdf]');
     console.log(`Adds ${MARGIN_H_MM}mm horizontal / ${MARGIN_V_MM}mm vertical margins`);
     console.log('Only scales pages where content reaches the edge.');
     process.exit(1);

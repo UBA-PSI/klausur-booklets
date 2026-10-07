@@ -93,4 +93,4 @@ ESLint flat config: 4-space indent, single quotes, unix linebreaks, semicolons r
 - `build.files` in `package.json` is an allowlist (`index.html`, `LICENSE.txt`, `src/` without tests). Without it electron-builder packs the whole project directory, including `.env` and any untracked files.
 - sharp and pdfium WASM are listed in `asarUnpack` — they need filesystem access outside the ASAR archive
 - Windows/Linux builds are done via GitHub Actions (`npm run build:ci`), macOS is built locally
-- `python-cli/` contains a deprecated Python MBZ modifier CLI (no Node.js dependency); use the GUI instead
+- `tools/python-cli/` contains a deprecated Python MBZ modifier CLI (no Node.js dependency); use the GUI instead
