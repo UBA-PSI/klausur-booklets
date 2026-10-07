@@ -9,9 +9,6 @@
     "name": "Dominik Herrmann",
     "email": "dh.psi@uni-bamberg.de"
   },
-  "bin": {
-    "modify-mbz-js": "./bin/modify-mbz-js"
-  },
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
@@ -34,15 +31,13 @@
     "bootstrap": "^5.3.5",
     "bootstrap-icons": "^1.11.3",
     "csv-parse": "^5.5.6",
-    "flatpickr": "^4.6.13",
     "fontkit": "^2.0.4",
     "heic-decode": "^2.0.0",
     "marked": "^15.0.8",
     "node-xlsx": "^0.24.0",
     "pdf-lib": "^1.17.1",
     "sharp": "^0.34.1",
-    "tar": "^7.2.0",
-    "yargs": "^17.7.2"
+    "tar": "^7.2.0"
   },
   "optionalDependencies": {
     "@img/sharp-libvips-linux-arm64": "^1.0.6",
@@ -51,14 +46,11 @@
   "devDependencies": {
     "@electron/notarize": "^3.0.1",
     "@eslint/js": "^9.25.0",
-    "dir-compare": "^5.0.0",
     "dotenv-cli": "^8.0.0",
     "electron": "^39.6.0",
     "electron-builder": "^26.8.0",
-    "electron-notarize": "^1.2.2",
     "eslint": "^9.6.0",
-    "globals": "^16.0.0",
-    "update-electron-app": "^3.1.1"
+    "globals": "^16.0.0"
   },
   "build": {
     "appId": "de.unibamberg.de.psi.booklet-tool",
@@ -69,8 +61,7 @@
       "**/node_modules/sharp/**/*",
       "**/node_modules/@img/sharp-*/**",
       "**/node_modules/@hyzyla/pdfium/dist/pdfium.wasm",
-      "src/assets/fonts/**/*",
-      "bin/**/*"
+      "src/assets/fonts/**/*"
     ],
     "mac": {
       "category": "public.app-category.developer-tools",

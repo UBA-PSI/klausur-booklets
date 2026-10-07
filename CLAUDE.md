@@ -93,4 +93,3 @@ ESLint flat config: 4-space indent, single quotes, unix linebreaks, semicolons r
 - sharp and pdfium WASM are listed in `asarUnpack` — they need filesystem access outside the ASAR archive
 - Windows/Linux builds are done via GitHub Actions (`npm run build:ci`), macOS is built locally
 - `python-cli/` contains a deprecated Python MBZ modifier CLI (no Node.js dependency); use the GUI instead
-- `bin/modify-mbz-js` is a deprecated Node.js CLI for MBZ modification (broken: imports a removed function)

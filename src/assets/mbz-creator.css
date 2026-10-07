@@ -124,14 +124,6 @@
   /* Ensure calendar has enough space */
 }
 
-/* Make flatpickr blend in better */
-.flatpickr-calendar {
-  width: 100% !important; /* Take full width of container */
-  max-width: none !important;
-  box-shadow: none !important;
-  border: none !important; /* Remove default border */
-  background: transparent !important; /* Use section background */
-}
 
 /* Preview Table */
 .dates-preview {
@@ -224,11 +216,5 @@
   }
   #selected-file-label {
     max-width: 250px;
-  }
-  .flatpickr-calendar {
-    font-size: 13px; /* Adjust calendar size on smaller screens */
-  }
-  .flatpickr-months .flatpickr-month {
-     height: 28px;
   }
 } 
