@@ -54,7 +54,7 @@
   },
   "build": {
     "appId": "de.unibamberg.de.psi.booklet-tool",
-    "icon": "build/icon",
+    "icon": "build/icon/icon_1024x1024.png",
     "productName": "Booklet Tool",
     "afterAllArtifactBuild": "build/notarize-dmg.js",
     "asarUnpack": [
