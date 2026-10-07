@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.9.1] - 2026-10-07
+
+- [FIXED] **Built-in PDF renderer (PDFium)**: The built-in renderer failed on every PDF submission with "Unable to render PDF after 7 attempts"; only image submissions were converted. The page size was read incorrectly, which crashed the renderer. PDF submissions now convert without Ghostscript again. Ghostscript remains the recommended renderer.
+- [IMPROVED] **Security updates**: Electron 44 (Electron 39 is end-of-life), sharp 0.35.5 (libvips/libheif fixes for image and HEIC parsing), tar, adm-zip, csv-parse, and PDFium 2.1.13. The shipped dependencies have no known vulnerabilities at release time.
+- [IMPROVED] **Instructor guide**: The recommended Moodle setup now comes first, in the README quick start and in both instructor guides: create a booklet section with placeholder assignments, export only that section as `.mbz`, adjust it in the MBZ Modifier, delete the placeholders, and restore with "merge". Manual setup and reusing an old backup are described as alternatives.
+- [IMPROVED] **Cleanup**: Removed the broken command-line script `bin/modify-mbz-js` and unused dependencies. Use the MBZ Modifier in the app instead.
+
 ## [1.9.0] - 2026-07-22
 
 - [NEW] **Email-based name splitting**: In Automatic name detection mode, the first/last name split is now derived from the email address in the Moodle Grading Worksheet CSV (pattern `firstname.lastname@…`, multi-part names joined with hyphens) and verified against the folder name. This correctly handles multi-word last names (e.g. "Bin Ayaz") and multi-word first names, falling back to the heuristic (last word = last name) only when the address does not follow the pattern. Hints are matched by name as well as by ID, so a CSV in a single page folder covers students on all pages.
