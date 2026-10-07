@@ -7,12 +7,10 @@
   - [1. Zweck und Überblick](#1-zweck-und-überblick)
   - [2. Voraussetzungen](#2-voraussetzungen)
   - [3. Schritt-für-Schritt Workflow](#3-schritt-für-schritt-workflow)
-    - [Vorab: Überblick über die zwei Ansätze zur Einrichtung von Booklet-Aufgaben](#vorab-überblick-über-die-zwei-ansätze-zur-einrichtung-von-booklet-aufgaben)
-      - [Manueller Ansatz](#manueller-ansatz)
-      - [Automatisierter Ansatz (Empfohlen)](#automatisierter-ansatz-empfohlen)
-    - [Schritt 3.1: Erste Moodle-Kurs-Einrichtung (Einmal pro Kurs)](#schritt-31-erste-moodle-kurs-einrichtung-einmal-pro-kurs)
-    - [Schritt 3.2: Aufgaben mit dem Booklet Tool vorbereiten und anpassen](#schritt-32-aufgaben-mit-dem-booklet-tool-vorbereiten-und-anpassen)
-    - [Schritt 3.3: Aufgaben in Moodle importieren](#schritt-33-aufgaben-in-moodle-importieren)
+    - [Schritt 3.1: Booklet-Abschnitt und Platzhalter-Aufgaben in Moodle anlegen](#schritt-31-booklet-abschnitt-und-platzhalter-aufgaben-in-moodle-anlegen)
+    - [Schritt 3.2: Abschnitt exportieren und mit dem Booklet Tool anpassen](#schritt-32-abschnitt-exportieren-und-mit-dem-booklet-tool-anpassen)
+    - [Schritt 3.3: Platzhalter löschen und Aufgaben in Moodle importieren](#schritt-33-platzhalter-löschen-und-aufgaben-in-moodle-importieren)
+      - [Alternativen zum empfohlenen Weg](#alternativen-zum-empfohlenen-weg)
     - [Schritt 3.4: Ihre Studierenden anleiten](#schritt-34-ihre-studierenden-anleiten)
     - [Schritt 3.5: Studentische Abgaben herunterladen](#schritt-35-studentische-abgaben-herunterladen)
     - [Schritt 3.6: Die finalen Booklets erstellen](#schritt-36-die-finalen-booklets-erstellen)
@@ -32,122 +30,82 @@ Diese Anleitung erklärt, wie man Studierendenabgaben für mehrseitige "Booklets
 
 **Lösung mit dem Klausur-Booklet-Anreizsystem:** Dieses System ermöglicht es Lehrenden, Moodle-Aufgaben einzurichten, um während des gesamten Semesters einzelne Booklet-Seiten von Studierenden zu sammeln. Am Ende können Sie (der/die Lehrende) alle eingereichten Seiten pro Studierendem einfach herunterladen und die *Booklet Tool* Desktop-Anwendung verwenden, um diese Seiten zu einem einzigen, druckbaren A5-Booklet für jeden Studierenden zusammenzustellen. Diese Booklets können dann als personalisierte Lernhilfen dienen, die – falls von Ihnen freigegeben gewünscht – auch während der Prüfung verwendet werden können.
 
-**Workflow-Zusammenfassung:**
+**Workflow-Zusammenfassung (empfohlener Weg):**
 
-1. **Ersteinrichtung (einmal pro Kurs):** Erstellen Sie in Ihrem Moodle-Kurs einen eigenen Abschnitt für die Booklet-Aufgaben, z.B. mit dem Titel "Klausur-Booklet".
-2. **Aufgaben vorbereiten und anpassen:** Die Seiten sind zu bestimmten Fristen während des Semesters fällig. Für jede Seite verwenden wir eine Moodle-"Aufgabe", die so konfiguriert wird, dass Studierende eine einzelne Bild- oder PDF-Datei bis zu einer bestimmten Frist hochladen können. Sie erstellen zunächst Vorlagen-Aufgaben in Moodle, exportieren diese als Backup (`.mbz`) und nutzen dann den MBZ Modifier im *Booklet Tool*, um alle Fristen, Namen und Zeitoptionen auf einmal anzupassen.
-3. **In Moodle importieren:** Stellen Sie die modifizierte `.mbz`-Datei in Ihrem Moodle-Kurs wieder her, um die Aufgaben zu dem Abschnitt (z.B. "Klausur-Booklet") hinzuzufügen, den Sie in Schritt 1 erstellt haben.
-4. **Studierende anleiten:** Geben Sie klare Richtlinien zu Inhalt, Format (z.B. nur handschriftlich), technischen Details (PDF, JPG, PNG; Studierende sollten Bilder auf ihrem Smartphone vor dem Hochladen drehen und zuschneiden) und wie jede Seite bei der richtigen Moodle-Aufgabe einzureichen ist.
-5. **Abgaben herunterladen:** Nach Ablauf der Fristen laden Sie alle eingereichten Dateien von jeder Aufgabe mit der Moodle-Funktion "Alle Abgaben herunterladen" herunter. Sie erhalten eine ZIP-Datei pro Frist.
-6. **Booklets generieren:** Mit dem *Booklet Tool* verarbeiten Sie den Ordner mit allen heruntergeladenen Abgaben, um die endgültigen druckbaren A5-Booklets zu erstellen.
+1. **Platzhalter in Moodle anlegen:** Erstellen Sie in Ihrem Moodle-Kurs einen eigenen Abschnitt (z.B. "Klausur-Booklet") und legen Sie darin pro Booklet-Seite eine "Aufgabe" an. Namen und Fristen spielen noch keine Rolle.
+2. **Exportieren:** Sichern Sie *nur* diesen Abschnitt und seine Aufgaben als Moodle-Backup (`.mbz`).
+3. **Anpassen:** Laden Sie die `.mbz`-Datei in den MBZ Modifier des *Booklet Tools* und setzen Sie dort alle Namen, Fristen und Zeitoptionen auf einmal.
+4. **Platzhalter löschen und wiederherstellen:** Löschen Sie die Platzhalter-Aufgaben aus dem Booklet-Abschnitt und stellen Sie dann die modifizierte `.mbz`-Datei im Kurs wieder her (Importtyp: *verschmelzen*).
+5. **Studierende anleiten:** Geben Sie klare Richtlinien zu Inhalt, Format (z.B. nur handschriftlich), technischen Details (PDF, JPG, PNG; Studierende sollten Bilder auf ihrem Smartphone vor dem Hochladen drehen und zuschneiden) und wie jede Seite bei der richtigen Moodle-Aufgabe einzureichen ist.
+6. **Abgaben herunterladen:** Nach Ablauf der Fristen laden Sie alle eingereichten Dateien von jeder Aufgabe mit der Moodle-Funktion "Alle Abgaben herunterladen" herunter. Sie erhalten eine ZIP-Datei pro Frist.
+7. **Booklets generieren:** Mit dem *Booklet Tool* verarbeiten Sie den Ordner mit allen heruntergeladenen Abgaben, um die endgültigen druckbaren A5-Booklets zu erstellen.
+
+Die Punkte 1 bis 4 sind unten in den Schritten 3.1 bis 3.3 beschrieben. Wir empfehlen, sie in jedem Kurs neu durchzuführen, statt eine `.mbz`-Datei aus einem anderen Kurs oder einem früheren Semester wiederzuverwenden: Ein Backup, das aus dem Kurs selbst stammt, passt bereits zu diesem Kurs, sodass Sie es mit den Moodle-Standardeinstellungen wiederherstellen können. Andere Wege, die Aufgaben einzurichten, stehen unter [Alternativen](#alternativen-zum-empfohlenen-weg).
 
 ## 2. Voraussetzungen
 
-Um dieses Tool zu verwenden, benötigen Sie Moderator- bzw. Bearbeitungsberechtigungen im gewünschten Moodle-Kurs.
+Sie benötigen Bearbeitungsrechte im gewünschten Moodle-Kurs, einschließlich der Berechtigung, Kursinhalte zu sichern und wiederherzustellen.
 
 ## 3. Schritt-für-Schritt Workflow
 
-### Vorab: Überblick über die zwei Ansätze zur Einrichtung von Booklet-Aufgaben
+### Schritt 3.1: Booklet-Abschnitt und Platzhalter-Aufgaben in Moodle anlegen
 
-Es gibt zwei Möglichkeiten, die Aufgabenaktivitäten für die Booklet-Seiten-Abgaben in Moodle einzurichten:
+* Gehen Sie zu Ihrer Moodle-Kursseite und schalten Sie die Bearbeitung ein.
+* Fügen Sie einen neuen **Kursabschnitt** hinzu und geben Sie ihm einen beschreibenden Namen (z.B. "Klausur-Booklet").
+* Fügen Sie diesem Abschnitt eine **Aufgabe** hinzu und konfigurieren Sie sie:
+  * Akzeptierte Dateitypen auf: `jpg,jpeg,png,pdf` setzen
+  * **Abgaben auf 1 Datei beschränken** (jede Aufgabe sammelt genau eine Seite)
+  * Maximale Dateigröße festlegen (z.B. 20 MB)
+  * "Offline-Bewertungstabelle" und "Feedbackdateien" im Abschnitt Feedback-Typen aktivieren
+  * Weitere Einstellungen nach Bedarf für Ihren Kurs konfigurieren
+* **Duplizieren** Sie diese Aufgabe, bis der Abschnitt so viele Aufgaben enthält, wie Ihr Booklet Seiten hat (z.B. 14 für ein 14-wöchiges Semester). Sie benötigen mindestens zwei.
 
-#### Manueller Ansatz
+Die Namen der Aufgaben sind egal, und Sie müssen keine Fristen setzen. Moodle hängt an jedes Duplikat "(Kopie)" an; der MBZ Modifier benennt im nächsten Schritt alle Aufgaben um. Die oben genannten Einstellungen werden dagegen unverändert übernommen. Achten Sie also darauf, dass sie in der ersten Aufgabe stimmen, bevor Sie sie duplizieren.
 
-Sie können die Aufgabenaktivitäten manuell in Moodle erstellen:
+### Schritt 3.2: Abschnitt exportieren und mit dem Booklet Tool anpassen
 
-1. **Eine Vorlagenaufgabe erstellen und konfigurieren:**
-   * Schalten Sie in Ihrem Moodle-Kurs die Bearbeitung ein
-   * Fügen Sie Ihrem Booklet-Abschnitt eine neue Aufgabenaktivität hinzu
-   * Konfigurieren Sie sie mit diesen empfohlenen Einstellungen:
-     * Akzeptierte Dateitypen auf: `jpg,jpeg,png,pdf` setzen
-     * **Abgaben auf 1 Datei beschränken** (jede Aufgabe sammelt genau eine Seite)
-     * Maximale Dateigröße festlegen (z.B. 20 MB)
-     * Angemessene Zeitpunkte für Fälligkeitsdatum, Letzte Abgabemöglichkeit und Abgabebeginn festlegen
-     * **Wichtig:** "Offline-Bewertungstabelle" und "Feedbackdateien" im Abschnitt Feedback-Typen aktivieren
-     * Weitere Einstellungen nach Bedarf für Ihren Kurs konfigurieren
-   * Aufgabe speichern
+#### Den Booklet-Abschnitt als MBZ exportieren
 
-2. **Duplizieren und anpassen:**
-   * Bei eingeschalteter Bearbeitung die Option "Duplizieren" für Ihre Vorlagenaufgabe finden
-   * So oft wie nötig duplizieren (z.B. 14 Mal für ein 14-wöchiges Semester)
-   * Für jedes Duplikat:
-     * Den Namen bearbeiten, um eine fortlaufende Nummer einzufügen (z.B. "Seite 1", "Seite 2" usw.)
-     * Die Fälligkeitsdaten entsprechend anpassen
-     * Änderungen speichern
-
-Dieser Ansatz funktioniert, erfordert aber viele Klicks und kann fehleranfällig sein, besonders bei der Anpassung mehrerer Fristen. Der automatisierte Ansatz unten vermeidet das.
-
-#### Automatisierter Ansatz (Empfohlen)
-
-Die folgende Anleitung beschreibt den Prozess mit dem MBZ Modifier des *Booklet Tools*. Dieser:
-
-* Nimmt ein vorhandenes Moodle-Backup (`.mbz`) und ermöglicht die Anpassung aller Fristen, Namen und Zeitoptionen auf einmal
-* Unterstützt zwei Öffnungsmodi: **Chain** (jede Aufgabe öffnet, wenn die vorherige schließt) und **Fixed** (jede öffnet eine festgelegte Anzahl Tage vor ihrer Frist)
-* Konfigurierbare Nachfrist (Minuten zwischen Fälligkeit und Abgabeschluss)
-* Zeigt eine Live-Vorschau aller berechneten Zeitstempel vor dem Speichern
-* Bietet eine "Alle umbenennen"-Funktion, um einen Präfix mit fortlaufender Nummerierung anzuwenden (z.B. "Seite 1", "Seite 2", ...)
-
-**Voraussetzungen für den automatisierten Ansatz:**
-
-* Sie müssen die Berechtigung haben, Kurs-Backups in Ihrem Kurs wiederherzustellen
-* Sie benötigen eine Moodle-Backup-Datei (`.mbz`) mit Vorlagen-Aufgaben — entweder aus einem früheren Semester oder manuell erstellt (siehe Schritt 3.2)
-* Beim Import in einen anderen Kurs müssen Sie das Startdatum des Zielkurses kennen
-
-Wir empfehlen, den Workflow zunächst in einem Testkurs auszuprobieren. In der Praxis funktioniert er aber zuverlässig.
-
-### Schritt 3.1: Erste Moodle-Kurs-Einrichtung (Einmal pro Kurs)
-
-* Gehen Sie zu Ihrer Moodle-Kursseite.
-* Schalten Sie die Bearbeitung ein.
-* Fügen Sie einen neuen **Kursabschnitt** hinzu und geben Sie ihm einen beschreibenden Namen (z.B. "Klausur-Booklet", "Portfolio-Abgaben", "Laborberichte"). Beim automatisierten Ansatz ist der exakte Name nicht relevant — der MBZ-Import erstellt oder überschreibt den Abschnittsnamen aus dem Backup.
-* **WICHTIG:** Beachten Sie das **Kursstartdatum** in Ihren Moodle-Kurseinstellungen. Sie benötigen dieses exakte Datum für das Booklet Tool im nächsten Schritt. Damit die Aufgaben mit den richtigen Fristen angezeigt werden, stellen Sie sicher, dass Ihr Moodle-Kursstartdatum auf **00:00 (Mitternacht)** des ausgewählten Tages gesetzt ist. Wenn Ihr Kurs eine andere Startzeit verwendet, werden die Aufgabenfristen möglicherweise nicht korrekt ausgerichtet.
-
-### Schritt 3.2: Aufgaben mit dem Booklet Tool vorbereiten und anpassen
-
-#### Vorlage-MBZ vorbereiten
-
-Sie benötigen eine Moodle-Backup-Datei (`.mbz`), die bereits Aufgabenaktivitäten enthält. Zwei Möglichkeiten:
-
-* **Aus einem früheren Semester:** Wenn Sie bereits Booklet-Aufgaben verwendet haben, exportieren Sie den relevanten Kursabschnitt als Backup aus Moodle (Kursverwaltung → Sicherung → nur den Booklet-Abschnitt auswählen).
-* **Ersteinrichtung:**
-  1. Erstellen Sie eine Aufgabenaktivität in Moodle und konfigurieren Sie sie mit den richtigen Einstellungen:
-     * Akzeptierte Dateitypen auf: `jpg,jpeg,png,pdf` setzen
-     * **Abgaben auf 1 Datei beschränken** (jede Aufgabe sammelt genau eine Seite)
-     * Maximale Dateigröße festlegen (z.B. 20 MB)
-     * "Offline-Bewertungstabelle" und "Feedbackdateien" im Abschnitt Feedback-Typen aktivieren
-  2. Duplizieren Sie diese Aufgabe so oft wie nötig (z.B. 14 Mal für ein 14-wöchiges Semester). Moodle hängt an jedes Duplikat "(Kopie)" an — das ist in Ordnung, da der MBZ Modifier alle Aufgaben in einem Schritt umbenennt.
-  3. Exportieren Sie nur den Booklet-Abschnitt als Moodle-Backup (`.mbz`). Sie müssen die Duplikate nicht umbenennen oder Fristen setzen — das erledigt der MBZ Modifier.
-
-  Dies müssen Sie nur einmal tun. Sie können diese Vorlage-`.mbz`-Datei jedes Semester wiederverwenden und anpassen.
+* Öffnen Sie auf der Hauptseite des Kurses die Sicherungsfunktion von Moodle ("Kursverwaltung" > "Sicherung").
+  * An der Universität Bamberg (VC): Klicken Sie in einem Kurs auf **Mehr** im oberen Kursmenü, dann auf **Kurs wiederverwenden**. Klicken Sie dann auf **Sicherung**.
+* Klicken Sie weiter, bis Sie zu der Seite gelangen, die alle Abschnitte und Aktivitäten des Kurses mit je einer Checkbox auflistet.
+* Klicken Sie über dieser Liste auf **Keine**. Damit sind alle Checkboxen abgewählt.
+* Wählen Sie nun nur den Booklet-Abschnitt und jede einzelne Aufgabe darin aus.
+* Klicken Sie weiter bis zum Ende, führen Sie die Sicherung durch und laden Sie die erzeugte `.mbz`-Datei herunter.
 
 #### Den MBZ Modifier verwenden
 
 1. Klicken Sie im *Booklet Tool* auf **Go to MBZ Modifier** in der oberen rechten Ecke.
-2. Klicken Sie auf **Select MBZ File** und öffnen Sie Ihre Vorlage-`.mbz`-Datei. Das Tool erkennt alle Aufgaben und zeigt sie in einer bearbeitbaren Tabelle an.
+2. Klicken Sie auf **Select MBZ File** und öffnen Sie die soeben exportierte `.mbz`-Datei. Das Tool erkennt alle Aufgaben und zeigt sie in einer bearbeitbaren Tabelle an.
 3. **Fristen setzen:** Klicken Sie auf eine Zeile, um eine Aufgabe auszuwählen, dann auf ein Datum im Kalender rechts. Das Tool springt automatisch zur nächsten Aufgabe weiter. Sie können Daten und Zeiten auch direkt in der Tabelle eingeben.
 4. **Aufgaben umbenennen:** Geben Sie ein Präfix ein (z.B. "Seite") und klicken Sie auf **Rename All**, um "Seite 1", "Seite 2" usw. anzuwenden.
 5. **Zeitoptionen konfigurieren:** Stellen Sie die Abgabezeit (z.B. 17:00), die Nachfrist (Minuten zwischen Fälligkeit und Abgabeschluss) und den Öffnungsmodus ein:
    * **Chain:** Jede Aufgabe öffnet, wenn die Abgabefrist der vorherigen abgelaufen ist. Die erste öffnet eine festgelegte Anzahl Tage vor ihrer Frist.
    * **Fixed:** Jede Aufgabe öffnet unabhängig eine festgelegte Anzahl Tage vor ihrer eigenen Frist.
 6. **Vorschau:** Klappen Sie den Abschnitt **Timestamp Preview** auf, um alle berechneten Öffnungs-/Abgabe-/Abschneidezeiten vor dem Speichern zu überprüfen.
-7. **Erweiterte Einstellungen:** Beim Import in einen anderen Kurs setzen Sie das **Course Start Date** in den Advanced Settings auf das Startdatum des Zielkurses — damit Moodle die Fristen beim Import nicht verschiebt.
-8. Klicken Sie auf **Save Modified MBZ** und speichern Sie die Datei auf Ihrem Gerät.
+7. Klicken Sie auf **Save Modified MBZ** und speichern Sie die Datei auf Ihrem Gerät.
 
-### Schritt 3.3: Aufgaben in Moodle importieren
+Die **Advanced Settings** können Sie unverändert lassen. Das dortige Course Start Date wird nur benötigt, wenn Sie die Datei in einem anderen Kurs wiederherstellen (siehe [Alternativen](#alternativen-zum-empfohlenen-weg)).
 
-Laden Sie die vom MBZ Modifier gespeicherte `.mbz`-Datei in Ihren Moodle-Kurs hoch.
+### Schritt 3.3: Platzhalter löschen und Aufgaben in Moodle importieren
+
+**Löschen Sie zuerst die Platzhalter-Aufgaben**, die Sie in Schritt 3.1 angelegt haben, aus dem Booklet-Abschnitt. Den Abschnitt selbst behalten Sie. Wenn Sie das auslassen, enthält der Abschnitt danach sowohl die Platzhalter als auch die importierten Aufgaben, denn die Wiederherstellung fügt dem Kurs Inhalte hinzu und ersetzt nichts.
+
+Laden Sie dann die vom MBZ Modifier gespeicherte `.mbz`-Datei in Ihren Moodle-Kurs hoch:
 
 * Gehen Sie in Ihrem Moodle-Kurs zu "Kursverwaltung" (oft ein Zahnradsymbol ⚙️) > "Wiederherstellen".
   * Stellen Sie sicher, dass Sie auf der Hauptseite des Kurses sind, also nicht gerade eine Aktivität bearbeiten.
-  * An der Universität Bamberg (VC): Klicken Sie in einem Kurs auf **Mehr** im oberen Kursmenü, dann auf auf **Kurs wiederverwenden**. Klicken Sie dann auf **Wiederherstellen**.
-* Laden Sie die in Schritt 3.2 erstellte `.mbz`-Backup-Datei hoch (z.B. `WI24_Booklets.mbz`), indem sie sie in das Feld Sicherhungsdatei ziehen.
-* Folgen Sie den Moodle-Wiederherstellungsaufforderungen sorgfältig:
+  * An der Universität Bamberg (VC): Klicken Sie in einem Kurs auf **Mehr** im oberen Kursmenü, dann auf **Kurs wiederverwenden**. Klicken Sie dann auf **Wiederherstellen**.
+* Laden Sie die in Schritt 3.2 vom MBZ Modifier gespeicherte `.mbz`-Datei hoch (z.B. `WI24_Booklets-modified.mbz`), indem Sie sie in das Feld Sicherungsdatei ziehen.
+* Folgen Sie den Moodle-Wiederherstellungsaufforderungen. Sie können im Wesentlichen die Standardeinstellungen übernehmen und durchklicken. Nur zwei Entscheidungen sind wichtig:
   * **Ziel:** Wählen Sie "In diesen Kurs wiederherstellen".
   * **Importtyp:** Wählen Sie **"Den gesicherten Kurs mit einem bestehenden Kurs verschmelzen"**. Wenn Sie stattdessen "Inhalte löschen und dann wiederherstellen" wählen, entfernt Moodle alle bestehenden Kursinhalte.
-  * **Einstellungen:** Stellen Sie sicher, dass "Aktivitäten und Materialien einbeziehen" aktiviert ist (normalerweise ist es das von vornherein, sodass nichts zu tun ist). Überprüfen Sie andere Einstellungen nach Bedarf (in der Regel sind keine weiteren Änderungen erforderlich, folgen Sie dem Workflow bis zum Start der Wiederherstellung).
-  * **Vorschau:** Sie sehen die Aufgaben, die dem Kurs hinzugefügt werden sollen, und den Namen des Abschnitts, den Sie dem Tool angegeben haben.
-  * Fahren Sie mit der Bestätigung fort und führen Sie die Wiederherstellung durch.
-* **Überprüfen:** Gehen Sie zu dem von Ihnen angegebenen Kursabschnitt (z.B. "Klausur-Booklet"). Sie sollten jetzt alle Aufgaben ("Booklet Seite 1" usw.) mit den richtigen Namen und Fälligkeitsdaten sehen.
+* **Überprüfen:** Gehen Sie zum Booklet-Abschnitt. Sie sollten jetzt alle Aufgaben ("Seite 1", "Seite 2" usw.) mit den richtigen Namen und Fälligkeitsdaten sehen.
+
+#### Alternativen zum empfohlenen Weg
+
+* **Eine `.mbz`-Datei aus einem anderen Kurs oder einem früheren Semester wiederverwenden:** Auch das funktioniert. Öffnen Sie im MBZ Modifier die **Advanced Settings** und setzen Sie das **Course Start Date** auf das Startdatum des Zielkurses; andernfalls verschiebt Moodle bei der Wiederherstellung alle Fristen. Das Startdatum des Zielkurses sollte in den Moodle-Kurseinstellungen auf **00:00 (Mitternacht)** des jeweiligen Tages gesetzt sein. Der Abschnittstitel stammt aus dem Backup: Moodle erstellt einen Abschnitt mit diesem Namen oder fügt die Aufgaben in einen bestehenden gleichnamigen Abschnitt ein.
+* **Ohne den MBZ Modifier:** Sie können auch alles von Hand in Moodle erledigen. Legen Sie die Aufgaben wie in Schritt 3.1 an und duplizieren Sie sie. Bearbeiten Sie danach jedes Duplikat: Vergeben Sie einen nummerierten Namen ("Seite 1", "Seite 2" usw.) und setzen Sie Fälligkeitsdatum, letzte Abgabemöglichkeit und Abgabebeginn. Das erfordert viele Klicks und ist fehleranfällig, wenn viele Fristen anzupassen sind.
 
 ### Schritt 3.4: Ihre Studierenden anleiten
 

@@ -6,10 +6,10 @@
 * [Purpose and Overview](#1-purpose-and-overview)
 * [Prerequisites](#2-prerequisites)
 * [Step‑by‑Step Workflow](#3-step-by-step-workflow)
-  * [Approaches to Setting Up Assignments](#step-30-understanding-the-two-approaches-to-setting-up-booklet-assignments)
-  * [Initial Moodle Course Setup](#step-31-initial-moodle-course-setup-once-per-course)
-  * [Prepare and Modify Assignments](#step-32-prepare-and-modify-assignments-with-the-booklet-tool)
-  * [Import Assignments](#step-33-import-assignments-into-moodle)
+  * [Create Section and Placeholder Assignments](#step-31-create-the-booklet-section-and-placeholder-assignments-in-moodle)
+  * [Export and Modify](#step-32-export-the-section-and-modify-it-with-the-booklet-tool)
+  * [Delete Placeholders and Import](#step-33-delete-the-placeholders-and-import-the-assignments-into-moodle)
+    * [Alternatives](#alternatives-to-the-recommended-way)
   * [Instruct Your Students](#step-34-instruct-your-students)
   * [Download Student Submissions](#step-35-download-student-submissions)
   * [Generate the Final Booklets](#step-36-generate-the-final-booklets)
@@ -29,122 +29,82 @@ This guide explains how to set up and manage student submissions for multi-page 
 
 **Solution with the Klausur-Booklet Incentive System:** This system allows instructors to set up Moodle assignments to collect individual booklet pages from students throughout the semester. At the end, you (the instructor) can easily download all submitted pages per student and use the *Booklet Tool* desktop application to compile these pages into a single, printable A5 booklet for each student. These booklets can then serve as personalized learning aids, potentially even for use during exams (if permitted by your course rules).
 
-**Workflow Summary:**
+**Workflow Summary (recommended way):**
 
-1.  **Initial Setup (Once per Course):** Create a dedicated section in your Moodle course for the booklet assignments, e.g., titled `"Exam Booklet"`.
-2.  **Prepare and Modify Assignments:** Pages are due at certain deadlines during the semester. For every page, we use one Moodle "Assignment" Activity that will be configured to allow students to upload a single image or PDF file up to a certain deadline. You first prepare a set of template assignments in Moodle, export them as a backup (`.mbz`), then use the *Booklet Tool*'s MBZ Modifier to set all deadlines, names, and timing options at once.
-3.  **Import into Moodle:** Restore the modified `.mbz` file into your Moodle course to add the assignments to the dedicated section (e.g., `"Exam Booklet"`) you created in Step 1.
-4.  **Instruct Students:** Provide clear guidelines on content, format (e.g., strictly only handwritten), technical details (PDF, JPG, PNG; students should rotate and crop images on their smartphone before uploading) and how to submit each page to the correct Moodle assignment.
-5.  **Download Submissions:** After deadlines pass, download all submitted files from each assignment using Moodle's "Download all submissions" feature. You will get one ZIP file per deadline.
-6.  **Generate Booklets:** Use the *Booklet Tool*, feeding it the folder containing all downloaded submissions to create the final printable A5 booklets.
+1.  **Create placeholders in Moodle:** In your Moodle course, create a dedicated section (e.g., `"Exam Booklet"`) and add one "Assignment" activity per booklet page. Names and deadlines do not matter yet.
+2.  **Export:** Back up *only* this section and its assignments as a Moodle backup (`.mbz`).
+3.  **Modify:** Load the `.mbz` into the *Booklet Tool*'s MBZ Modifier and set all names, deadlines, and timing options at once.
+4.  **Delete placeholders and restore:** Delete the placeholder assignments from the booklet section, then restore the modified `.mbz` into the course (import type: *merge*).
+5.  **Instruct Students:** Provide clear guidelines on content, format (e.g., strictly only handwritten), technical details (PDF, JPG, PNG; students should rotate and crop images on their smartphone before uploading) and how to submit each page to the correct Moodle assignment.
+6.  **Download Submissions:** After deadlines pass, download all submitted files from each assignment using Moodle's "Download all submissions" feature. You will get one ZIP file per deadline.
+7.  **Generate Booklets:** Use the *Booklet Tool*, feeding it the folder containing all downloaded submissions to create the final printable A5 booklets.
+
+Steps 1 to 4 are described in Steps 3.1 to 3.3 below. We recommend doing them afresh in every course, instead of reusing an `.mbz` file from another course or an earlier semester: a backup that comes from the course itself already matches that course, so you can restore it with Moodle's default settings. Other ways to set up the assignments are listed under [Alternatives](#alternatives-to-the-recommended-way).
 
 ## 2. Prerequisites
 
-To use this tool, ensure you have teacher or editing permissions in the target Moodle course.
+You need teacher or editing permissions in the target Moodle course, including the permission to back up and restore course content.
 
 ## 3. Step-by-Step Workflow
 
-### Understanding the Two Approaches to Setting Up Booklet Assignments
+### Step 3.1: Create the Booklet Section and Placeholder Assignments in Moodle
 
-There are two ways to set up the multiple assignment activities needed for booklet page submissions in Moodle:
+*   Go to your Moodle course page and turn editing on.
+*   Add a new **Course Section** and give it a descriptive name (e.g., `"Exam Booklet"`).
+*   Add one **Assignment** activity to this section and configure it:
+    *   Set allowed file types to: `jpg,jpeg,png,pdf`
+    *   **Limit submissions to 1 file** (each assignment collects exactly one page)
+    *   Set maximum file size (e.g., 20 MB)
+    *   Enable "Offline grading worksheet" and "Feedback files" in the Feedback types section
+    *   Configure other settings as needed for your course
+*   **Duplicate** this assignment until the section contains as many assignments as your booklet has pages (e.g., 14 for a 14-week semester). You need at least two.
 
-#### Manual Approach
+The names of the assignments do not matter, and you do not need to set any deadlines. Moodle appends "(copy)" to each duplicate; the MBZ Modifier renames them all in the next step. The settings above, however, are taken over unchanged, so get them right in the first assignment before you duplicate it.
 
-You can create the assignment activities manually in Moodle:
+### Step 3.2: Export the Section and Modify It with the Booklet Tool
 
-1. **Create and Configure One Template Assignment:**
-   * In your Moodle course, turn on editing
-   * Add a new Assignment activity to your booklet section
-   * Configure it with these recommended settings:
-     * Set allowed file types to: `jpg,jpeg,png,pdf`
-     * **Limit submissions to 1 file** (each assignment collects exactly one page)
-     * Set maximum file size (e.g., 20 MB)
-     * Set appropriate due date, cutoff date, and activation date
-     * **Important:** Enable "Offline grading worksheet" and "Feedback files" in the Feedback types section
-     * Configure other settings as needed for your course
-   * Save the assignment
+#### Exporting the Booklet Section as MBZ
 
-2. **Duplicate and Modify:**
-   * With editing on, locate the "Duplicate" option for your template assignment
-   * Duplicate it as many times as needed (e.g., 14 times for a 14-week semester)
-   * For each duplicate:
-     * Edit the name to include an incremented number (e.g., "Page 1", "Page 2", etc.)
-     * Adjust the due dates appropriately
-     * Save changes
-
-While this approach works, it involves a lot of clicking and can be error-prone, especially when adjusting multiple deadlines. The automated approach below avoids this.
-
-#### Automated Approach (Recommended)
-
-The following guide focuses on the automated approach using the *Booklet Tool*'s MBZ Modifier, which:
-
-* Takes an existing Moodle backup (`.mbz`) and lets you modify all assignment deadlines, names, and timing at once
-* Supports two open modes: **Chain** (each assignment opens when the previous one closes) and **Fixed** (each opens a set number of days before its deadline)
-* Configurable grace period between due time and cutoff
-* Shows a live timestamp preview before saving
-* Provides a "Rename All" feature to apply a prefix with incrementing numbers (e.g., "Page 1", "Page 2", ...)
-
-**Prerequisites for the automated approach:**
-
-* You must have permission to restore course backups in your Moodle instance
-* You need a Moodle backup (`.mbz`) file containing template assignments — either from a previous semester or created manually (see Step 3.2)
-* If importing into a different course, you need to know the target course's start date
-
-We recommend testing the workflow in a test course first, but it works reliably in practice.
-
-### Step 3.1: Initial Moodle Course Setup (Once per Course)
-
-*   Go to your Moodle course page.
-*   Turn Editing On.
-*   Add a new **Course Section** and give it a descriptive name (e.g., `"Exam Booklet"`, `"Portfolio Submissions"`, `"Lab Reports"`). When using the automated approach, the exact name does not matter — the MBZ import will create or overwrite the section name from the backup.
-*   **IMPORTANT:** Note the **Course Start Date** in your Moodle course settings. You will need this exact date for the *Booklet Tool* in the next step. For the assignments to appear with the correct deadlines, ensure your Moodle course start date is set to **00:00 (midnight)** of the selected day. If your course uses a different start time, the assignment deadlines may not align correctly.
-
-### Step 3.2: Prepare and Modify Assignments with the Booklet Tool
-
-#### Preparing the Template MBZ
-
-You need a Moodle backup (`.mbz`) file that already contains assignment activities. Two options:
-
-* **From a previous semester:** If you used booklet assignments before, export the relevant course section as a backup from Moodle (Course administration → Backup → select only the booklet section).
-* **First-time setup:**
-  1. Create one assignment activity in Moodle and configure it with the correct settings:
-     * Set allowed file types to: `jpg,jpeg,png,pdf`
-     * **Limit submissions to 1 file** (each assignment collects exactly one page)
-     * Set maximum file size (e.g., 20 MB)
-     * Enable "Offline grading worksheet" and "Feedback files" in the Feedback types section
-  2. Duplicate this assignment as many times as needed (e.g., 14 times for a 14-week semester). Moodle will append "(copy)" to each duplicate — that is fine, since the MBZ Modifier will rename them all in one step anyway.
-  3. Export only the booklet section as a Moodle backup (`.mbz`). You do not need to set proper names or deadlines for the duplicates — the MBZ Modifier handles that.
-
-  You only need to do this once. You can reuse and modify this template `.mbz` file each semester.
+*   On the main course page, open Moodle's backup function ("Course administration" > "Backup").
+    *   At University of Bamberg (VC): In a course, click on **More** in the course's top menu, then click on **Course reuse**. Then click on **Backup**.
+*   Continue until you reach the page that lists all sections and activities of the course with a checkbox each.
+*   Above that list, click **None**. This clears all checkboxes.
+*   Now tick only the booklet section and each of the assignments in it.
+*   Continue to the end, perform the backup, and download the resulting `.mbz` file.
 
 #### Using the MBZ Modifier
 
 1. In the *Booklet Tool*, click **Go to MBZ Modifier** in the top right corner.
-2. Click **Select MBZ File** and open your template `.mbz` file. The tool discovers all assignments and displays them in an editable table.
+2. Click **Select MBZ File** and open the `.mbz` file you just exported. The tool discovers all assignments and displays them in an editable table.
 3. **Set deadlines:** Click a row to select an assignment, then click a date in the calendar on the right. The tool auto-advances to the next assignment. You can also type dates and times directly in the table.
 4. **Rename assignments:** Enter a prefix (e.g., "Page") and click **Rename All** to apply "Page 1", "Page 2", etc.
 5. **Configure timing:** Set the deadline time (e.g., 17:00), grace period (minutes between due and cutoff), and open mode:
    * **Chain:** Each assignment opens when the previous one's cutoff passes. The first one opens a set number of days before its deadline.
    * **Fixed:** Every assignment opens independently, a set number of days before its own deadline.
 6. **Preview:** Expand the **Timestamp Preview** section to verify all computed open/close/cutoff timestamps before saving.
-7. **Advanced Settings:** If importing into a different course, set the **Course Start Date** to match the target course — this prevents Moodle from shifting deadlines during import.
-8. Click **Save Modified MBZ** and store the file on your machine.
+7. Click **Save Modified MBZ** and store the file on your machine.
 
-### Step 3.3: Import Assignments into Moodle
+You can leave the **Advanced Settings** untouched. The Course Start Date there is only needed if you restore the file into a different course (see [Alternatives](#alternatives-to-the-recommended-way)).
 
-Upload the `.mbz` file saved by the MBZ Modifier into your Moodle course.
+### Step 3.3: Delete the Placeholders and Import the Assignments into Moodle
+
+**First, delete the placeholder assignments** that you created in Step 3.1 from the booklet section. Keep the section itself. If you skip this, the section will afterwards contain both the placeholders and the imported assignments, because the restore adds to the course and does not replace anything.
+
+Then upload the `.mbz` file saved by the MBZ Modifier into your Moodle course:
 
 *   In your Moodle course, go to "Course administration" (often a gear icon ⚙️) > "Restore".
     *   Ensure you are on the main course page, not editing an activity.
     *   At University of Bamberg (VC): In a course, click on **More** in the course's top menu, then click on **Course reuse**. Then click on **Restore**.
-*   Upload the `.mbz` backup file created in Step 3.2 (e.g., `WI24_Booklets.mbz`), for example by dragging it into the file upload area.
-*   Follow the Moodle restore prompts carefully:
+*   Upload the `.mbz` file saved by the MBZ Modifier in Step 3.2 (e.g., `WI24_Booklets-modified.mbz`), for example by dragging it into the file upload area.
+*   Follow the Moodle restore prompts. You can essentially keep the default settings and click through. Only two choices matter:
     *   **Destination:** Choose "Restore into this course".
     *   **Import Type:** Select **"Merge the backup course into this course"**. If you choose "Delete contents and then restore" instead, Moodle will remove all existing course content.
-    *   **Settings:** Ensure "Include activities and resources" is enabled (this is usually the default). Review other settings as needed (typically no further changes needed, follow the workflow until the Restoration starts).
-    *   **Preview:** You will see the assignments that are to be added to the course and the name of the Section you provided to the tool.
-    *   Proceed through the confirmation and perform the restore.
-*   **Verify:** Go to the course section you specified (e.g., `"Exam Booklet"`). You should now see all the assignments ("Booklet Page 1", etc.) listed with the correct names and due dates.
+*   **Verify:** Go to the booklet section. You should now see all the assignments ("Page 1", "Page 2", etc.) with the correct names and due dates.
+
+#### Alternatives to the Recommended Way
+
+*   **Reusing an `.mbz` file from another course or an earlier semester:** This works, too. In the MBZ Modifier, open **Advanced Settings** and set the **Course Start Date** to the start date of the target course; otherwise Moodle shifts all deadlines during the restore. The start date of the target course should be set to **00:00 (midnight)** of that day in the Moodle course settings. The section title comes from the backup: Moodle creates a section with this name or merges it with an existing one.
+*   **Without the MBZ Modifier:** You can also do everything by hand in Moodle. Create and duplicate the assignments as in Step 3.1, then edit every duplicate: give it a numbered name ("Page 1", "Page 2", etc.) and set its due date, cutoff date, and activation date. This involves a lot of clicking and is error-prone when many deadlines have to be adjusted.
 
 ### Step 3.4: Instruct Your Students
 

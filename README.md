@@ -26,7 +26,14 @@ This tool facilitates the [Klausur-Booklet](https://psi.uni-bamberg.de/en/lehre/
 
 1. **Download** the latest release for your platform from the [Releases page](https://github.com/UBA-PSI/klausur-booklets/releases/latest) and unzip it.
 2. **Set up assignments** in your LMS (Moodle or ILIAS) for students to submit their pages. The Booklet Tool provides a helper for each:
-   - *Moodle:* Export the assignment section as a backup (`.mbz`), load it into the *Booklet Tool*'s **MBZ Modifier** (top right corner), configure names and deadlines, and restore the modified `.mbz` back into Moodle.
+   - *Moodle (recommended way):*
+     1. In your course, create a section for the booklet and add one assignment per booklet page to it (create one, then duplicate it). Names and deadlines do not matter yet.
+     2. Back up the course as `.mbz`. On the page that lists what to include, first click **None** above the list to clear all checkboxes, then tick only the booklet section and its assignments.
+     3. Load the `.mbz` into the *Booklet Tool*'s **MBZ Modifier** (top right corner), set names and deadlines, and save the modified file.
+     4. Delete the placeholder assignments from the booklet section in Moodle.
+     5. Restore the modified `.mbz` into the course. Keep the default settings and click through; as import type choose **Merge the backup course into this course**.
+
+     Details: Instructor Guide ([English](docs/documentation.md#3-step-by-step-workflow) | [Deutsch](docs/documentation-de.md#3-schritt-für-schritt-workflow)).
    - *ILIAS:* Open the **ILIAS Exercise Creator** (top right corner), configure assignment units and deadlines (or load an existing exercise export as a template), and import the generated ZIP into your ILIAS course.
 3. **After the last deadline** or at any time during the semester, download all submissions, unzip them into a single folder, select that folder in the Booklet Tool, and create booklets in three steps: **Convert to PDFs**, **Merge PDFs**, and **Create Booklets**.
 4. **Print** the generated A5 PDFs double-sided and hand them out in the exam.
@@ -58,7 +65,7 @@ If you process student submissions that include scanned documents, annotated PDF
 
 **First Stage:** Set up your LMS for collection of booklet pages. Helpers for both major LMSes are accessible via the switcher in the top right corner of the main window:
 
-- **Moodle — MBZ Modifier**: Load a Moodle Backup (`.mbz`) file and configure all assignment deadlines and names at once. The modified backup can be restored into Moodle in place of the original.
+- **Moodle — MBZ Modifier**: Load a Moodle Backup (`.mbz`) file and configure all assignment deadlines and names at once. The modified backup is then restored into the Moodle course.
 - **ILIAS — ILIAS Exercise Creator**: Generate an ILIAS exercise import ZIP with configurable assignment units, weekly bulk generation, and optional template-based import from an existing ILIAS exercise export.
 
 **Second Stage:** Create booklets.
