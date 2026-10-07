@@ -212,8 +212,7 @@ async function analyzePdfFile(pdfPath) {
                         const page = await pdfDocument.getPage(0);
             
                         // Enhanced page dimension detection with fallbacks
-                        let pageWidth = page.width;
-                        let pageHeight = page.height;
+                        let { originalWidth: pageWidth, originalHeight: pageHeight } = page.getOriginalSize();
             
                         // If dimensions are undefined/null, try alternative detection
                         if (!pageWidth || !pageHeight || isNaN(pageWidth) || isNaN(pageHeight)) {
@@ -405,8 +404,11 @@ async function renderFirstPageToImage(pdfPath, dpi = 300, statusCallback = null)
         const page = await pdfDocument.getPage(pageIndex);
 
         // Get page dimensions in points (72 points = 1 inch)
-        const pageWidth = page.width;
-        const pageHeight = page.height;
+        const { originalWidth: pageWidth, originalHeight: pageHeight } = page.getOriginalSize();
+        if (!(pageWidth > 0) || !(pageHeight > 0)) {
+            // A non-finite scale traps inside the WASM module and leaves it unusable
+            throw new Error(`PDF page has invalid dimensions (${pageWidth} x ${pageHeight}).`);
+        }
         const pageWidthInches = pageWidth / 72;
         const pageHeightInches = pageHeight / 72;
     
