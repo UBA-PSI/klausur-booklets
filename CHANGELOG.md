@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.9.2] - 2026-10-23
+
+- [IMPROVED] **Security updates**: Electron 44.8.0 with Chromium 152.0.7977.167 and Node.js 24.22.0. The shipped dependencies have no known vulnerabilities at release time. The Node.js security fixes of October 21 (24.22.1) are not yet available in any Electron release; they mostly affect TLS and DNS, which the Booklet Tool does not use because it makes no network requests.
+- [IMPROVED] **Cleanup**: Removed the deprecated Python MBZ command-line script. Use the MBZ Modifier in the app instead.
+
 ## [1.9.1] - 2026-10-07
 
 - [FIXED] **Built-in PDF renderer (PDFium)**: The built-in renderer failed on every PDF submission with "Unable to render PDF after 7 attempts"; only image submissions were converted. The page size was read incorrectly, which crashed the renderer. PDF submissions now convert without Ghostscript again. Ghostscript remains the recommended renderer.
