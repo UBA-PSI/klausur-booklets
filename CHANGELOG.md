@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.9.3] - 2026-10-29
+## [1.9.3] - 2026-10-30
 
 - [IMPROVED] **Security updates**: Electron 44.10.0 with Chromium 152.0.7977.169 and Node.js 24.22.1. This Node.js version contains the security fixes of October 21, including the Brotli decoder fix (CVE-2026-111497). The Booklet Tool does not decode Brotli data and makes no network requests, so it was not exposed in practice. The shipped dependencies have no known vulnerabilities at release time.
 
